@@ -35,3 +35,12 @@
 - Không bắt buộc kê thuốc; nếu có thuốc, cần hướng dẫn sử dụng trước khi công bố.
 - Migration 002 chuyển dữ liệu trạng thái cũ, giữ nguyên lịch hẹn, lượt khám và hồ sơ.
 - Đã đạt: 17 kiểm thử nghiệp vụ, TypeScript, production build, kiểm thử trình duyệt bốn vai trò, hai trang mới, phiên đăng nhập và tích hợp PostgreSQL.
+
+## Chuẩn bị hosting ngày 28/10/2026
+
+- Kiểm thử khởi tạo hosting trên database PostgreSQL trống: đạt; chỉ tạo một quản trị riêng, không tạo tài khoản hoặc hồ sơ mẫu.
+- Chạy lại bootstrap không đổi mật khẩu hoặc tạo tài khoản trùng: đạt.
+- Chặn DEMO_MODE=true và dữ liệu quản trị không hợp lệ, không ghi mật khẩu vào log: đạt.
+- Bộ e2e, session-ui, workflow-ui, integration và 17 kiểm thử nghiệp vụ: đạt.
+- Production build và TypeScript: đạt. HTTP 200, X-Content-Type-Options=nosniff và X-Frame-Options=DENY: đạt.
+- Chưa xác minh Render Live; cần liên kết tài khoản hosting của chủ repository.
