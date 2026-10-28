@@ -1,0 +1,36 @@
+{
+  "name": "an-tam-clinic",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/domain.test.ts",
+    "db:start": "node scripts/local-db.mjs",
+    "db:stop": "node scripts/local-db.mjs --stop",
+    "admin:create": "node --env-file=.env.local --experimental-strip-types scripts/create-admin.ts",
+    "clinic:start": "node scripts/start-clinic.mjs",
+    "clinic:stop": "node scripts/stop-clinic.mjs"
+  },
+  "dependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
+    "lucide-react": "^0.468.0",
+    "next": "^16.0.0",
+    "pg": "^8.13.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.0.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "playwright": "1.62.1",
+    "typescript": "^5.7.0"
+  },
+  "type": "module"
+}

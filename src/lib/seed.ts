@@ -1,0 +1,29 @@
+import { hashPassword } from "./crypto.ts";
+import type { State,AppointmentStatus } from "./types.ts";
+export function clinicDate(offset=0){const date=new Date();date.setDate(date.getDate()+offset);return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Ho_Chi_Minh"}).format(date);}
+export function seedState():State {
+ const now=new Date().toISOString();const today=clinicDate();
+ const specialties=[{id:"sp1",name:"Nội tổng quát",active:true},{id:"sp2",name:"Tim mạch",active:true},{id:"sp3",name:"Nhi khoa",active:true}];
+ const doctors=[{id:"d1",name:"Nguyễn Minh Anh",specialtyId:"sp1",title:"ThS. BS.",initials:"MA",color:"mint",active:true,bio:"Chăm sóc sức khỏe toàn diện, theo dõi và điều trị các bệnh nội khoa.",phone:"0901234001"},{id:"d2",name:"Trần Hoàng Nam",specialtyId:"sp2",title:"BS. CKI",initials:"HN",color:"blue",active:true,bio:"Theo dõi sức khỏe tim mạch và kiểm soát các yếu tố nguy cơ.",phone:"0901234002"},{id:"d3",name:"Lê Thu Hà",specialtyId:"sp3",title:"ThS. BS.",initials:"TH",color:"peach",active:true,bio:"Đồng hành cùng sự phát triển và sức khỏe của trẻ nhỏ.",phone:"0901234003"}];
+ const names=["Nguyễn Ngọc Linh","Trần Đức Huy","Lê Hoàng Phúc","Phạm Thanh Mai","Võ Minh Khang","Đặng Bảo An","Bùi Thảo Vy","Nguyễn Gia Hân","Trần Khánh Duy","Phan Tú Anh","Lê Ngọc Ánh","Đỗ Anh Tuấn"];
+ const patients=names.map((name,i)=>({id:"p"+(i+1),name,birth:`${1990+i%12}-0${i%8+1}-12`,gender:i%2?"Nam":"Nữ",phone:"090"+String(1234000+i),address:["Quận 1, TP. Hồ Chí Minh","Bình Thạnh, TP. Hồ Chí Minh","Thủ Đức, TP. Hồ Chí Minh"][i%3],history:i===0?"Viêm dạ dày trước đây":"Chưa ghi nhận",allergies:i===0?"Dị ứng penicillin":"Chưa ghi nhận",createdAt:now}));
+ const enabled=process.env.DEMO_MODE!=="false"&&process.env.NODE_ENV!=="production"||process.env.DEMO_MODE==="true";
+ if(!enabled)return {users:[],patients:[],doctors:[],specialties:[],shifts:[],appointments:[],visits:[],records:[],medicines:[],notifications:[]};
+ const users=enabled?[{id:"u1",username:"benhnhan",name:names[0],role:"patient" as const,passwordHash:hashPassword("Clinic@123"),active:true,version:1,patientId:"p1",email:"linh@example.test"},{id:"u2",username:"bacsi",name:doctors[0].name,role:"doctor" as const,passwordHash:hashPassword("Clinic@123"),active:true,version:1,doctorId:"d1",email:"minhanh@example.test"},{id:"u3",username:"letan",name:"Phạm Ngọc Trâm",role:"reception" as const,passwordHash:hashPassword("Clinic@123"),active:true,version:1,email:"tram@example.test"},{id:"u4",username:"admin",name:"Nguyễn Quang Minh",role:"admin" as const,passwordHash:hashPassword("Clinic@123"),active:true,version:1,email:"admin@example.test"}]:[];
+ const shifts=[];for(let day=-7;day<8;day++)for(let d=0;d<3;d++)for(let slot=0;slot<2;slot++)shifts.push({id:`s${day}_${d}_${slot}`,doctorId:doctors[d].id,date:clinicDate(day),start:slot?"13:30":"08:00",end:slot?"17:00":"12:00",capacity:10,active:true});
+ const appointments:State["appointments"]=[];const visits:State["visits"]=[];const records:State["records"]=[];
+ const statuses=["waiting","examining","confirmed","pending","completed","confirmed","waiting","pending","confirmed","waiting","confirmed","pending"] as const;
+ for(let i=0;i<12;i++){
+  const status=statuses[i];const doctor=i%3;const shiftId=`s0_${doctor}_${i>5?1:0}`;const time=(i>5?["13:30","14:00","14:30","15:00","15:30","16:00"]:["08:00","08:30","09:00","09:30","10:00","10:30"])[i%6];
+  appointments.push({id:"LH"+String(1001+i),patientId:"p"+(i+1),shiftId,time,reason:["Khám sức khỏe định kỳ","Theo dõi huyết áp","Tư vấn sức khỏe","Đau đầu, mệt mỏi"][i%4],status:(["waiting","examining","completed"].includes(status)?"received":status) as AppointmentStatus,createdAt:now,requestId:"seed"+i});
+  if(["waiting","examining","completed"].includes(status)){
+   const v={id:"v"+i,appointmentId:"LH"+String(1001+i),doctorId:"d"+(doctor+1),queue:i+1,status:status as "waiting"|"examining"|"completed"};visits.push(v);
+   if(status!=="waiting")records.push({id:"r"+i,visitId:v.id,symptoms:"Mệt mỏi, đau đầu nhẹ",findings:"Tỉnh táo, dấu hiệu sinh tồn ổn định",diagnosis:status==="completed"?"Theo dõi sức khỏe định kỳ":"",treatment:"Nghỉ ngơi và theo dõi triệu chứng",followupDate:"",followupNotes:"",rx:[],publishedAt:status==="completed"?now:null});
+  }
+ }
+ // Published historical encounter for the patient demonstration account.
+ appointments.push({id:"LH0990",patientId:"p1",shiftId:"s-7_0_0",time:"09:00",reason:"Khám sức khỏe định kỳ",status:"received",createdAt:now,requestId:"history"});visits.push({id:"vh",appointmentId:"LH0990",doctorId:"d1",queue:1,status:"completed"});
+ records.push({id:"rh",visitId:"vh",symptoms:"Khó chịu vùng thượng vị",findings:"Tình trạng ổn định",diagnosis:"Viêm dạ dày",treatment:"Ăn uống điều độ, nghỉ ngơi và dùng thuốc theo đơn",followupDate:clinicDate(3),followupNotes:"Tái khám theo lịch đã xác nhận nếu triệu chứng chưa cải thiện.",publishedAt:now,rx:[{medicineId:"m1",name:"Omeprazole 20 mg",unit:"Viên",dose:"1 viên",times:1,days:7,quantity:7,instructions:"Uống trước bữa sáng 30 phút"}]});
+ const medicines=[{id:"m1",name:"Omeprazole 20 mg",unit:"Viên",description:"Thuốc theo chỉ định của bác sĩ",active:true},{id:"m2",name:"Paracetamol 500 mg",unit:"Viên",description:"Thuốc theo chỉ định của bác sĩ",active:true},{id:"m3",name:"Vitamin C 500 mg",unit:"Viên",description:"Thuốc theo chỉ định của bác sĩ",active:true},{id:"m4",name:"Natri clorid 0,9%",unit:"Chai",description:"Dung dịch dùng theo chỉ định",active:true}];
+ return {users,patients,doctors,specialties,shifts,appointments,visits,records,medicines,notifications:[{id:"n1",userId:"u1",text:"Kết quả khám và hướng dẫn điều trị của bạn đã được cập nhật.",createdAt:now,read:false},{id:"n2",userId:"u1",text:"Lịch khám hôm nay của bạn đã được xác nhận. Vui lòng đến trước giờ hẹn 15 phút.",createdAt:now,read:false}]};
+}

@@ -1,0 +1,1 @@
+import type { Metadata } from "next";import "./globals.css";export const metadata:Metadata={title:"An Tâm · Quản lý phòng khám",description:"Đồng hành cùng mỗi hành trình chăm sóc sức khỏe."};export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="vi"><body>{children}</body></html>;}
