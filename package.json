@@ -1,6 +1,6 @@
 {
   "name": "an-tam-clinic",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
@@ -12,7 +12,8 @@
     "db:stop": "node scripts/local-db.mjs --stop",
     "admin:create": "node --env-file=.env.local --experimental-strip-types scripts/create-admin.ts",
     "clinic:start": "node scripts/start-clinic.mjs",
-    "clinic:stop": "node scripts/stop-clinic.mjs"
+    "clinic:stop": "node scripts/stop-clinic.mjs",
+    "hosting:start": "node --experimental-strip-types scripts/bootstrap-hosting.ts && next start --hostname 0.0.0.0"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.0.0",
@@ -32,5 +33,8 @@
     "playwright": "1.62.1",
     "typescript": "^5.7.0"
   },
-  "type": "module"
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  }
 }

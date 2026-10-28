@@ -127,16 +127,19 @@ npx playwright install chromium
 node tests/e2e.cjs
 node tests/integration.cjs
 node tests/session-ui.cjs
+node tests/workflow-ui.cjs
 ```
 
 Kiểm thử trình duyệt đi qua luồng đặt lịch, tiếp nhận, khám, kê đơn, công bố và xem kết quả bằng giao diện; kiểm tra điện thoại 390 px và các màn hình quản trị. Kiểm thử tích hợp xác nhận hai yêu cầu đặt chỗ cuối trên PostgreSQL, đăng ký không thể nâng quyền và đổi mật khẩu thu hồi phiên. Kiểm thử phiên trên giao diện xác nhận phiếu cũ không còn hiển thị khi phiên hết hạn và khi đổi vai trò; cập nhật từ lễ tân được nhận trong trình duyệt bệnh nhân. Kiểm thử chỉ dùng dữ liệu mẫu; không chạy trên cơ sở dữ liệu vận hành.
+
+`node tests/hosting.cjs` kiểm tra khởi tạo hosting trên một database tạm trong PostgreSQL local: không tạo dữ liệu mẫu, không tạo quản trị trùng hoặc đổi mật khẩu khi chạy lại. Tài khoản PostgreSQL chạy kiểm thử này cần quyền tạo database; database tạm được xóa sau kiểm thử.
 
 ## Chuẩn bị production
 
 1. Dùng cơ sở dữ liệu trống và cấu hình DATABASE_URL dành riêng cho hệ thống.
 2. Đặt `DEMO_MODE=false`, `SESSION_SECRET` ngẫu nhiên ít nhất 32 ký tự và chỉ phục vụ qua HTTPS. Cơ sở dữ liệu demo đã khởi tạo không được tự xóa khi đổi cờ; dùng một cơ sở dữ liệu mới cho vận hành.
-3. Đặt ADMIN_USERNAME, ADMIN_NAME, ADMIN_EMAIL, ADMIN_PASSWORD qua biến môi trường rồi chạy `npm run admin:create` để tạo quản trị viên đầu tiên. Mật khẩu bootstrap ít nhất 12 ký tự. Không truyền mật khẩu trong tham số dòng lệnh.
-4. Chạy `npm run build` và `npm start`. Đặt máy chủ ứng dụng sau reverse proxy HTTPS giữ đúng Host/Origin.
+3. Đặt ADMIN_USERNAME, ADMIN_NAME, ADMIN_EMAIL, ADMIN_PASSWORD qua biến môi trường. Mật khẩu bootstrap ít nhất 12 ký tự. Không truyền mật khẩu trong tham số dòng lệnh.
+4. Chạy `npm run build` và `npm run hosting:start` để tự tạo quản trị viên đầu tiên rồi mở máy chủ trên `0.0.0.0`, cổng theo biến `PORT`. Các lần chạy sau giữ nguyên tài khoản và mật khẩu đã có. Đặt máy chủ ứng dụng sau reverse proxy HTTPS giữ đúng Host/Origin. Lệnh `npm run admin:create` là công cụ tạo quản trị thủ công và yêu cầu file `.env.local`.
 5. Thống nhất chính sách hẹn khám và đính chính, cấu hình sao lưu, kiểm tra bảo mật và quyền trước khi đưa hồ sơ bệnh nhân thật vào hệ thống.
 
 Chưa có tích hợp email, SMS, xét nghiệm, bảo hiểm, viện phí hoặc thanh toán. Thông báo hiện nằm trong ứng dụng. Website hiện chạy local; chưa được xuất bản lên tên miền công khai.
@@ -151,3 +154,7 @@ Chưa có tích hợp email, SMS, xét nghiệm, bảo hiểm, viện phí hoặ
 - Không bắt buộc kê thuốc; nếu có thuốc, cần hướng dẫn sử dụng trước khi công bố.
 - Migration 002 chuyển dữ liệu trạng thái cũ, giữ nguyên lịch hẹn, lượt khám và hồ sơ.
 - Đã đạt: 17 kiểm thử nghiệp vụ, TypeScript, production build, kiểm thử trình duyệt bốn vai trò, hai trang mới, phiên đăng nhập và tích hợp PostgreSQL.
+
+## Website công khai
+
+Xem [hướng dẫn deploy Render](DEPLOYMENT.md). Repository có sẵn render.yaml để tạo Web Service và PostgreSQL; bản công khai dùng DEMO_MODE=false và tài khoản quản trị riêng. Chỉ có mã nguồn trên GitHub chưa đồng nghĩa website đã chạy công khai.
