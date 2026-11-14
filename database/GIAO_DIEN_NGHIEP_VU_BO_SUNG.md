@@ -1,6 +1,6 @@
 # Giao diện nghiệp vụ bổ sung
 
-Mở hệ thống với vai trò nhân viên, chọn Nghiệp vụ bổ sung. Quản trị viên thấy 24 màn hình; vai trò khác thấy các màn hình liên quan. Có lối tắt tại Lịch hẹn, Tiếp đón, Cận lâm sàng, Chăm sóc, Tài chính, Bệnh án, Quản trị và Thiết bị.
+Đã bỏ mục Nghiệp vụ bổ sung. 24 màn hình được đặt thành tab tại chức năng chính: Lịch hẹn, Tiếp đón, Khám bệnh, Cận lâm sàng, Buồng giường, Chăm sóc, Dược, Tài chính, Bệnh án, Thiết bị và Quản trị. Vai trò chỉ thấy màn hình được phép và được bố trí tại chức năng mà vai trò đó truy cập được. Kho dữ liệu business.operations giữ nguyên, không di chuyển hoặc xóa dữ liệu cũ.
 
 Mỗi màn hình có: tạo biểu mẫu, sửa ở trạng thái đầu, tìm kiếm, lọc trạng thái, phân trang, xuất CSV, xem chi tiết, chuyển bước có lý do, hủy có lý do và lịch sử. Dữ liệu nằm trong business.operations của kho localStorage medicare-workspace-v3. Nhật ký cũng ghi vào business.audit.
 

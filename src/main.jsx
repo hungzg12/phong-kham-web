@@ -1,6 +1,6 @@
 import React, {useState,useEffect,lazy,Suspense} from 'react';
 import {createRoot} from 'react-dom/client';
-import {Activity, LayoutDashboard, Users, Stethoscope, BedDouble, ClipboardList as ClipboardIcon, Pill, Wallet, CalendarDays, Search, Plus, ArrowUpRight, ArrowRight, Bell, X, ChevronLeft, ChevronRight, Check, Clock3, MoreHorizontal, Download, Menu, HeartPulse, FileText, ShieldCheck, LogOut, Building2} from 'lucide-react';
+import {Activity, LayoutDashboard, Users, Stethoscope, BedDouble, Pill, Wallet, CalendarDays, Search, Plus, ArrowUpRight, ArrowRight, Bell, X, ChevronLeft, ChevronRight, Check, Clock3, MoreHorizontal, Download, Menu, HeartPulse, FileText, ShieldCheck, LogOut, Building2} from 'lucide-react';
 import './styles.css';
 import Business from './Business';
 import Auth from './Auth';
@@ -14,7 +14,7 @@ import './motion.css';
 import Profile,{AccountMenu,ProfileAvatar,useProfile} from './Profile';
 import Notifications from './Notifications';
 import Operations from './Operations';
-import {operationModules} from './operations-data';
+import {modulesForPage} from './operations-data';
 import Home from './Home';
 
 import {departments} from './fixtures';
@@ -24,7 +24,6 @@ import {WorkspaceBootstrap,AppBoundary,ScreenSkeleton} from './Experience';
 const Dashboard=lazy(()=>import('./Dashboard'));
 const Inventory=lazy(()=>import('./Inventory'));
 const nav=[['TỔNG QUAN',[['overview','Tổng quan',LayoutDashboard],['appointments','Lịch hẹn',CalendarDays]]],['KHÁM & ĐIỀU TRỊ',[['patients','Tiếp đón & bệnh nhân',Users],['history','Lịch sử khám & điều trị',FileText],['examination','Khám bệnh',Stethoscope],['clinical',extraTitles.clinical,Activity],['inpatient','Buồng giường nội trú',BedDouble],['care',extraTitles.care,HeartPulse]]],['DƯỢC & TÀI CHÍNH',[['pharmacy','Dược & vật tư',Pill],['warehouse',extraTitles.warehouse,Building2],['finance',extraTitles.finance,Wallet]]],['HỒ SƠ & QUẢN TRỊ',[['archive',extraTitles.archive,FileText],['devices',extraTitles.devices,Activity],['admin',extraTitles.admin,ShieldCheck],['portal',extraTitles.portal,Users]]]];
-nav.push(['ĐIỀU PHỐI & AN TOÀN',[['operations','Nghiệp vụ bổ sung',ClipboardIcon]]]);
 const titles=Object.fromEntries(nav.flatMap(([,items])=>items.map(([key,title])=>[key,title])));
 titles.profile='Thông tin cá nhân';
 function useStored(key,initial){const [value,setValue]=useState(()=>{try{return JSON.parse(localStorage.getItem(key))??initial}catch{return initial}});return [value,next=>setValue(old=>{const updated=typeof next==='function'?next(old):next;localStorage.setItem(key,JSON.stringify(updated));return updated})]}
@@ -36,14 +35,17 @@ function App(){
  const actor=actorRoles[role];
  const personalProfile=useProfile(role);
  const [requestedTab,setRequestedTab]=useState('');
+ const [activeOperation,setActiveOperation]=useState('');
  const [selectedDate,setSelectedDate]=useState(today);
  const [collapsed,setCollapsed]=useStored('medicare-sidebar-collapsed',false);
  const [appointmentRequest,setAppointmentRequest]=useState(0);
  const [signedIn,setSignedIn]=useState(()=>sessionStorage.getItem('medicare-session')!=='signed-out');
  const [page,setPage]=useState('overview'),[patients,setPatients]=useWorkspace('patients'),[stock,setStock]=useWorkspace('stock'),[beds,setBeds]=useWorkspace('beds'),[notes]=useWorkspace('notes'),[appointments,setAppointments]=useWorkspace('appointments');
  const [query,setQuery]=useState(''),[filter,setFilter]=useState('Tất cả'),[dept,setDept]=useState('Tất cả chuyên khoa'),[modal,setModal]=useState(null),[toast,setToast]=useState(''),[sidebar,setSidebar]=useState(false),[offset,setOffset]=useState(0);
+ const pageOperations=modulesForPage(role,actor,page);
+ const operation=pageOperations.find(m=>m.id===activeOperation);
  const notify=text=>{setToast(text);setTimeout(()=>setToast(''),3500)};
- function navigate(key,tab=''){if(key!=='profile'&&!actor.pages.includes(key))return;setRequestedTab(tab);setPage(key);setAppointmentRequest(0);setQuery('');setFilter('Tất cả');setDept('Tất cả chuyên khoa');setOffset(0);setSidebar(false)}
+ function navigate(key,tab=''){if(key!=='profile'&&!actor.pages.includes(key))return;setActiveOperation('');setRequestedTab(tab);setPage(key);setAppointmentRequest(0);setQuery('');setFilter('Tất cả');setDept('Tất cả chuyên khoa');setOffset(0);setSidebar(false)}
  const visibleNav=nav.map(([label,items])=>[label,items.filter(([key])=>actor.pages.includes(key))]).filter(([,items])=>items.length);
  function changeRole(id){if(!actorRoles[id])return;sessionStorage.setItem('medicare-actor',id);setRole(id);setPage('overview');setRequestedTab('');setModal(null);setSidebar(false);setQuery('');setFilter('Tất cả');setDept('Tất cả chuyên khoa');setOffset(0)}
  const filtered=patients.filter(p=>role!=='doctor'||p.doctor.includes(actor.person)).filter(p=>(p.name+' '+p.id+' '+p.phone).toLowerCase().includes(query.toLowerCase())&&(filter==='Tất cả'||p.status===filter)&&(dept==='Tất cả chuyên khoa'||p.dept===dept));
@@ -55,8 +57,9 @@ function App(){
  <div className="workspace"><header className="topbar"><div className="breadcrumb"><button className="desktop-menu icon-button" aria-label={collapsed?'Mở rộng menu':'Thu gọn menu'} title={collapsed?'Mở rộng menu':'Thu gọn menu'} aria-expanded={!collapsed} aria-controls="main-sidebar" onClick={()=>setCollapsed(value=>!value)}>{collapsed?<ChevronRight size={19}/>:<ChevronLeft size={19}/>}</button><button className="mobile-menu icon-button" aria-expanded={sidebar} aria-controls="main-sidebar" onClick={()=>setSidebar(!sidebar)} aria-label="Mở menu"><Menu/></button><a href="#trang-chu" aria-label="Về trang chủ bệnh viện">Trang chủ</a><span>Không gian làm việc</span><ChevronRight size={14}/><b>{titles[page]}</b></div><div className="top-actions"><span className="live-dot"/> <span>Hệ thống hoạt động tốt</span><i/><Notifications key={role} role={role} navigate={navigate}/><button className="actor-switch" aria-label="Chuyển vai trò trải nghiệm" title="Chuyển vai trò trải nghiệm" onClick={()=>setModal({type:'actor'})}><ShieldCheck size={14}/><span>{actor.name}</span><ChevronRight size={12}/></button><AccountMenu role={role} onProfile={()=>navigate('profile')} onLogout={()=>{sessionStorage.setItem('medicare-session','signed-out');setSignedIn(false)}}/></div></header>
  <main><div className="page-heading"><div><div className="eyebrow">CHĂM SÓC TẬN TÂM, QUẢN LÝ HIỆU QUẢ</div><h1>{page==='overview'?actor.home:titles[page]}</h1><p>{page==='overview'?'Không gian làm việc dành cho '+actor.name.toLowerCase()+'.':'Theo dõi và quản lý thông tin '+titles[page].toLowerCase()+'.'}</p></div><div className="heading-actions"><label className="date heading-date" title="Chọn ngày làm việc"><CalendarDays size={16}/><span>{new Intl.DateTimeFormat('vi-VN',{day:'numeric',month:'long',year:'numeric'}).format(new Date(selectedDate+'T12:00:00'))}</span><input aria-label="Ngày làm việc" type="date" required value={selectedDate} onClick={e=>{try{e.currentTarget.showPicker?.()}catch{}}} onChange={e=>{if(e.target.value&&e.target.validity.valid)setSelectedDate(e.target.value)}}/></label><button className="primary" style={{display:['admin','receptionist'].includes(role)?undefined:'none'}} onClick={()=>page==='appointments'?setAppointmentRequest(v=>v+1):setModal({type:'register'})}><Plus size={17}/>{page==='appointments'?'Đặt lịch hẹn':'Tiếp đón bệnh nhân'}</button></div></div>
  <div className="demo-strip"><span className="live-dot"/> Không gian trình diễn <span>•</span> Dữ liệu mẫu được lưu trên trình duyệt của bạn</div>
- {role!=='patient'&&['appointments','patients','clinical','care','finance','archive','admin','devices'].includes(page)&&<div className="ops-context-shortcuts"><span>Bổ sung quy trình:</span>{({appointments:['roster','queue'],patients:['identity','consents','emergency'],clinical:['safety','reconciliation','specimens','critical','imaging'],care:['handover','transfers','nutrition','procedures'],finance:['payments','claims'],archive:['documents','consents'],admin:['security','integrations','continuity'],devices:['quality','continuity']}[page]||[]).map(id=>operationModules.find(m=>m.id===id)).filter(m=>m&&(role==='admin'||m.roles.includes(role))).map(m=><button key={m.id} onClick={()=>{sessionStorage.setItem('medicare-operation-filter',JSON.stringify({module:m.id}));navigate('operations')}}>{m.title}<ArrowRight size={12}/></button>)}</div>}
+ {pageOperations.length>0&&<div className="integrated-operation-tabs" role="tablist" aria-label={'Chức năng '+titles[page]}><button role="tab" aria-selected={!operation} onClick={()=>setActiveOperation('')}>{({appointments:'Danh sách lịch hẹn',patients:'Hồ sơ & tiếp đón',examination:'Danh sách khám',clinical:'Chỉ định & kết quả',inpatient:'Buồng giường',care:'Y lệnh & chăm sóc',pharmacy:'Danh mục dược',finance:'Viện phí & báo cáo',archive:'Hồ sơ & ủy quyền',devices:'Thiết bị & bảo trì',admin:'Danh mục & phân quyền'})[page]||titles[page]}</button>{pageOperations.map(m=><button role="tab" aria-selected={operation?.id===m.id} key={m.id} onClick={()=>setActiveOperation(m.id)}>{m.title}</button>)}</div>}
  <Suspense fallback={<ScreenSkeleton/>}>
+ {operation?<Operations key={role+page+operation.id} role={role} notify={notify} embedded moduleId={operation.id}/>:<>
  {page==='overview'&&role!=='admin'&&<ActorHome role={role} patients={patients} beds={beds} stock={stock} appointments={appointments} navigate={navigate}/>} 
  {page==='overview'&&role==='admin'&&<Dashboard navigate={navigate} date={selectedDate} setDate={setSelectedDate}>
  <section className="panel patients-panel"><div className="panel-heading"><div><h2>Bệnh nhân gần đây <span className="count">{patients.length}</span></h2><p>Cập nhật tình trạng tiếp đón và khám bệnh trong ngày</p></div><button className="secondary" onClick={exportData}><Download size={15}/> Xuất danh sách</button></div><div className="table-tools"><div className="tabs">{['Tất cả','Chờ khám','Đang khám','Hoàn tất'].map(s=><button className={filter===s?'selected':''} key={s} onClick={()=>{setFilter(s);setOffset(0)}}>{s}{s==='Chờ khám'&&<span>{patients.filter(p=>p.status===s).length}</span>}</button>)}</div><label className="search"><Search size={16}/><input aria-label="Tìm bệnh nhân" placeholder="Tìm tên, mã bệnh nhân..." value={query} onChange={e=>{setQuery(e.target.value);setOffset(0)}}/></label></div>{patientTable(true)}</section></Dashboard>}
@@ -66,8 +69,9 @@ function App(){
  {page==='profile'&&<Profile key={role} role={role} notify={notify}/>} 
  {page==='history'&&<History role={role} patientId={actor.patientId} navigate={navigate} notify={notify}/>}
  {page==='appointments'&&<Appointments appointments={appointments} setAppointments={setAppointments} patients={patients} setPatients={setPatients} notify={notify} request={appointmentRequest}/>}
- {page==='operations'&&<Operations key={role} role={role} notify={notify}/>}
+
  {extraTitles[page]&&<Business key={role} role={role} requestedTab={requestedTab} page={page} patients={patients} stock={stock} setStock={setStock} beds={beds} setBeds={setBeds} notes={notes} appointments={appointments} setAppointments={setAppointments} notify={notify}/>}
+ </>}
  </Suspense>
  <footer><span>© 2026 MediCare. Chăm sóc sức khỏe, kết nối niềm tin.</span><span><ShieldCheck size={13}/> Phiên bản frontend · Lab 9</span></footer></main></div>
  {toast&&<div className="toast" role="status"><Check size={18}/>{toast}</div>}
