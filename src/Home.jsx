@@ -9,6 +9,19 @@ export default function Home({onManagement,page='trang-chu'}){
  const [menu,setMenu]=useState(false),[specialty,setSpecialty]=useState(''),[error,setError]=useState(''),[confirmation,setConfirmation]=useState(null);
  const [detail,setDetail]=useState(''),[doctorFilter,setDoctorFilter]=useState('Tất cả');
  useEffect(()=>{setMenu(false);setDetail('');setError('');setConfirmation(null)},[page]);
+ useEffect(()=>{
+ const section=document.getElementById('chuyen-khoa');
+ if(!section||!window.IntersectionObserver)return;
+ const motion=window.matchMedia('(prefers-reduced-motion: reduce)');
+ if(motion.matches)return;
+ const animations=[];
+ const observer=new IntersectionObserver(entries=>{entries.forEach(entry=>{if(!entry.isIntersecting)return;const el=entry.target;const index=Number(el.dataset.revealOrder||0);const animation=el.animate([{opacity:0,transform:'translateY(24px)'},{opacity:1,transform:'translateY(0)'}],{duration:1400,delay:index*130,easing:'cubic-bezier(.22,1,.36,1)',fill:'backwards'});animations.push(animation);observer.unobserve(el)})},{threshold:.12});
+ const elements=section.querySelectorAll('.home-section-title, .home-specialties>button');
+ elements.forEach((el,i)=>{el.dataset.revealOrder=String(i===0?0:(i-1)%3);observer.observe(el)});
+ const stop=()=>{if(motion.matches){observer.disconnect();animations.forEach(a=>a.cancel())}};
+ motion.addEventListener('change',stop);
+ return()=>{observer.disconnect();animations.forEach(a=>a.cancel());motion.removeEventListener('change',stop)};
+ },[page]);
  const pageInfo={'gioi-thieu':['VỀ MEDICARE','Chăm sóc bằng sự thấu hiểu.','Tìm hiểu định hướng chăm sóc và trải nghiệm tại MediCare.'],'chuyen-khoa':['CHUYÊN KHOA','Tìm nơi chăm sóc phù hợp.','Khám phá 6 chuyên khoa và chủ động lựa chọn lịch khám.'],'bac-si':['ĐỘI NGŨ BÁC SĨ','Người đồng hành cùng sức khỏe.','Tìm bác sĩ theo chuyên khoa và bắt đầu hành trình chăm sóc.'],'dat-lich':['ĐẶT LỊCH KHÁM','Một cuộc hẹn cho sức khỏe.','Chọn chuyên khoa và thời gian phù hợp với bạn.']};
  function book(name=''){setSpecialty(name);setConfirmation(null);location.hash='dat-lich';}
  function submit(e){e.preventDefault();setError('');const form=e.currentTarget,f=Object.fromEntries(new FormData(form));if(!f.name.trim()){setError('Vui lòng nhập họ tên.');return}const date=f.day+'T'+f.time;if(appointments.some(a=>a.phone===f.phone&&a.date===date&&a.status!=='Đã hủy')){setError('Số điện thoại này đã có lịch hẹn vào thời điểm đã chọn.');return}try{setAppointments(list=>[...list,{id:Date.now(),name:f.name.trim(),phone:f.phone,birth:f.birth,gender:f.gender,dept:f.dept,date,status:'Đã xác nhận',note:f.note.trim(),source:'website'}]);setConfirmation({name:f.name,dept:f.dept,date});form.reset();setSpecialty('')}catch(err){setError(err.message||'Chưa lưu được lịch hẹn. Vui lòng thử lại.')}}
