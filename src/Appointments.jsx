@@ -6,7 +6,7 @@ import {createVisit} from './workspace';
 export default function Appointments({appointments,setAppointments,patients,setPatients,notify,request=0}){
  const [view,setView]=useState('list'),[filter,setFilter]=useState('Tất cả'),[search,setSearch]=useState(''),[modal,setModal]=useState(null),[week,setWeek]=useState(0),[error,setError]=useState('');
  useEffect(()=>{if(request){setError('');setModal({})}},[request]);
- const monday=new Date('2026-11-09T12:00:00');monday.setDate(monday.getDate()+week*7);const dates=Array.from({length:7},(_,i)=>{const d=new Date(monday);d.setDate(d.getDate()+i);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`});
+ const monday=new Date(today+'T12:00:00');monday.setDate(monday.getDate()-(monday.getDay()+6)%7+week*7);const dates=Array.from({length:7},(_,i)=>{const d=new Date(monday);d.setDate(d.getDate()+i);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`});
  const filtered=appointments.filter(a=>(a.name+' '+a.phone+' '+a.dept).toLowerCase().includes(search.toLowerCase())&&(filter==='Tất cả'||a.status===filter));
  const open=value=>{setError('');setModal(value)};
  function save(e){e.preventDefault();const data=Object.fromEntries(new FormData(e.target));if(appointments.some(a=>a.id!==modal?.id&&a.status!=='Đã hủy'&&a.phone===data.phone&&a.date===data.date)){setError('Bệnh nhân đã có lịch hẹn vào thời điểm này.');return}setAppointments(list=>modal?.id?list.map(a=>a.id===modal.id?{...a,...data}:a):[...list,{...data,id:Date.now(),status:'Đã xác nhận'}]);setModal(null);notify(modal?.id?'Đã cập nhật lịch hẹn':'Đã đặt lịch hẹn')}

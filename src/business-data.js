@@ -1,4 +1,5 @@
-export const today = '2026-11-11';
+const currentDate = new Date();
+export const today = currentDate.getFullYear()+'-'+String(currentDate.getMonth()+1).padStart(2,'0')+'-'+String(currentDate.getDate()).padStart(2,'0');
 export const clinics = ['Nội tổng quát','Tim mạch','Tai Mũi Họng','Da liễu','Sản phụ khoa','Cơ xương khớp'];
 const field=(key,label,type='text',extra={})=>({key,label,type,...extra});
 const patient=field('patient','Bệnh nhân','patient',{required:true});
