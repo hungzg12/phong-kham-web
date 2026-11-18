@@ -86,3 +86,9 @@ npm run test:profile
 Kiểm thử dùng Playwright với Microsoft Edge đã cài trên Windows, chạy trong phiên trình duyệt riêng để không ảnh hưởng dữ liệu đang trình diễn. Có thể đặt `MEDICARE_URL` để đổi URL. Script đầu mở từng màn hình/tab/biểu mẫu và kiểm tra luồng CLS, cấp phát, tồn kho, hoàn tiền, đóng ca, y lệnh, kiểm kê, lịch hẹn, bảo trì, phân quyền mẫu, đăng nhập và khung nhìn 390px. Script tác nhân kiểm tra đăng nhập 7 vai trò, menu, giới hạn nút thao tác, giữ phiên, giao diện điện thoại và luồng bác sĩ kê đơn → dược sĩ cấp phát → bệnh nhân xem đơn cá nhân. Script frontend kiểm tra chuyển dữ liệu cũ, số liệu dashboard, nhiều lượt khám/quyết toán, FEFO qua nhiều lô, thiếu tồn theo kho, điều chuyển, nhiều đợt nhập viện, xác nhận trước thay đổi, lỗi dung lượng lưu trữ, lỗi dữ liệu và trạng thái tải module. Ảnh kiểm tra được lưu trong thư mục `qa/` đã bỏ qua trong Git.
 
 Đây là bản frontend để trình diễn đồ án, chưa có backend, xác thực người dùng, phân quyền thực, thanh toán VietQR/webhook, tính BHYT thực tế, cơ sở dữ liệu tương tác thuốc, ký số, LIS/PACS hoặc lưu bệnh án an toàn. Dữ liệu demo không hỗ trợ giao dịch đồng thời trên nhiều cửa sổ. Chỉ sử dụng dữ liệu giả. Font Be Vietnam Pro được tải từ Google Fonts và có sans-serif dự phòng khi ngoại tuyến.
+
+## Chạy bản kết nối SQL Server
+
+Trên Windows, chạy lần lượt `database/QuanLyBenhVien_SQLServer.sql` và `scripts/sql-booking-seed.sql` trong SSMS. Khi chạy file seed, chọn database `QuanLyBenhVien`. Mặc định ứng dụng dùng Windows Authentication với instance `.\SQLEXPRESS`.
+
+Chạy `npm ci` rồi `npm run dev -- --port 5175`. Mở http://127.0.0.1:5175/. Trang đặt lịch ghi vào SQL Server. Mục **Vào hệ thống → Lịch hẹn** có danh sách đọc trực tiếp từ SQL Server. Các nghiệp vụ khác dùng dữ liệu demo. API SQL chạy trong Vite dev trên máy Windows.

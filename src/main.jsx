@@ -1,3 +1,4 @@
+import SqlAppointments from './SqlAppointments.jsx';
 import React, {useState,useEffect,lazy,Suspense} from 'react';
 import {createRoot} from 'react-dom/client';
 import {Activity, LayoutDashboard, Users, Stethoscope, BedDouble, Pill, Wallet, CalendarDays, Search, Plus, ArrowUpRight, ArrowRight, Bell, X, ChevronLeft, ChevronRight, Check, Clock3, MoreHorizontal, Download, Menu, HeartPulse, FileText, ShieldCheck, LogOut, Building2} from 'lucide-react';
@@ -75,6 +76,7 @@ function App(){
  {page==='pharmacy'&&<Inventory role={role} notify={notify}/>}
  {page==='profile'&&<Profile key={role} role={role} notify={notify}/>} 
  {page==='history'&&<History role={role} patientId={actor.patientId} navigate={navigate} notify={notify}/>}
+ {page==='appointments'&&import.meta.env.DEV&&<SqlAppointments/>}
  {page==='appointments'&&<Appointments appointments={appointments} setAppointments={setAppointments} patients={patients} setPatients={setPatients} notify={notify} request={appointmentRequest}/>}
 
  {extraTitles[page]&&!(page==='care'&&requestedTab==='')&&!(page==='clinical'&&requestedTab==='labdesk')&&<Business key={role+page+requestedTab} clinicalContext={clinicalContext} role={role} requestedTab={requestedTab} page={page} patients={patients} stock={stock} setStock={setStock} beds={beds} setBeds={setBeds} notes={notes} appointments={appointments} setAppointments={setAppointments} notify={notify}/>}
