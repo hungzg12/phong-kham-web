@@ -6,59 +6,10 @@ import {createVisit} from './workspace';
 export default function Appointments({appointments,setAppointments,patients,setPatients,notify,request=0}){
  const [view,setView]=useState('list'),[filter,setFilter]=useState('Tất cả'),[search,setSearch]=useState(''),[modal,setModal]=useState(null),[week,setWeek]=useState(0),[error,setError]=useState('');
  useEffect(()=>{if(request){setError('');setModal({})}},[request]);
-
- useEffect(()=>{
-  fetch('/api/appointments')
-   .then(r=>r.ok?r.json():[])
-   .then(data=>{
-    if(Array.isArray(data)&&data.length>0){
-     setAppointments(prev=>{
-      const existingIds=new Set(prev.map(a=>String(a.id)));
-      const newItems=data.filter(d=>!existingIds.has(String(d.id))).map(d=>({
-       id:d.id,
-       name:d.name,
-       phone:d.phone,
-       birth:d.birth,
-       gender:d.gender||'Khác',
-       dept:d.dept,
-       date:d.day?`${d.day}T${d.time}`:(d.date||today+'T09:00'),
-       status:d.status==='DA_DAT'||d.status==='Đã đặt'?'Đã xác nhận':d.status==='DA_CHECK_IN'?'Đã tiếp đón':(d.status||'Đã xác nhận')
-      }));
-      return newItems.length?[...prev,...newItems]:prev;
-     });
-    }
-   })
-   .catch(()=>{});
- },[]);
-
  const monday=new Date(today+'T12:00:00');monday.setDate(monday.getDate()-(monday.getDay()+6)%7+week*7);const dates=Array.from({length:7},(_,i)=>{const d=new Date(monday);d.setDate(d.getDate()+i);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`});
  const filtered=appointments.filter(a=>(a.name+' '+a.phone+' '+a.dept).toLowerCase().includes(search.toLowerCase())&&(filter==='Tất cả'||a.status===filter));
  const open=value=>{setError('');setModal(value)};
- function save(e){
-  e.preventDefault();
-  const data=Object.fromEntries(new FormData(e.target));
-  if(appointments.some(a=>a.id!==modal?.id&&a.status!=='Đã hủy'&&a.phone===data.phone&&a.date===data.date)){
-   setError('Bệnh nhân đã có lịch hẹn vào thời điểm này.');
-   return;
-  }
-  setAppointments(list=>modal?.id?list.map(a=>a.id===modal.id?{...a,...data}:a):[...list,{...data,id:Date.now(),status:'Đã xác nhận'}]);
-  if(!modal?.id){
-   fetch('/api/appointments',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-     name:data.name,
-     phone:data.phone,
-     birth:data.birth,
-     gender:data.gender||'Nam',
-     dept:data.dept,
-     date:data.date
-    })
-   }).catch(()=>{});
-  }
-  setModal(null);
-  notify(modal?.id?'Đã cập nhật lịch hẹn':'Đã đặt lịch hẹn');
- }
+ function save(e){e.preventDefault();const data=Object.fromEntries(new FormData(e.target));if(appointments.some(a=>a.id!==modal?.id&&a.status!=='Đã hủy'&&a.phone===data.phone&&a.date===data.date)){setError('Bệnh nhân đã có lịch hẹn vào thời điểm này.');return}setAppointments(list=>modal?.id?list.map(a=>a.id===modal.id?{...a,...data}:a):[...list,{...data,id:Date.now(),status:'Đã xác nhận'}]);setModal(null);notify(modal?.id?'Đã cập nhật lịch hẹn':'Đã đặt lịch hẹn')}
  function checkIn(a){const found=patients.find(p=>p.phone===a.phone);if(!found&&!a.birth){notify('Bổ sung ngày sinh trước khi check-in');setModal({...a,mode:undefined});return}if(found){createVisit({patientId:found.id,date:a.date.slice(0,10),time:a.date.slice(11),department:a.dept,doctor:found.doctor})}else{const id='BN'+String(Math.max(0,...patients.map(p=>Number(p.id.slice(2))))+1).padStart(4,'0');setPatients(list=>[...list,{id,name:a.name,phone:a.phone,birth:a.birth,gender:a.gender||'Khác',insurance:'',dept:a.dept,doctor:'Chờ phân công bác sĩ',time:a.date.slice(11),status:'Chờ khám',color:'green'}])}setAppointments(list=>list.map(x=>x.id===a.id?{...x,status:'Đã tiếp đón'}:x));setModal(null);notify('Đã check-in và chuyển bệnh nhân vào danh sách chờ khám')}
  const statusClass=s=>s==='Đã hủy'?'danger':s==='Đã tiếp đón'?'teal':'amber';
  return <><div className="business-summary"><div><span><CalendarDays size={18}/>Tổng lịch hẹn</span><b>{appointments.length}</b></div><div><span><Clock3 size={18}/>Chờ tiếp đón</span><b>{appointments.filter(a=>a.status==='Đã xác nhận').length}</b></div><div><span><Check size={18}/>Đã tiếp đón</span><b>{appointments.filter(a=>a.status==='Đã tiếp đón').length}</b></div></div><section className="panel"><div className="panel-heading"><div><h2>Lịch hẹn khám bệnh</h2><p>Đặt lịch, đổi lịch và check-in khi người bệnh đến khám.</p></div><div className="row-actions"><div className="view-toggle"><button className={view==='list'?'selected':''} onClick={()=>setView('list')} aria-label="Xem danh sách"><List size={16}/></button><button className={view==='calendar'?'selected':''} onClick={()=>setView('calendar')} aria-label="Xem lịch tuần"><CalendarDays size={16}/></button></div><button className="primary" onClick={()=>open({})}><Plus size={15}/>Đặt lịch</button></div></div><div className="table-tools"><label className="search"><Search size={15}/><input aria-label="Tìm lịch hẹn" placeholder="Họ tên, số điện thoại..." value={search} onChange={e=>setSearch(e.target.value)}/></label><select aria-label="Trạng thái lịch hẹn" value={filter} onChange={e=>setFilter(e.target.value)}>{['Tất cả','Đã xác nhận','Đã tiếp đón','Đã hủy'].map(s=><option key={s}>{s}</option>)}</select>{view==='calendar'&&<div className="calendar-controls"><button className="icon-button" aria-label="Tuần trước" onClick={()=>setWeek(week-1)}><ChevronLeft size={16}/></button><b>{dates[0].slice(5)} — {dates[6].slice(5)}, {monday.getFullYear()}</b><button className="icon-button" aria-label="Tuần sau" onClick={()=>setWeek(week+1)}><ChevronRight size={16}/></button><button className="text-button" onClick={()=>setWeek(0)}>Tuần này</button></div>}</div>{view==='list'?<><div className="table-scroll"><table><thead><tr><th>NGƯỜI BỆNH</th><th>CHUYÊN KHOA</th><th>THỜI GIAN HẸN</th><th>TRẠNG THÁI</th><th>THAO TÁC</th></tr></thead><tbody>{filtered.map(a=><tr key={a.id}><td><b>{a.name}</b><small>{a.phone}</small></td><td>{a.dept}</td><td>{a.date.replace('T',' · ')}</td><td><span className={'badge '+statusClass(a.status)}>{a.status}</span></td><td><div className="row-actions">{a.status==='Đã xác nhận'&&<><button className="secondary" onClick={()=>open({...a,mode:'checkin'})}>Check-in</button><button className="secondary" onClick={()=>open(a)}>Đổi lịch</button><button className="icon-button" aria-label={'Hủy lịch '+a.name} onClick={()=>open({...a,mode:'cancel'})}><X size={16}/></button></>}</div></td></tr>)}</tbody></table></div>{!filtered.length&&<div className="business-empty"><CalendarDays size={35}/><h3>Chưa có lịch hẹn phù hợp</h3><p>Nhấn Đặt lịch để thêm lịch khám cho người bệnh.</p></div>}</>:<div className="week-scroll"><div className="week-calendar">{dates.map((date,i)=><div className={'calendar-day '+(date===today?'is-today':'')} key={date}><header><span>{['Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy','Chủ nhật'][i]}</span><b>{date.slice(8)}</b></header><div>{filtered.filter(a=>a.date.startsWith(date)).map(a=><button className={'calendar-event '+(a.status==='Đã hủy'?'cancelled':'')} key={a.id} onClick={()=>open({...a,mode:a.status==='Đã xác nhận'?'checkin':'view'})}><b>{a.date.slice(11)} · {a.name}</b><small>{a.dept}</small><span>{a.status}</span></button>)}<button className="calendar-add" aria-label={'Thêm lịch ngày '+date} onClick={()=>open({date:date+'T09:00'})}><Plus size={14}/></button></div></div>)}</div></div>}</section>
