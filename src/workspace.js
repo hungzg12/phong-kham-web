@@ -15,8 +15,30 @@ function legacy(key,fallback){const raw=localStorage.getItem(key);if(raw===null)
 function visitFor(patient,index,note){return {id:'LK-'+String(index+1).padStart(5,'0'),patientId:patient.id,kind:'Ngoại trú',date:today,time:patient.time||'08:00',department:patient.dept,doctor:patient.doctor,status:patient.status||'Chờ khám',note:note||null,createdAt:today+'T'+(patient.time||'08:00'),migrated:true}}
 export function initializeWorkspace(){
  if(state)return state;
- const raw=localStorage.getItem(DATA_KEY);
- if(raw!==null){try{const parsed=JSON.parse(raw);if(parsed.version!==4||!Array.isArray(parsed.patients)||!Array.isArray(parsed.visits)||!Array.isArray(parsed.inventory)||!Array.isArray(parsed.beds)||!Array.isArray(parsed.admissions)||!parsed.business)throw new Error();state=parsed;return state}catch{throw new Error('Không đọc được dữ liệu MediCare trên trình duyệt. Dữ liệu gốc chưa bị thay đổi.')}}
+ const raw=localStorage.getItem(DATA_KEY)||localStorage.getItem('medicare-workspace-v3');
+ if(raw!==null){
+  try{
+   const parsed=JSON.parse(raw);
+   if(typeof parsed==='object'&&parsed!==null){
+    if(!Array.isArray(parsed.patients))parsed.patients=copy(initialPatients);
+    if(!Array.isArray(parsed.visits))parsed.visits=[];
+    if(!Array.isArray(parsed.inventory))parsed.inventory=[];
+    if(!Array.isArray(parsed.beds))parsed.beds=Array.from({length:18},(_,i)=>({id:i+1,patient:i<5?parsed.patients[i]?.id||null:null,cleaning:i===14}));
+    if(!Array.isArray(parsed.admissions))parsed.admissions=[];
+    if(!parsed.business||typeof parsed.business!=='object')parsed.business=copy(seeds);
+    if(!Array.isArray(parsed.ledger))parsed.ledger=[];
+    if(!Array.isArray(parsed.appointments))parsed.appointments=[];
+    if(!Array.isArray(parsed.stock))parsed.stock=copy(initialStock);
+    if(!parsed.notes)parsed.notes={};
+    parsed.version=4;
+    state=parsed;
+    persist(state);
+    return state;
+   }
+  }catch{
+   // Parse error: fall through to clean initial state below
+  }
+ }
  const patients=legacy('medicare-patients-v1',initialPatients),stock=legacy('medicare-stock-v1',initialStock),notes=legacy('medicare-notes-v1',{});
  const beds=legacy('medicare-beds-v2',Array.from({length:18},(_,i)=>({id:i+1,patient:i<5?patients[i]?.id||null:null,cleaning:i===14})));
  const visits=patients.map((p,i)=>visitFor(p,i,notes[p.id]));
