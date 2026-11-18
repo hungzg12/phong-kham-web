@@ -1,0 +1,4 @@
+Microsoft ScriptDom TSql150Parser: 0 syntax errors (outer SQL + dynamic SQL).
+Static schema checks: 75 tables, 153 FK references, 4 procedures, 4 views, 2 functions.
+No DROP DATABASE or DROP TABLE statements.
+NOT EXECUTED ON A SQL SERVER DATABASE ENGINE.
