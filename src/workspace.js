@@ -2,7 +2,7 @@ import {useSyncExternalStore} from 'react';
 import {initialPatients,initialStock} from './fixtures';
 import {seeds,today} from './business-data';
 
-export const DATA_KEY='medicare-workspace-v3';
+export const DATA_KEY='medicare-workspace-v4';
 let state=null,issue=null;
 const subscribers=new Set();
 const alertSubscribers=new Set();
@@ -16,7 +16,7 @@ function visitFor(patient,index,note){return {id:'LK-'+String(index+1).padStart(
 export function initializeWorkspace(){
  if(state)return state;
  const raw=localStorage.getItem(DATA_KEY);
- if(raw!==null){try{const parsed=JSON.parse(raw);if(parsed.version!==3||!Array.isArray(parsed.patients)||!Array.isArray(parsed.visits)||!Array.isArray(parsed.inventory)||!Array.isArray(parsed.beds)||!Array.isArray(parsed.admissions)||!parsed.business)throw new Error();state=parsed;return state}catch{throw new Error('Không đọc được dữ liệu MediCare trên trình duyệt. Dữ liệu gốc chưa bị thay đổi.')}}
+ if(raw!==null){try{const parsed=JSON.parse(raw);if(parsed.version!==4||!Array.isArray(parsed.patients)||!Array.isArray(parsed.visits)||!Array.isArray(parsed.inventory)||!Array.isArray(parsed.beds)||!Array.isArray(parsed.admissions)||!parsed.business)throw new Error();state=parsed;return state}catch{throw new Error('Không đọc được dữ liệu MediCare trên trình duyệt. Dữ liệu gốc chưa bị thay đổi.')}}
  const patients=legacy('medicare-patients-v1',initialPatients),stock=legacy('medicare-stock-v1',initialStock),notes=legacy('medicare-notes-v1',{});
  const beds=legacy('medicare-beds-v2',Array.from({length:18},(_,i)=>({id:i+1,patient:i<5?patients[i]?.id||null:null,cleaning:i===14})));
  const visits=patients.map((p,i)=>visitFor(p,i,notes[p.id]));
@@ -27,7 +27,7 @@ export function initializeWorkspace(){
  for(const tab of contextTabs){business[tab]=(business[tab]||[]).map(r=>({...r,episodeId:r.episodeId||(['rounds','consultations','discharges'].includes(tab)?admissions.find(a=>a.patientId===r.patient)?.id:null)||visits.find(v=>v.patientId===r.patient)?.id,date:r.date||today}))}
  const inventory=stock.map(s=>({id:'LOT-'+s.id,medicineId:s.id,warehouseId:'KHO001',lot:s.lot||'LO-CU',expiry:s.expiry||'',qty:Number(s.qty)||0,receivedAt:today}));
  for(const row of business.counts||[]){row.lotId=row.lotId||inventory.find(l=>l.medicineId===row.medicine&&l.warehouseId===row.warehouse)?.id}
- const value={version:3,profiles:{},patients,stock,notes,beds,visits,admissions,inventory,business,ledger:[],appointments:legacy('medicare-appointments-v1',[]),paid:legacy('medicare-paid-v1',[]),migratedAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+ const value={version:4,profiles:{},patients,stock,notes,beds,visits,admissions,inventory,business,ledger:[],appointments:legacy('medicare-appointments-v1',[]),paid:legacy('medicare-paid-v1',[]),migratedAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
  persist(value);state=value;return state;
 }
 function persist(next){try{localStorage.setItem(DATA_KEY,JSON.stringify(next))}catch{const error=new Error('Không lưu được dữ liệu trên trình duyệt. Có thể bộ nhớ đã đầy hoặc quyền lưu trữ đang bị chặn. Thay đổi này chưa được áp dụng.');error.name='LocalDataError';reportIssue(error.message);throw error}}
