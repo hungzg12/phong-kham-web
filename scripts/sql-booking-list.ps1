@@ -14,11 +14,17 @@ if ($null -eq $db) { throw "Cannot connect to SQL Server database QuanLyBenhVien
 try {
     $cmd = $db.CreateCommand()
     $cmd.CommandText = @"
-SELECT TOP (100) h.maHen AS id, k.tenKhoa AS department, r.tenBuong AS room,
+SELECT TOP (100) 
+       h.maHen AS id,
+       ISNULL(b.hoTen, N'Chưa cập nhật') AS name,
+       ISNULL(b.soDienThoai, '') AS phone,
+       k.tenKhoa AS department,
+       r.tenBuong AS room,
        CONVERT(char(10), h.ngayHen, 23) AS day,
        LEFT(CONVERT(char(8), h.gioHenDuKien, 108), 5) AS time,
        h.trangThai AS status
 FROM dbo.LichHen h
+LEFT JOIN dbo.BenhNhan b ON b.maBenhNhan = h.maBenhNhan
 JOIN dbo.Khoa k ON k.maKhoa = h.maKhoa
 JOIN dbo.BuongKham r ON r.maBuong = h.maBuong
 ORDER BY h.ngayHen DESC, h.gioHenDuKien DESC, h.maHen DESC

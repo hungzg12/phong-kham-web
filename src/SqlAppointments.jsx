@@ -35,10 +35,14 @@ export default function SqlAppointments() {
     {result.rows?.length === 0 && <p>Chưa có lịch hẹn.</p>}
     {result.rows?.length > 0 && <div style={{ overflowX: 'auto' }}>
       <table>
-        <thead><tr><th>Mã lịch</th><th>Ngày giờ</th><th>Chuyên khoa</th><th>Phòng</th><th>Trạng thái</th></tr></thead>
+        <thead><tr><th>Người bệnh</th><th>Mã lịch</th><th>Ngày giờ</th><th>Chuyên khoa</th><th>Phòng khám</th><th>Trạng thái</th></tr></thead>
         <tbody>{result.rows.map(row => <tr key={row.id}>
-          <td>{row.id}</td><td>{row.day.split('-').reverse().join('/')} · {row.time}</td>
-          <td>{row.department}</td><td>{row.room}</td><td>{statuses[row.status] || row.status}</td>
+          <td><b>{row.name}</b>{row.phone && <small style={{ display: 'block', color: '#64748b' }}>{row.phone}</small>}</td>
+          <td><code>{row.id}</code></td>
+          <td>{row.day.split('-').reverse().join('/')} · {row.time}</td>
+          <td>{row.department}</td>
+          <td>{row.room}</td>
+          <td><span className={'badge ' + (row.status === 'DA_DAT' ? 'teal' : 'gray')}>{statuses[row.status] || row.status}</span></td>
         </tr>)}</tbody>
       </table>
     </div>}

@@ -73,10 +73,18 @@ export function createApiMiddleware() {
           const isDate = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
             Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
 
-          if (!name || name.length > 100 || !deptCode || !/^[0-9]{10,11}$/.test(data.phone) ||
-              !isDate(data.birth) || !isDate(data.day) || !/^(0[89]|10|1[3-6]):(00|30)$/.test(data.time) ||
-              !['Nam', 'Nữ', 'Khác'].includes(data.gender)) {
-            return respond(400, { error: 'Vui lòng kiểm tra thông tin lịch hẹn.' });
+          const failed = [];
+          if (!name || name.length > 100) failed.push('name');
+          if (!deptCode) failed.push('deptCode (' + data.dept + ')');
+          if (!/^[0-9]{10,11}$/.test(data.phone)) failed.push('phone (' + data.phone + ')');
+          if (!isDate(data.birth)) failed.push('birth (' + data.birth + ')');
+          if (!isDate(data.day)) failed.push('day (' + data.day + ')');
+          if (!/^(0[89]|10|1[3-6]):(00|30)$/.test(data.time)) failed.push('time (' + data.time + ')');
+          if (!['Nam', 'Nữ', 'Khác'].includes(data.gender)) failed.push('gender (' + data.gender + ')');
+
+          if (failed.length > 0) {
+            console.error('Validation failed for:', failed.join(', '));
+            return respond(400, { error: 'Vui lòng kiểm tra thông tin lịch hẹn: ' + failed.join(', ') });
           }
           const id = 'LH-' + randomUUID().replaceAll('-', '').slice(0, 16).toUpperCase();
           const saved = await runSqlScript('scripts/sql-booking.ps1', { ...data, id, name, deptCode });
