@@ -1,9 +1,20 @@
 param()
 $ErrorActionPreference = 'Stop'
 $data = [Console]::In.ReadToEnd() | ConvertFrom-Json
-$db = [System.Data.SqlClient.SqlConnection]::new('Server=.\SQLEXPRESS;Database=QuanLyBenhVien;Integrated Security=True;TrustServerCertificate=True')
+
+$servers = @('.\MSSQLVESE', '.\SQLEXPRESS', 'localhost', '127.0.0.1')
+$db = $null
+foreach ($srv in $servers) {
+    try {
+        $candidate = [System.Data.SqlClient.SqlConnection]::new("Server=$srv;Database=QuanLyBenhVien;Integrated Security=True;TrustServerCertificate=True;Connect Timeout=2")
+        $candidate.Open()
+        $db = $candidate
+        break
+    } catch { }
+}
+if ($null -eq $db) { throw "Cannot connect to SQL Server database QuanLyBenhVien." }
+
 try {
-    $db.Open()
     $cmd = $db.CreateCommand()
     $cmd.CommandText = @"
 SET NOCOUNT ON;

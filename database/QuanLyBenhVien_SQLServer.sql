@@ -117,19 +117,6 @@ CREATE TABLE dbo.KhoDuoc (
     dangKiemKe AS (CASE WHEN maKiemKeDangMo IS NOT NULL THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END),
     dangHoatDong BIT NOT NULL DEFAULT 1
 );';
-    EXEC sys.sp_executesql N'-- 10. Bảng ThietBiYTe
-CREATE TABLE dbo.ThietBiYTe (
-    maThietBi VARCHAR(20) NOT NULL PRIMARY KEY,
-    tenThietBi NVARCHAR(150) NOT NULL,
-    maKhoaQuanLy VARCHAR(20) NOT NULL REFERENCES dbo.Khoa(maKhoa),
-    hangSanXuat NVARCHAR(100) NULL,
-    nuocSanXuat NVARCHAR(100) NULL,
-    namSanXuat INT NULL,
-    ngayDuaVaoSuDung DATE NOT NULL,
-    soSerial VARCHAR(50) NULL,
-    trangThai VARCHAR(30) NOT NULL DEFAULT ''HOAT_DONG'' CHECK (trangThai IN (''HOAT_DONG'', ''BAO_HONG'', ''DANG_BAO_TRI'', ''NGUNG_SU_DUNG'', ''THANH_LY'')),
-    dangHoatDong BIT NOT NULL DEFAULT 1
-);';
     EXEC sys.sp_executesql N'-- 11. Bảng TaiKhoan
 CREATE TABLE dbo.TaiKhoan (
     maTaiKhoan VARCHAR(20) NOT NULL PRIMARY KEY,
@@ -180,11 +167,12 @@ CREATE TABLE dbo.Thuoc (
     hamLuong NVARCHAR(100) NOT NULL,
     duongDung NVARCHAR(100) NOT NULL,
     dangBaoChe NVARCHAR(100) NOT NULL,
+    nhomDieuTri NVARCHAR(100) NULL,
     nhomDoc NVARCHAR(100) NULL,
     CONSTRAINT FK_Thuoc_Cha FOREIGN KEY (maHang, loaiHang) REFERENCES dbo.HangHoaYTe(maHang, loaiHang)
 );';
     EXEC sys.sp_executesql N'-- 15. Bảng VatTuYTe
-CREATE TABLE dbo.VatTuYTe (
+    CREATE TABLE dbo.VatTuYTe (
     maHang VARCHAR(20) NOT NULL PRIMARY KEY,
     loaiHang VARCHAR(20) NOT NULL DEFAULT ''VAT_TU'' CHECK (loaiHang = ''VAT_TU''),
     quyCach NVARCHAR(100) NOT NULL,
@@ -193,15 +181,34 @@ CREATE TABLE dbo.VatTuYTe (
     taiSuDung BIT NOT NULL DEFAULT 0,
     CONSTRAINT FK_VatTuYTe_Cha FOREIGN KEY (maHang, loaiHang) REFERENCES dbo.HangHoaYTe(maHang, loaiHang)
 );';
-    EXEC sys.sp_executesql N'-- 16. Bảng LoHang
+    EXEC sys.sp_executesql N'-- 16a. Bảng DotNhapHang (Đợt nhập / Lô hàng tổng nhập từ Hãng thuốc)
+CREATE TABLE dbo.DotNhapHang (
+    maDotNhap VARCHAR(50) NOT NULL PRIMARY KEY,
+    tenDotNhap NVARCHAR(200) NOT NULL,
+    hangSanXuat NVARCHAR(150) NOT NULL,
+    nhaCungCap NVARCHAR(150) NULL,
+    soHoaDon VARCHAR(50) NULL,
+    ngayNhapKho DATE NOT NULL,
+    maKhoNhap VARCHAR(20) NULL REFERENCES dbo.KhoDuoc(maKho),
+    nguoiGiaoHang NVARCHAR(100) NULL,
+    nguoiNhanHang NVARCHAR(100) NULL,
+    ghiChu NVARCHAR(500) NULL
+);';
+    EXEC sys.sp_executesql N'-- 16b. Bảng LoHang (Chi tiết từng loại thuốc trong Lô hàng / Đợt nhập)
 CREATE TABLE dbo.LoHang (
     maLoHang VARCHAR(20) NOT NULL PRIMARY KEY,
+    maDotNhap VARCHAR(50) NULL REFERENCES dbo.DotNhapHang(maDotNhap),
     maHang VARCHAR(20) NOT NULL REFERENCES dbo.HangHoaYTe(maHang),
     soLoNhaSanXuat VARCHAR(50) NOT NULL,
     ngaySanXuat DATE NOT NULL,
     hanSuDung DATE NOT NULL,
+    soLuongNhap DECIMAL(18,4) NOT NULL DEFAULT 0 CHECK (soLuongNhap >= 0),
     nhaCungCap NVARCHAR(150) NULL,
     nhaSanXuat NVARCHAR(150) NULL,
+    hangSanXuat NVARCHAR(150) NULL,
+    nuocSanXuat NVARCHAR(100) NULL,
+    soDangKy VARCHAR(50) NULL,
+    quyCachDongGoi NVARCHAR(100) NULL,
     donGiaNhap DECIMAL(18,2) NOT NULL CHECK (donGiaNhap >= 0),
     CONSTRAINT CK_LoHang_HanDung CHECK (hanSuDung >= ngaySanXuat)
 );';
@@ -245,36 +252,6 @@ CREATE TABLE dbo.GiuongBenh (
     trangThaiHienTai VARCHAR(30) NOT NULL DEFAULT ''TRONG'' CHECK (trangThaiHienTai IN (''TRONG'', ''DANG_SU_DUNG'', ''DANG_VE_SINH'', ''BAO_TRI'', ''KHOA'')),
     dangHoatDong BIT NOT NULL DEFAULT 1,
     CONSTRAINT UQ_Giuong_BuongSo UNIQUE (maBuongBenh, soHieuGiuong)
-);';
-    EXEC sys.sp_executesql N'-- 21. Bảng PhieuBaoHong
-CREATE TABLE dbo.PhieuBaoHong (
-    maBaoHong VARCHAR(20) NOT NULL PRIMARY KEY,
-    maThietBi VARCHAR(20) NOT NULL REFERENCES dbo.ThietBiYTe(maThietBi),
-    thoiDiemBao DATETIME2(0) NOT NULL DEFAULT SYSDATETIME(),
-    maNguoiBao VARCHAR(20) NOT NULL REFERENCES dbo.NhanVien(maNhanVien),
-    moTaSuCo NVARCHAR(MAX) NOT NULL,
-    mucDoUuTien VARCHAR(20) NOT NULL DEFAULT ''THUONG'' CHECK (mucDoUuTien IN (''THAP'', ''THUONG'', ''CAO'', ''KHAN_CAP'')),
-    trangThai VARCHAR(30) NOT NULL DEFAULT ''CHO_TIEP_NHAN'' CHECK (trangThai IN (''CHO_TIEP_NHAN'', ''DA_TIEP_NHAN'', ''DANG_SUA_CHUA'', ''DA_KHAC_PHUC'', ''KHONG_THE_SUA'')),
-    maNguoiTiepNhan VARCHAR(20) NULL REFERENCES dbo.NhanVien(maNhanVien),
-    thoiDiemTiepNhan DATETIME2(0) NULL
-);';
-    EXEC sys.sp_executesql N'-- 22. Bảng BienBanBaoTri
-CREATE TABLE dbo.BienBanBaoTri (
-    maBaoTri VARCHAR(20) NOT NULL PRIMARY KEY,
-    maThietBi VARCHAR(20) NOT NULL REFERENCES dbo.ThietBiYTe(maThietBi),
-    maBaoHong VARCHAR(20) NULL REFERENCES dbo.PhieuBaoHong(maBaoHong),
-    loaiBaoTri VARCHAR(30) NOT NULL CHECK (loaiBaoTri IN (''DINH_KY'', ''SUA_CHUA_SU_CO'', ''HIEU_CHUAN_KIEM_DINH'')),
-    thoiDiemBatDau DATETIME2(0) NOT NULL,
-    thoiDiemKetThuc DATETIME2(0) NULL,
-    maKySuThucHien VARCHAR(20) NOT NULL REFERENCES dbo.NhanVien(maNhanVien),
-    donViBaoTriNgoai NVARCHAR(150) NULL,
-    noiDungThucHien NVARCHAR(MAX) NOT NULL,
-    ketQuaBaoTri VARCHAR(30) NOT NULL DEFAULT ''HOAN_TAT'' CHECK (ketQuaBaoTri IN (''HOAN_TAT'', ''CHUA_DAT'', ''CHO_LINH_KIEN'')),
-    chiPhiSuaChua DECIMAL(18,2) NOT NULL DEFAULT 0 CHECK (chiPhiSuaChua >= 0),
-    maNguoiNghiemThu VARCHAR(20) NULL REFERENCES dbo.NhanVien(maNhanVien),
-    thoiDiemNghiemThu DATETIME2(0) NULL,
-    danhGiaNghiemThu NVARCHAR(500) NULL,
-    CONSTRAINT CK_BaoTri_ThoiGian CHECK (thoiDiemKetThuc IS NULL OR thoiDiemKetThuc >= thoiDiemBatDau)
 );';
     EXEC sys.sp_executesql N'-- 23. Bảng BaoCaoVienPhi
 CREATE TABLE dbo.BaoCaoVienPhi (
@@ -1046,4 +1023,203 @@ END CATCH;
 
 SELECT DB_NAME() AS TenDatabase, COUNT(*) AS SoBang
 FROM sys.tables WHERE is_ms_shipped = 0;
+GO
+
+-- ============================================================================
+-- PHẦN BỔ SUNG: CÁC VIEW QUẢN LÝ LÔ THUỐC, HẠN DÙNG (FEFO) VÀ HÃNG SẢN XUẤT
+-- ============================================================================
+
+-- 1. View Chi tiết Lô thuốc theo từng kho (Xem số lượng, vị trí, hạn dùng, hãng sx)
+CREATE OR ALTER VIEW dbo.vw_QuanLyLoThuoc_ChiTiet
+AS
+SELECT 
+    lh.maLoHang,
+    lh.soLoNhaSanXuat,
+    h.maHang,
+    h.tenHang,
+    h.loaiHang,
+    t.hoatChat,
+    t.hamLuong,
+    t.dangBaoChe,
+    t.duongDung,
+    t.nhomDieuTri,
+    t.nhomDoc,
+    ISNULL(lh.hangSanXuat, lh.nhaSanXuat) AS hangSanXuat,
+    lh.nhaSanXuat,
+    lh.nuocSanXuat,
+    lh.nhaCungCap,
+    lh.soDangKy,
+    lh.quyCachDongGoi,
+    lh.ngaySanXuat,
+    lh.hanSuDung,
+    DATEDIFF(day, CAST(SYSDATETIME() AS DATE), lh.hanSuDung) AS soNgayConHan,
+    CASE 
+        WHEN lh.hanSuDung < CAST(SYSDATETIME() AS DATE) THEN N'ĐÃ HẾT HẠN'
+        WHEN DATEDIFF(day, CAST(SYSDATETIME() AS DATE), lh.hanSuDung) <= 30 THEN N'CẬN DATE (<= 30 NGÀY)'
+        WHEN DATEDIFF(day, CAST(SYSDATETIME() AS DATE), lh.hanSuDung) <= 90 THEN N'CẬN DATE (<= 90 NGÀY)'
+        ELSE N'CÒN HẠN SỬ DỤNG'
+    END AS trangThaiHanDung,
+    kd.maKho,
+    kd.tenKho,
+    kd.loaiKho,
+    ltk.viTriDayKe,
+    ISNULL(ltk.soLuongTon, 0) AS soLuongTon,
+    ISNULL(ltk.soLuongKhaDung, 0) AS soLuongKhaDung,
+    h.donViCoSo,
+    lh.donGiaNhap,
+    h.donGiaXuatCoSo,
+    h.giaBHYT,
+    CAST(ISNULL(ltk.soLuongTon, 0) * lh.donGiaNhap AS DECIMAL(18,2)) AS thanhTienTon,
+    ISNULL(ltk.trangThaiKhoa, 0) AS trangThaiKhoa
+FROM dbo.LoHang lh
+INNER JOIN dbo.HangHoaYTe h ON lh.maHang = h.maHang
+LEFT JOIN dbo.Thuoc t ON h.maHang = t.maHang
+LEFT JOIN dbo.LoTonKho ltk ON lh.maLoHang = ltk.maLoHang
+LEFT JOIN dbo.KhoDuoc kd ON ltk.maKho = kd.maKho;
+GO
+
+-- 2. View Tổng hợp Lô thuốc toàn viện (Gom nhóm theo Lô, xem tổng tồn, số kho lưu, giá trị)
+CREATE OR ALTER VIEW dbo.vw_TongHopLoThuoc_ToanVien
+AS
+SELECT 
+    lh.maLoHang,
+    lh.soLoNhaSanXuat,
+    h.maHang,
+    h.tenHang,
+    h.loaiHang,
+    t.hoatChat,
+    t.hamLuong,
+    t.dangBaoChe,
+    t.nhomDieuTri,
+    ISNULL(lh.hangSanXuat, lh.nhaSanXuat) AS hangSanXuat,
+    lh.nhaSanXuat,
+    lh.nuocSanXuat,
+    lh.nhaCungCap,
+    lh.soDangKy,
+    lh.ngaySanXuat,
+    lh.hanSuDung,
+    DATEDIFF(day, CAST(SYSDATETIME() AS DATE), lh.hanSuDung) AS soNgayConHan,
+    CASE 
+        WHEN lh.hanSuDung < CAST(SYSDATETIME() AS DATE) THEN N'ĐÃ HẾT HẠN'
+        WHEN DATEDIFF(day, CAST(SYSDATETIME() AS DATE), lh.hanSuDung) <= 30 THEN N'CẬN DATE (<= 30 NGÀY)'
+        WHEN DATEDIFF(day, CAST(SYSDATETIME() AS DATE), lh.hanSuDung) <= 90 THEN N'CẬN DATE (<= 90 NGÀY)'
+        ELSE N'CÒN HẠN SỬ DỤNG'
+    END AS trangThaiHanDung,
+    SUM(ISNULL(ltk.soLuongTon, 0)) AS tongSoLuongTonToanVien,
+    SUM(ISNULL(ltk.soLuongKhaDung, 0)) AS tongSoLuongKhaDungToanVien,
+    h.donViCoSo,
+    COUNT(DISTINCT ltk.maKho) AS soKhoDangLuuTru,
+    lh.donGiaNhap,
+    CAST(SUM(ISNULL(ltk.soLuongTon, 0)) * lh.donGiaNhap AS DECIMAL(18,2)) AS tongGiaTriTonKho
+FROM dbo.LoHang lh
+INNER JOIN dbo.HangHoaYTe h ON lh.maHang = h.maHang
+LEFT JOIN dbo.Thuoc t ON h.maHang = t.maHang
+LEFT JOIN dbo.LoTonKho ltk ON lh.maLoHang = ltk.maLoHang
+GROUP BY 
+    lh.maLoHang, lh.soLoNhaSanXuat, h.maHang, h.tenHang, h.loaiHang,
+    t.hoatChat, t.hamLuong, t.dangBaoChe, t.nhomDieuTri,
+    lh.hangSanXuat, lh.nhaSanXuat, lh.nuocSanXuat, lh.nhaCungCap, lh.soDangKy,
+    lh.ngaySanXuat, lh.hanSuDung, h.donViCoSo, lh.donGiaNhap;
+GO
+
+-- 3. View Chi tiết từng loại thuốc bên trong mỗi Lô Hàng / Đợt Nhập từ Hãng
+CREATE OR ALTER VIEW dbo.vw_ChiTietLoHangNhap_TheoTungLoaiThuoc
+AS
+SELECT 
+    ISNULL(dn.maDotNhap, N'LE_' + lh.maLoHang) AS maDotNhap,
+    ISNULL(dn.tenDotNhap, N'Lô hàng lẻ') AS tenDotNhap,
+    ISNULL(dn.hangSanXuat, ISNULL(lh.hangSanXuat, lh.nhaSanXuat)) AS hangSanXuat,
+    ISNULL(dn.nhaCungCap, lh.nhaCungCap) AS nhaCungCap,
+    ISNULL(dn.soHoaDon, N'HD-CHUA-RO') AS soHoaDon,
+    ISNULL(dn.ngayNhapKho, lh.ngaySanXuat) AS ngayNhapKho,
+    lh.maLoHang,
+    lh.soLoNhaSanXuat,
+    h.maHang,
+    h.tenHang,
+    h.loaiHang,
+    t.nhomDieuTri,
+    t.hoatChat,
+    t.hamLuong,
+    t.dangBaoChe,
+    lh.nuocSanXuat,
+    lh.soDangKy,
+    lh.quyCachDongGoi,
+    lh.ngaySanXuat,
+    lh.hanSuDung,
+    DATEDIFF(day, CAST(SYSDATETIME() AS DATE), lh.hanSuDung) AS soNgayConHan,
+    CASE 
+        WHEN lh.hanSuDung < CAST(SYSDATETIME() AS DATE) THEN N'ĐÃ HẾT HẠN'
+        WHEN DATEDIFF(day, CAST(SYSDATETIME() AS DATE), lh.hanSuDung) <= 30 THEN N'CẬN DATE (<= 30 NGÀY)'
+        WHEN DATEDIFF(day, CAST(SYSDATETIME() AS DATE), lh.hanSuDung) <= 90 THEN N'CẬN DATE (<= 90 NGÀY)'
+        ELSE N'CÒN HẠN SỬ DỤNG'
+    END AS trangThaiHanDung,
+    lh.soLuongNhap,
+    h.donViCoSo,
+    lh.donGiaNhap,
+    CAST(lh.soLuongNhap * lh.donGiaNhap AS DECIMAL(18,2)) AS thanhTienNhap,
+    ISNULL(ton.tongSoLuongTon, 0) AS tongSoLuongTonHienTai,
+    ISNULL(ton.tongSoLuongKhaDung, 0) AS tongSoLuongKhaDungHienTai,
+    CAST(CASE WHEN lh.soLuongNhap >= ISNULL(ton.tongSoLuongTon, 0) 
+              THEN lh.soLuongNhap - ISNULL(ton.tongSoLuongTon, 0) 
+              ELSE 0 END AS DECIMAL(18,4)) AS soLuongDaXuatDung
+FROM dbo.LoHang lh
+LEFT JOIN dbo.DotNhapHang dn ON lh.maDotNhap = dn.maDotNhap
+INNER JOIN dbo.HangHoaYTe h ON lh.maHang = h.maHang
+LEFT JOIN dbo.Thuoc t ON h.maHang = t.maHang
+LEFT JOIN (
+    SELECT maLoHang, 
+           SUM(soLuongTon) AS tongSoLuongTon, 
+           SUM(soLuongKhaDung) AS tongSoLuongKhaDung
+    FROM dbo.LoTonKho
+    GROUP BY maLoHang
+) ton ON lh.maLoHang = ton.maLoHang;
+GO
+
+-- 4. View Tổng hợp Lô hàng nhập từ Hãng (Xem 1 lô nhập có bao nhiêu loại thuốc, bao nhiêu số lượng, tổng tiền)
+CREATE OR ALTER VIEW dbo.vw_TongHopLoHangNhap_TheoHang
+AS
+SELECT 
+    dn.maDotNhap,
+    dn.tenDotNhap,
+    dn.hangSanXuat,
+    dn.nhaCungCap,
+    dn.soHoaDon,
+    dn.ngayNhapKho,
+    COUNT(DISTINCT lh.maHang) AS soLoaiThuocTrongLo,
+    COUNT(DISTINCT lh.maLoHang) AS soLoSanXuat,
+    SUM(lh.soLuongNhap) AS tongSoLuongThuocTrongLo,
+    CAST(SUM(lh.soLuongNhap * lh.donGiaNhap) AS DECIMAL(18,2)) AS tongGiaTriLoHang,
+    SUM(ISNULL(ton.tongSoLuongTon, 0)) AS tongSoLuongTonHienTai,
+    SUM(CASE WHEN lh.hanSuDung <= DATEADD(day, 90, CAST(SYSDATETIME() AS DATE)) THEN 1 ELSE 0 END) AS soLoaiThuocCanDate,
+    STRING_AGG(CONCAT(h.tenHang, ' (', CAST(CAST(lh.soLuongNhap AS BIGINT) AS NVARCHAR(20)), ' ', h.donViCoSo, ')'), N'; ') AS chiTietCacLoaiThuoc
+FROM dbo.DotNhapHang dn
+INNER JOIN dbo.LoHang lh ON dn.maDotNhap = lh.maDotNhap
+INNER JOIN dbo.HangHoaYTe h ON lh.maHang = h.maHang
+LEFT JOIN (
+    SELECT maLoHang, SUM(soLuongTon) AS tongSoLuongTon
+    FROM dbo.LoTonKho
+    GROUP BY maLoHang
+) ton ON lh.maLoHang = ton.maLoHang
+GROUP BY 
+    dn.maDotNhap, dn.tenDotNhap, dn.hangSanXuat, dn.nhaCungCap, dn.soHoaDon, dn.ngayNhapKho;
+GO
+
+-- 5. View Thống kê Thuốc theo từng Hãng sản xuất trên toàn viện
+CREATE OR ALTER VIEW dbo.vw_ThongKeThuoc_TheoHangSanXuat
+AS
+SELECT 
+    ISNULL(lh.hangSanXuat, lh.nhaSanXuat) AS hangSanXuat,
+    lh.nuocSanXuat,
+    COUNT(DISTINCT lh.maHang) AS soLoaiThuocCungUng,
+    COUNT(DISTINCT lh.maLoHang) AS tongSoLoHang,
+    SUM(ISNULL(ltk.soLuongTon, 0)) AS tongSoLuongTonKho,
+    CAST(SUM(ISNULL(ltk.soLuongTon, 0) * lh.donGiaNhap) AS DECIMAL(18,2)) AS tongGiaTriTonKho,
+    SUM(CASE WHEN lh.hanSuDung <= DATEADD(day, 90, CAST(SYSDATETIME() AS DATE)) AND ISNULL(ltk.soLuongTon,0) > 0 THEN 1 ELSE 0 END) AS soLoCanDate
+FROM dbo.LoHang lh
+LEFT JOIN dbo.LoTonKho ltk ON lh.maLoHang = ltk.maLoHang
+GROUP BY 
+    ISNULL(lh.hangSanXuat, lh.nhaSanXuat), lh.nuocSanXuat;
+GO
+
+SELECT N'Đã khởi tạo thành công CSDL QuanLyBenhVien và hệ thống View quản lý Lô thuốc - Hãng thuốc' AS ThongBao;
 GO
