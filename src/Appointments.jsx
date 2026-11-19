@@ -1,18 +1,452 @@
-import React,{useState,useEffect} from 'react';
-import {CalendarDays,List,Plus,Search,Check,X,ChevronLeft,ChevronRight,Clock3} from 'lucide-react';
-import {clinics,today} from './business-data';
+import React, { useState, useEffect } from 'react';
+import { CalendarDays, List, Plus, Search, Check, X, ChevronLeft, ChevronRight, Clock3, RefreshCw } from 'lucide-react';
+import { clinics, today } from './business-data';
 import './calendar.css';
-import {createVisit} from './workspace';
-export default function Appointments({appointments,setAppointments,patients,setPatients,notify,request=0}){
- const [view,setView]=useState('list'),[filter,setFilter]=useState('Tất cả'),[search,setSearch]=useState(''),[modal,setModal]=useState(null),[week,setWeek]=useState(0),[error,setError]=useState('');
- useEffect(()=>{if(request){setError('');setModal({})}},[request]);
- const monday=new Date(today+'T12:00:00');monday.setDate(monday.getDate()-(monday.getDay()+6)%7+week*7);const dates=Array.from({length:7},(_,i)=>{const d=new Date(monday);d.setDate(d.getDate()+i);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`});
- const filtered=appointments.filter(a=>(a.name+' '+a.phone+' '+a.dept).toLowerCase().includes(search.toLowerCase())&&(filter==='Tất cả'?a.status!=='Đã hủy':a.status===filter));
- const open=value=>{setError('');setModal(value)};
- function save(e){e.preventDefault();const data=Object.fromEntries(new FormData(e.target));if(appointments.some(a=>a.id!==modal?.id&&a.status!=='Đã hủy'&&a.phone===data.phone&&a.date===data.date)){setError('Bệnh nhân đã có lịch hẹn vào thời điểm này.');return}setAppointments(list=>modal?.id?list.map(a=>a.id===modal.id?{...a,...data}:a):[...list,{...data,id:Date.now(),status:'Đã xác nhận'}]);setModal(null);notify(modal?.id?'Đã cập nhật lịch hẹn':'Đã đặt lịch hẹn')}
- function checkIn(a){const found=patients.find(p=>p.phone===a.phone);if(!found&&!a.birth){notify('Bổ sung ngày sinh trước khi check-in');setModal({...a,mode:undefined});return}if(found){createVisit({patientId:found.id,date:a.date.slice(0,10),time:a.date.slice(11),department:a.dept,doctor:found.doctor})}else{const id='BN'+String(Math.max(0,...patients.map(p=>Number(p.id.slice(2))))+1).padStart(4,'0');setPatients(list=>[...list,{id,name:a.name,phone:a.phone,birth:a.birth,gender:a.gender||'Khác',insurance:'',dept:a.dept,doctor:'Chờ phân công bác sĩ',time:a.date.slice(11),status:'Chờ khám',color:'green'}])}setAppointments(list=>list.map(x=>x.id===a.id?{...x,status:'Đã tiếp đón'}:x));setModal(null);notify('Đã check-in và chuyển bệnh nhân vào danh sách chờ khám')}
- const statusClass=s=>s==='Đã hủy'?'danger':s==='Đã tiếp đón'?'teal':'amber';
- return <><div className="business-summary"><div><span><CalendarDays size={18}/>Tổng lịch hẹn</span><b>{appointments.length}</b></div><div><span><Clock3 size={18}/>Chờ tiếp đón</span><b>{appointments.filter(a=>a.status==='Đã xác nhận').length}</b></div><div><span><Check size={18}/>Đã tiếp đón</span><b>{appointments.filter(a=>a.status==='Đã tiếp đón').length}</b></div></div><section className="panel"><div className="panel-heading"><div><h2>Lịch hẹn khám bệnh</h2><p>Đặt lịch, đổi lịch và check-in khi người bệnh đến khám.</p></div><div className="row-actions"><div className="view-toggle"><button className={view==='list'?'selected':''} onClick={()=>setView('list')} aria-label="Xem danh sách"><List size={16}/></button><button className={view==='calendar'?'selected':''} onClick={()=>setView('calendar')} aria-label="Xem lịch tuần"><CalendarDays size={16}/></button></div><button className="primary" onClick={()=>open({})}><Plus size={15}/>Đặt lịch</button></div></div><div className="table-tools"><label className="search"><Search size={15}/><input aria-label="Tìm lịch hẹn" placeholder="Họ tên, số điện thoại..." value={search} onChange={e=>setSearch(e.target.value)}/></label><select aria-label="Trạng thái lịch hẹn" value={filter} onChange={e=>setFilter(e.target.value)}>{['Tất cả','Đã xác nhận','Đã tiếp đón','Đã hủy'].map(s=><option key={s}>{s}</option>)}</select>{view==='calendar'&&<div className="calendar-controls"><button className="icon-button" aria-label="Tuần trước" onClick={()=>setWeek(week-1)}><ChevronLeft size={16}/></button><b>{dates[0].slice(5)} — {dates[6].slice(5)}, {monday.getFullYear()}</b><button className="icon-button" aria-label="Tuần sau" onClick={()=>setWeek(week+1)}><ChevronRight size={16}/></button><button className="text-button" onClick={()=>setWeek(0)}>Tuần này</button></div>}</div>{view==='list'?<><div className="table-scroll"><table><thead><tr><th>NGƯỜI BỆNH</th><th>CHUYÊN KHOA</th><th>THỜI GIAN HẸN</th><th>TRẠNG THÁI</th><th>THAO TÁC</th></tr></thead><tbody>{filtered.map(a=><tr key={a.id}><td><b>{a.name}</b><small>{a.phone}</small></td><td>{a.dept}</td><td>{a.date.replace('T',' · ')}</td><td><span className={'badge '+statusClass(a.status)}>{a.status}</span></td><td><div className="row-actions">{a.status==='Đã xác nhận'&&<><button className="secondary" onClick={()=>open({...a,mode:'checkin'})}>Check-in</button><button className="secondary" onClick={()=>open(a)}>Đổi lịch</button><button className="icon-button" aria-label={'Hủy lịch '+a.name} onClick={()=>open({...a,mode:'cancel'})}><X size={16}/></button></>}</div></td></tr>)}</tbody></table></div>{!filtered.length&&<div className="business-empty"><CalendarDays size={35}/><h3>Chưa có lịch hẹn phù hợp</h3><p>Nhấn Đặt lịch để thêm lịch khám cho người bệnh.</p></div>}</>:<div className="week-scroll"><div className="week-calendar">{dates.map((date,i)=><div className={'calendar-day '+(date===today?'is-today':'')} key={date}><header><span>{['Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy','Chủ nhật'][i]}</span><b>{date.slice(8)}</b></header><div>{filtered.filter(a=>a.date.startsWith(date)).map(a=><button className={'calendar-event '+(a.status==='Đã hủy'?'cancelled':'')} key={a.id} onClick={()=>open({...a,mode:a.status==='Đã xác nhận'?'checkin':'view'})}><b>{a.date.slice(11)} · {a.name}</b><small>{a.dept}</small><span>{a.status}</span></button>)}<button className="calendar-add" aria-label={'Thêm lịch ngày '+date} onClick={()=>open({date:date+'T09:00'})}><Plus size={14}/></button></div></div>)}</div></div>}</section>
- {modal&&<div className="modal-backdrop" onClick={()=>setModal(null)}><section className="modal" role="dialog" aria-modal="true" aria-label="Lịch hẹn" onClick={e=>e.stopPropagation()}><button className="close icon-button" aria-label="Đóng lịch hẹn" onClick={()=>setModal(null)}><X size={20}/></button>{modal.mode==='checkin'||modal.mode==='view'?<><h2>{modal.mode==='checkin'?'Check-in người bệnh':'Thông tin lịch hẹn'}</h2><div className="detail-list"><div><span>Họ tên</span><b>{modal.name}</b></div><div><span>Điện thoại</span><b>{modal.phone}</b></div><div><span>Chuyên khoa</span><b>{modal.dept}</b></div><div><span>Ngày giờ</span><b>{modal.date.replace('T',' · ')}</b></div><div><span>Trạng thái</span><b>{modal.status}</b></div></div>{modal.mode==='checkin'&&<><div className="inline-notice">Kiểm tra lại danh tính người bệnh trước khi chuyển vào danh sách chờ khám. Hồ sơ mới sẽ dùng ngày sinh và giới tính đã khai báo khi đặt lịch.</div><button className="primary full" onClick={()=>checkIn(modal)}><Check size={16}/>Xác nhận người bệnh đã đến</button></>}</>:modal.mode==='cancel'?<><h2>Hủy lịch hẹn</h2><p>{modal.name} · {modal.date.replace('T',' · ')}</p><form onSubmit={e=>{e.preventDefault();const reason=new FormData(e.target).get('reason');setAppointments(list=>list.map(a=>a.id===modal.id?{...a,status:'Đã hủy',cancelReason:reason}:a));setModal(null);notify('Đã hủy lịch hẹn')}}><label>Lý do hủy<textarea name="reason" required/></label><button className="primary full">Xác nhận hủy lịch</button></form></>:<><h2>{modal.id?'Cập nhật lịch hẹn':'Đặt lịch khám'}</h2><p>Điền thông tin để chuẩn bị cho lượt khám.</p><form onSubmit={save}><label>Họ tên<input name="name" required defaultValue={modal.name}/></label><div className="form-row"><label>Ngày sinh<input name="birth" type="date" max={today} required defaultValue={modal.birth}/></label><label>Giới tính<select name="gender" defaultValue={modal.gender||'Nam'}><option>Nam</option><option>Nữ</option><option>Khác</option></select></label></div><label>Số điện thoại<input name="phone" type="tel" required pattern="[0-9]{10,11}" defaultValue={modal.phone}/></label><label>Chuyên khoa<select name="dept" required defaultValue={modal.dept||''}><option value="">Chọn chuyên khoa</option>{clinics.map(c=><option key={c}>{c}</option>)}</select></label><label>Ngày giờ khám<input type="datetime-local" name="date" min={today+'T00:00'} required defaultValue={modal.date}/></label>{error&&<p className="form-error" role="alert">{error}</p>}<button className="primary full">{modal.id?'Lưu lịch hẹn':'Xác nhận đặt lịch'}</button></form></>}</section></div>}
- </>;
+import { createVisit } from './workspace';
+
+export default function Appointments({ appointments, setAppointments, patients, setPatients, notify, request = 0 }) {
+  const [view, setView] = useState('list');
+  const [filter, setFilter] = useState('Tất cả');
+  const [search, setSearch] = useState('');
+  const [modal, setModal] = useState(null);
+  const [week, setWeek] = useState(0);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Sync live appointments from SQL Server database
+  const syncFromSql = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/appointments');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setAppointments(prev => {
+            const map = new Map(prev.map(a => [String(a.id), a]));
+            for (const row of data) {
+              const id = String(row.id);
+              const existing = map.get(id);
+              const date = row.day && row.time ? `${row.day}T${row.time}` : (row.date || today + 'T08:30');
+              const status = row.status === 'DA_DAT' || row.status === 'Đã đặt' ? 'Đã xác nhận' :
+                             row.status === 'DA_CHECK_IN' ? 'Đã tiếp đón' :
+                             row.status === 'DA_HUY' ? 'Đã hủy' : (row.status || 'Đã xác nhận');
+              map.set(id, {
+                id,
+                name: row.name || existing?.name || 'Khách đặt lịch',
+                phone: row.phone || existing?.phone || '',
+                birth: row.birth || existing?.birth || '1990-01-01',
+                gender: row.gender || existing?.gender || 'Nam',
+                dept: row.department || row.dept || existing?.dept || 'Nội tổng quát',
+                room: row.room || existing?.room || '',
+                date,
+                status: existing?.status || status
+              });
+            }
+            return Array.from(map.values());
+          });
+        }
+      }
+    } catch {
+      // Offline fallback
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    syncFromSql();
+  }, []);
+
+  useEffect(() => {
+    if (request) {
+      setError('');
+      setModal({});
+    }
+  }, [request]);
+
+  const monday = new Date(today + 'T12:00:00');
+  monday.setDate(monday.getDate() - (monday.getDay() + 6) % 7 + week * 7);
+  const dates = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(d.getDate() + i);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+
+  const filtered = appointments.filter(a => {
+    const query = search.trim().toLowerCase();
+    const matchSearch = !query || `${a.name} ${a.phone} ${a.dept} ${a.id}`.toLowerCase().includes(query);
+    const matchFilter = filter === 'Tất cả' ? a.status !== 'Đã hủy' : a.status === filter;
+    return matchSearch && matchFilter;
+  });
+
+  const open = value => {
+    setError('');
+    setModal(value);
+  };
+
+  async function save(e) {
+    e.preventDefault();
+    setError('');
+    const data = Object.fromEntries(new FormData(e.target));
+
+    if (appointments.some(a => a.id !== modal?.id && a.status !== 'Đã hủy' && a.phone === data.phone && a.date === data.date)) {
+      setError('Bệnh nhân đã có lịch hẹn vào thời điểm này.');
+      return;
+    }
+
+    if (modal?.id) {
+      setAppointments(list => list.map(a => a.id === modal.id ? { ...a, ...data } : a));
+      setModal(null);
+      notify('Đã cập nhật lịch hẹn');
+      return;
+    }
+
+    // Try persisting to SQL Server
+    try {
+      const day = data.date.slice(0, 10);
+      const time = data.date.slice(11);
+      const res = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: JSON.stringify({
+          name: data.name.trim(),
+          phone: data.phone.trim(),
+          birth: data.birth,
+          gender: data.gender || 'Nam',
+          dept: data.dept,
+          day,
+          time
+        })
+      });
+      const result = await res.json();
+      const newId = res.ok && result.id ? result.id : ('LH-' + Date.now().toString(36).toUpperCase());
+      const newAppt = {
+        ...data,
+        id: newId,
+        status: 'Đã xác nhận'
+      };
+      setAppointments(list => [newAppt, ...list]);
+      setModal(null);
+      notify('Đã đặt lịch hẹn khám thành công');
+      syncFromSql();
+    } catch {
+      const newAppt = {
+        ...data,
+        id: 'LH-' + Date.now().toString(36).toUpperCase(),
+        status: 'Đã xác nhận'
+      };
+      setAppointments(list => [newAppt, ...list]);
+      setModal(null);
+      notify('Đã đặt lịch hẹn khám');
+    }
+  }
+
+  function checkIn(a) {
+    const found = patients.find(p => p.phone === a.phone);
+    if (!found && !a.birth) {
+      notify('Bổ sung ngày sinh trước khi check-in');
+      setModal({ ...a, mode: undefined });
+      return;
+    }
+    if (found) {
+      createVisit({
+        patientId: found.id,
+        date: a.date.slice(0, 10),
+        time: a.date.slice(11),
+        department: a.dept,
+        doctor: found.doctor
+      });
+    } else {
+      const id = 'BN' + String(Math.max(0, ...patients.map(p => Number(p.id.slice(2)))) + 1).padStart(4, '0');
+      setPatients(list => [
+        ...list,
+        {
+          id,
+          name: a.name,
+          phone: a.phone,
+          birth: a.birth || '1990-01-01',
+          gender: a.gender || 'Khác',
+          insurance: '',
+          dept: a.dept,
+          doctor: 'Chờ phân công bác sĩ',
+          time: a.date.slice(11),
+          status: 'Chờ khám',
+          color: 'green'
+        }
+      ]);
+    }
+    setAppointments(list => list.map(x => x.id === a.id ? { ...x, status: 'Đã tiếp đón' } : x));
+    setModal(null);
+    notify('Đã check-in và chuyển bệnh nhân vào danh sách chờ khám');
+  }
+
+  const statusClass = s => (s === 'Đã hủy' ? 'danger' : s === 'Đã tiếp đón' ? 'teal' : 'amber');
+
+  const totalActive = appointments.filter(a => a.status !== 'Đã hủy').length;
+  const pendingCount = appointments.filter(a => a.status === 'Đã xác nhận').length;
+  const checkedInCount = appointments.filter(a => a.status === 'Đã tiếp đón').length;
+
+  return (
+    <>
+      <div className="business-summary">
+        <div>
+          <span><CalendarDays size={18} />Tổng lịch hẹn</span>
+          <b>{totalActive}</b>
+        </div>
+        <div>
+          <span><Clock3 size={18} />Chờ tiếp đón</span>
+          <b>{pendingCount}</b>
+        </div>
+        <div>
+          <span><Check size={18} />Đã tiếp đón</span>
+          <b>{checkedInCount}</b>
+        </div>
+      </div>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Lịch hẹn khám bệnh</h2>
+            <p>Đặt lịch, đổi lịch và check-in khi người bệnh đến khám.</p>
+          </div>
+          <div className="row-actions">
+            <div className="view-toggle">
+              <button
+                className={view === 'list' ? 'selected' : ''}
+                onClick={() => setView('list')}
+                aria-label="Xem danh sách"
+              >
+                <List size={16} />
+              </button>
+              <button
+                className={view === 'calendar' ? 'selected' : ''}
+                onClick={() => setView('calendar')}
+                aria-label="Xem lịch tuần"
+              >
+                <CalendarDays size={16} />
+              </button>
+            </div>
+            <button className="primary" onClick={() => open({})}>
+              <Plus size={15} />Đặt lịch
+            </button>
+          </div>
+        </div>
+
+        <div className="table-tools">
+          <label className="search">
+            <Search size={15} />
+            <input
+              aria-label="Tìm lịch hẹn"
+              placeholder="Họ tên, số điện thoại, mã lịch..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </label>
+          <select aria-label="Trạng thái lịch hẹn" value={filter} onChange={e => setFilter(e.target.value)}>
+            {['Tất cả', 'Đã xác nhận', 'Đã tiếp đón', 'Đã hủy'].map(s => <option key={s}>{s}</option>)}
+          </select>
+          <button className="icon-button" title="Làm mới từ CSDL" onClick={syncFromSql} disabled={loading}>
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+          </button>
+          {view === 'calendar' && (
+            <div className="calendar-controls">
+              <button className="icon-button" aria-label="Tuần trước" onClick={() => setWeek(week - 1)}>
+                <ChevronLeft size={16} />
+              </button>
+              <b>
+                {dates[0].slice(5)} — {dates[6].slice(5)}, {monday.getFullYear()}
+              </b>
+              <button className="icon-button" aria-label="Tuần sau" onClick={() => setWeek(week + 1)}>
+                <ChevronRight size={16} />
+              </button>
+              <button className="text-button" onClick={() => setWeek(0)}>
+                Tuần này
+              </button>
+            </div>
+          )}
+        </div>
+
+        {view === 'list' ? (
+          <>
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>NGƯỜI BỆNH</th>
+                    <th>CHUYÊN KHOA</th>
+                    <th>THỜI GIAN HẸN</th>
+                    <th>TRẠNG THÁI</th>
+                    <th>THAO TÁC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(a => (
+                    <tr key={a.id}>
+                      <td>
+                        <b>{a.name}</b>
+                        {a.phone && <small style={{ display: 'block', color: '#64748b' }}>{a.phone}</small>}
+                      </td>
+                      <td>
+                        <span>{a.dept}</span>
+                        {a.room && <small style={{ display: 'block', color: '#64748b' }}>{a.room}</small>}
+                      </td>
+                      <td>
+                        <b>{a.date ? a.date.replace('T', ' · ') : '—'}</b>
+                        <small style={{ display: 'block', color: '#64748b' }}>{a.id}</small>
+                      </td>
+                      <td>
+                        <span className={'badge ' + statusClass(a.status)}>{a.status}</span>
+                      </td>
+                      <td>
+                        <div className="row-actions">
+                          {a.status === 'Đã xác nhận' && (
+                            <>
+                              <button className="secondary" onClick={() => open({ ...a, mode: 'checkin' })}>
+                                Check-in
+                              </button>
+                              <button className="secondary" onClick={() => open(a)}>
+                                Đổi lịch
+                              </button>
+                              <button
+                                className="icon-button"
+                                aria-label={'Hủy lịch ' + a.name}
+                                onClick={() => open({ ...a, mode: 'cancel' })}
+                              >
+                                <X size={16} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {!filtered.length && (
+              <div className="business-empty">
+                <CalendarDays size={35} />
+                <h3>Chưa có lịch hẹn phù hợp</h3>
+                <p>Nhấn Đặt lịch để thêm lịch khám cho người bệnh.</p>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="week-scroll">
+            <div className="week-calendar">
+              {dates.map((date, i) => (
+                <div className={'calendar-day ' + (date === today ? 'is-today' : '')} key={date}>
+                  <header>
+                    <span>{['Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy', 'Chủ nhật'][i]}</span>
+                    <b>{date.slice(8)}</b>
+                  </header>
+                  <div>
+                    {filtered
+                      .filter(a => a.date.startsWith(date))
+                      .map(a => (
+                        <button
+                          className={'calendar-event ' + (a.status === 'Đã hủy' ? 'cancelled' : '')}
+                          key={a.id}
+                          onClick={() => open({ ...a, mode: a.status === 'Đã xác nhận' ? 'checkin' : 'view' })}
+                        >
+                          <b>
+                            {a.date.slice(11)} · {a.name}
+                          </b>
+                          <small>{a.dept}</small>
+                          <span>{a.status}</span>
+                        </button>
+                      ))}
+                    <button
+                      className="calendar-add"
+                      aria-label={'Thêm lịch ngày ' + date}
+                      onClick={() => open({ date: date + 'T09:00' })}
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {modal && (
+        <div className="modal-backdrop" onClick={() => setModal(null)}>
+          <section className="modal" role="dialog" aria-modal="true" aria-label="Lịch hẹn" onClick={e => e.stopPropagation()}>
+            <button className="close icon-button" aria-label="Đóng lịch hẹn" onClick={() => setModal(null)}>
+              <X size={20} />
+            </button>
+            {modal.mode === 'checkin' || modal.mode === 'view' ? (
+              <>
+                <h2>{modal.mode === 'checkin' ? 'Check-in người bệnh' : 'Thông tin lịch hẹn'}</h2>
+                <div className="detail-list">
+                  <div><span>Họ tên</span><b>{modal.name}</b></div>
+                  <div><span>Điện thoại</span><b>{modal.phone}</b></div>
+                  <div><span>Chuyên khoa</span><b>{modal.dept}</b></div>
+                  <div><span>Ngày giờ</span><b>{modal.date ? modal.date.replace('T', ' · ') : ''}</b></div>
+                  <div><span>Trạng thái</span><b>{modal.status}</b></div>
+                </div>
+                {modal.mode === 'checkin' && (
+                  <>
+                    <div className="inline-notice">
+                      Kiểm tra lại danh tính người bệnh trước khi chuyển vào danh sách chờ khám. Hồ sơ mới sẽ dùng ngày sinh và giới tính đã khai báo khi đặt lịch.
+                    </div>
+                    <button className="primary full" onClick={() => checkIn(modal)}>
+                      <Check size={16} />Xác nhận người bệnh đã đến
+                    </button>
+                  </>
+                )}
+              </>
+            ) : modal.mode === 'cancel' ? (
+              <>
+                <h2>Hủy lịch hẹn</h2>
+                <p>{modal.name} · {modal.date ? modal.date.replace('T', ' · ') : ''}</p>
+                <form
+                  onSubmit={e => {
+                    e.preventDefault();
+                    const reason = new FormData(e.target).get('reason');
+                    setAppointments(list => list.map(a => (a.id === modal.id ? { ...a, status: 'Đã hủy', cancelReason: reason } : a)));
+                    setModal(null);
+                    notify('Đã hủy lịch hẹn');
+                  }}
+                >
+                  <label>Lý do hủy<textarea name="reason" required /></label>
+                  <button className="primary full">Xác nhận hủy lịch</button>
+                </form>
+              </>
+            ) : (
+              <>
+                <h2>{modal.id ? 'Cập nhật lịch hẹn' : 'Đặt lịch khám'}</h2>
+                <p>Điền thông tin để chuẩn bị cho lượt khám.</p>
+                <form onSubmit={save}>
+                  <label>Họ tên<input name="name" required defaultValue={modal.name} placeholder="Họ tên bệnh nhân" /></label>
+                  <div className="form-row">
+                    <label>Ngày sinh<input name="birth" type="date" max={today} required defaultValue={modal.birth || '1990-01-01'} /></label>
+                    <label>Giới tính
+                      <select name="gender" defaultValue={modal.gender || 'Nam'}>
+                        <option>Nam</option>
+                        <option>Nữ</option>
+                        <option>Khác</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label>Số điện thoại<input name="phone" type="tel" required pattern="[0-9]{10,11}" defaultValue={modal.phone} placeholder="09xxxxxxxx" /></label>
+                  <label>Chuyên khoa
+                    <select name="dept" required defaultValue={modal.dept || ''}>
+                      <option value="">Chọn chuyên khoa</option>
+                      {clinics.map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </label>
+                  <label>Ngày giờ khám<input type="datetime-local" name="date" min={today + 'T00:00'} required defaultValue={modal.date || today + 'T08:30'} /></label>
+                  {error && <p className="form-error" role="alert">{error}</p>}
+                  <button className="primary full">{modal.id ? 'Lưu lịch hẹn' : 'Xác nhận đặt lịch'}</button>
+                </form>
+              </>
+            )}
+          </section>
+        </div>
+      )}
+    </>
+  );
 }
