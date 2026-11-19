@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -92,6 +93,42 @@ export function createApiMiddleware() {
           if (saved !== id) throw new Error('Unexpected SQL result');
           return respond(201, { id });
         }
+      }
+
+      // 5. ICD-10 Search
+      if (url === '/api/icd10' && req.method === 'GET') {
+        const fullUrl = new URL(req.url, 'http://127.0.0.1');
+        const q = fullUrl.searchParams.get('q') || '';
+        const list = await runSqlScript('scripts/sql-icd10-search.ps1', { q });
+        return respond(200, JSON.parse(list));
+      }
+
+      // 6. ICD-10 Excel Template Download
+      if (url === '/api/icd10/template' && req.method === 'GET') {
+        const filePath = path.join(root, 'database', 'Danh_Muc_ICD10_Chuan_Bo_Y_Te.xlsx');
+        if (fs.existsSync(filePath)) {
+          const fileData = fs.readFileSync(filePath);
+          res.writeHead(200, {
+            'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition': 'attachment; filename="Danh_Muc_ICD10_Chuan_Bo_Y_Te.xlsx"'
+          });
+          return res.end(fileData);
+        }
+        return respond(404, { error: 'Template file not found' });
+      }
+
+      // 7. ICD-10 Import from Excel / JSON
+      if (url === '/api/icd10/import' && req.method === 'POST') {
+        let body = '';
+        for await (const part of req) {
+          body += part;
+          if (body.length > 10000000) return respond(413, { error: 'Tệp dữ liệu quá lớn (tối đa 10MB).' });
+        }
+        const data = JSON.parse(body);
+        const rows = Array.isArray(data) ? data : (Array.isArray(data.rows) ? data.rows : (data.maICD ? [data] : []));
+        if (!rows.length) return respond(400, { error: 'Không có dữ liệu mã bệnh để nhập.' });
+        const result = await runSqlScript('scripts/sql-icd10-import.ps1', rows);
+        return respond(200, JSON.parse(result));
       }
 
       next();
