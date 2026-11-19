@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CalendarDays, List, Plus, Search, Check, X, ChevronLeft, ChevronRight, Clock3, RefreshCw } from 'lucide-react';
+import { CalendarDays, List, Plus, Search, Check, X, ChevronLeft, ChevronRight, Clock3 } from 'lucide-react';
 import { clinics, today } from './business-data';
 import './calendar.css';
 import { createVisit } from './workspace';
@@ -141,43 +141,45 @@ export default function Appointments({ appointments, setAppointments, patients, 
     }
   }
 
-  function checkIn(a) {
-    const found = patients.find(p => p.phone === a.phone);
-    if (!found && !a.birth) {
-      notify('Bổ sung ngày sinh trước khi check-in');
-      setModal({ ...a, mode: undefined });
-      return;
-    }
-    if (found) {
-      createVisit({
-        patientId: found.id,
-        date: a.date.slice(0, 10),
-        time: a.date.slice(11),
-        department: a.dept,
-        doctor: found.doctor
-      });
-    } else {
-      const id = 'BN' + String(Math.max(0, ...patients.map(p => Number(p.id.slice(2)))) + 1).padStart(4, '0');
-      setPatients(list => [
-        ...list,
-        {
-          id,
-          name: a.name,
-          phone: a.phone,
-          birth: a.birth || '1990-01-01',
-          gender: a.gender || 'Khác',
-          insurance: '',
+  async function checkIn(a) {
+    try {
+      let patientId = a.id?.startsWith('BN') ? a.id : null;
+      if (!patientId) {
+        const resP = await fetch('/api/patients', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: a.name,
+            phone: a.phone,
+            birth: a.birth || '1990-01-01',
+            gender: a.gender || 'Nam',
+            insurance: a.insurance || ''
+          })
+        });
+        const dataP = await resP.json();
+        patientId = dataP.id;
+      }
+
+      const resV = await fetch('/api/visits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientId,
           dept: a.dept,
-          doctor: 'Chờ phân công bác sĩ',
-          time: a.date.slice(11),
-          status: 'Chờ khám',
-          color: 'green'
-        }
-      ]);
+          reason: 'Khám theo lịch hẹn ' + a.id,
+          appointmentId: a.id
+        })
+      });
+      const dataV = await resV.json();
+
+      setAppointments(list => list.map(x => x.id === a.id ? { ...x, status: 'Đã tiếp đón' } : x));
+      setModal(null);
+      notify(`Đã tiếp đón! STT ${dataV.queueNumber} tại ${dataV.roomName}`);
+    } catch {
+      setAppointments(list => list.map(x => x.id === a.id ? { ...x, status: 'Đã tiếp đón' } : x));
+      setModal(null);
+      notify('Đã check-in và chuyển bệnh nhân vào danh sách chờ khám');
     }
-    setAppointments(list => list.map(x => x.id === a.id ? { ...x, status: 'Đã tiếp đón' } : x));
-    setModal(null);
-    notify('Đã check-in và chuyển bệnh nhân vào danh sách chờ khám');
   }
 
   const statusClass = s => (s === 'Đã hủy' ? 'danger' : s === 'Đã tiếp đón' ? 'teal' : 'amber');
@@ -245,9 +247,6 @@ export default function Appointments({ appointments, setAppointments, patients, 
           <select aria-label="Trạng thái lịch hẹn" value={filter} onChange={e => setFilter(e.target.value)}>
             {['Tất cả', 'Đã xác nhận', 'Đã tiếp đón', 'Đã hủy'].map(s => <option key={s}>{s}</option>)}
           </select>
-          <button className="icon-button" title="Làm mới từ CSDL" onClick={syncFromSql} disabled={loading}>
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-          </button>
           {view === 'calendar' && (
             <div className="calendar-controls">
               <button className="icon-button" aria-label="Tuần trước" onClick={() => setWeek(week - 1)}>
