@@ -1,3 +1,4 @@
+import SqlWorkspace from './SqlWorkspace.jsx';
 import React, {useState,useEffect,lazy,Suspense} from 'react';
 import {createRoot} from 'react-dom/client';
 import {Activity, LayoutDashboard, Users, Stethoscope, BedDouble, Pill, Wallet, CalendarDays, Search, Plus, ArrowUpRight, ArrowRight, Bell, X, ChevronLeft, ChevronRight, Check, Clock3, MoreHorizontal, Download, Menu, HeartPulse, FileText, ShieldCheck, LogOut, Building2} from 'lucide-react';
@@ -120,5 +121,5 @@ function App(){
  </section></div>}
  </div>
 }
-function Root(){const [route,setRoute]=useState(()=>location.hash.slice(1)||'trang-chu');const management=route==='management';const pages=['trang-chu','gioi-thieu','chuyen-khoa','bac-si','dat-lich'];const page=pages.includes(route)?route:'trang-chu';useEffect(()=>{const update=()=>setRoute(location.hash.slice(1)||'trang-chu');window.addEventListener('hashchange',update);return()=>window.removeEventListener('hashchange',update)},[]);useEffect(()=>{const titles={'trang-chu':'Chăm sóc sức khỏe gia đình','gioi-thieu':'Về MediCare','chuyen-khoa':'Chuyên khoa','bac-si':'Đội ngũ bác sĩ','dat-lich':'Đặt lịch khám'};document.title='MediCare · '+(management?'Quản lý bệnh viện':titles[page]);window.scrollTo(0,0)},[route]);return management?<App/>:<Home page={page} onManagement={()=>{location.hash='management'}}/>}
+function Root(){const [route,setRoute]=useState(()=>location.hash.slice(1)||'trang-chu');const management=route==='management';const pages=['trang-chu','gioi-thieu','chuyen-khoa','bac-si','dat-lich'];const page=pages.includes(route)?route:'trang-chu';useEffect(()=>{const update=()=>setRoute(location.hash.slice(1)||'trang-chu');window.addEventListener('hashchange',update);return()=>window.removeEventListener('hashchange',update)},[]);useEffect(()=>{const titles={'trang-chu':'Chăm sóc sức khỏe gia đình','gioi-thieu':'Về MediCare','chuyen-khoa':'Chuyên khoa','bac-si':'Đội ngũ bác sĩ','dat-lich':'Đặt lịch khám'};document.title='MediCare · '+(management?'Quản lý bệnh viện':titles[page]);window.scrollTo(0,0)},[route]);return management?(__MEDICARE_SQL_MODE__?<SqlWorkspace/>:<App/>):<Home page={page} onManagement={()=>{location.hash='management'}}/>}
 createRoot(document.getElementById('root')).render(<AppBoundary><WorkspaceBootstrap><Root/></WorkspaceBootstrap></AppBoundary>);
