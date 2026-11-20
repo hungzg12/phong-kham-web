@@ -1,14 +1,18 @@
-import React,{useMemo} from 'react';
+import StatDetails from './StatDetails';
+import React,{useMemo,useState} from 'react';
 import {Users,BedDouble,Activity,Wallet,CalendarDays,ArrowUpRight,ArrowRight} from 'lucide-react';
 import {useWorkspace,financialRows} from './workspace';
 import {today} from './business-data';
 const currency=value=>new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND',maximumFractionDigits:0}).format(value);
 export default function Dashboard({navigate,children,date,setDate}){
+ const [detail,setDetail]=useState(null);
+ const [patients]=useWorkspace('patients');
  const [visits]=useWorkspace('visits'),[admissions]=useWorkspace('admissions'),[beds]=useWorkspace('beds'),[db]=useWorkspace('business'),[updatedAt]=useWorkspace('updatedAt');
  const daily=visits.filter(v=>v.date===date&&v.status!=='Đã hủy');
  const previous=new Date(date+'T12:00:00Z');previous.setUTCDate(previous.getUTCDate()-1);const yesterday=previous.toISOString().slice(0,10);
  const before=visits.filter(v=>v.date===yesterday&&v.status!=='Đã hủy').length;
- const occupied=beds.filter(b=>b.patient).length,available=beds.filter(b=>!b.patient&&!b.cleaning).length;
+ const occupied=beds.filter(b=>b.patient).length,availableBeds=beds.filter(b=>!b.patient&&!b.cleaning);
+ const activeAdmissions=admissions.filter(a=>a.status==='Đang điều trị');
  const transactions=financialRows(db).filter(x=>x.date===date),income=transactions.reduce((s,x)=>s+x.signed,0);
  const chart=useMemo(()=>Array.from({length:7},(_,i)=>{const d=new Date(date+'T12:00:00Z');d.setUTCDate(d.getUTCDate()-6+i);const key=d.toISOString().slice(0,10);return {date:key,visits:visits.filter(v=>v.date===key&&v.status!=='Đã hủy').length,admissions:admissions.filter(a=>a.date===key&&a.status!=='Đã hủy').length}}),[date,visits,admissions]);
  const step=Math.max(1,Math.ceil(Math.max(1,...chart.flatMap(d=>[d.visits,d.admissions]))/4)),maximum=step*4;
@@ -17,11 +21,12 @@ export default function Dashboard({navigate,children,date,setDate}){
  let cursor=0;const stops=counts.map(([,n],i)=>{const start=cursor;cursor+=n/Math.max(1,daily.length)*100;return `${colors[i%colors.length]} ${start}% ${cursor}%`});
  return <><div className="data-filter"><CalendarDays size={17}/><label htmlFor="dashboard-date">Ngày thống kê</label><input id="dashboard-date" type="date" required value={date} onChange={e=>{if(e.target.value)setDate(e.target.value)}}/><button className="text-button" onClick={()=>setDate(today)}>Hôm nay</button><span>Số liệu từ dữ liệu đã lưu · Cập nhật {new Date(updatedAt).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})}</span></div>
  <section className="stats">{[
- {title:'Lượt khám trong ngày',value:daily.length,Icon:Users,cls:'teal',caption:(daily.length-before>=0?'+':'')+(daily.length-before)+' lượt so với ngày trước'},
- {title:'Đang điều trị nội trú',value:admissions.filter(a=>a.status==='Đang điều trị').length,Icon:BedDouble,cls:'blue',caption:'Tổng các đợt nội trú chưa ra viện'},
- {title:'Giường sẵn sàng',value:available,Icon:Activity,cls:'violet',caption:`${occupied}/${beds.length} giường đang sử dụng · ${beds.length?Math.round(occupied/beds.length*100):0}% công suất`},
- {title:'Thuần tiền mặt trong ngày',value:currency(income),Icon:Wallet,cls:'orange',caption:transactions.length+' giao dịch đã xác nhận',monetary:true}
- ].map(s=><article className="stat-card" key={s.title}><div className="stat-label">{s.title}<span className={'stat-icon '+s.cls}><s.Icon size={19}/></span></div><div className={'stat-value '+(s.monetary?'dashboard-money':'')}>{s.value}</div><p className="real-stat-note">{s.caption}</p></article>)}</section>
+ {title:'Lượt khám trong ngày',value:daily.length,rows:daily,Icon:Users,cls:'teal',caption:(daily.length-before>=0?'+':'')+(daily.length-before)+' lượt so với ngày trước'},
+ {title:'Đang điều trị nội trú',value:activeAdmissions.length,rows:activeAdmissions,Icon:BedDouble,cls:'blue',caption:'Tổng các đợt nội trú chưa ra viện'},
+ {title:'Giường sẵn sàng',value:availableBeds.length,rows:availableBeds,Icon:Activity,cls:'violet',caption:`${occupied}/${beds.length} giường đang sử dụng · ${beds.length?Math.round(occupied/beds.length*100):0}% công suất`},
+ {title:'Thuần tiền mặt trong ngày',value:currency(income),rows:transactions.map(row=>({...row,status:currency(row.signed)})),Icon:Wallet,cls:'orange',caption:transactions.length+' giao dịch đã xác nhận',monetary:true}
+ ].map(s=><button type="button" className="stat-card stat-card-button" key={s.title} onClick={()=>setDetail(s)}><span className="stat-label">{s.title}<span className={'stat-icon '+s.cls}><s.Icon size={19}/></span></span><span className={'stat-value '+(s.monetary?'dashboard-money':'')}>{s.value}</span><span className="real-stat-note">{s.caption} <ArrowRight size={14} aria-hidden="true"/></span></button>)}</section>
+ {detail&&<StatDetails title={detail.title} rows={detail.rows} patients={patients} onClose={()=>setDetail(null)}/>}
  <section className="charts"><article className="panel volume"><div className="panel-heading"><div><h2>Hoạt động khám bệnh</h2><p>7 ngày kết thúc vào {date.split('-').reverse().join('/')}</p></div><span className="select-label">Dữ liệu đã lưu <CalendarDays size={14}/></span></div><div className="chart-legend"><span><i className="legend-dot"/>Lượt khám ngoại trú</span><span><i className="legend-dot pale"/>Đợt nhập viện mới</span></div><div className="bar-chart" role="img" aria-label={'Lượt khám và nhập viện 7 ngày: '+chart.map(d=>d.date+': '+d.visits+' khám, '+d.admissions+' nhập viện').join('; ')}><div className="y-axis">{[4,3,2,1,0].map(n=><span key={n}>{step*n}</span>)}</div><div className="plot">{chart.map((v,i)=><div className={'bar-group '+(i===6?'today':'')} key={v.date}><div className="bar-pair"><div className="bar main-bar" style={{height:v.visits/maximum*100+'%',minHeight:v.visits?2:0}} title={v.visits+' lượt khám'}><span>{v.visits}</span></div><div className="bar secondary-bar" style={{height:v.admissions/maximum*100+'%',minHeight:v.admissions?2:0}} title={v.admissions+' đợt nhập viện'}/></div><label>{v.date.slice(8)+'/'+v.date.slice(5,7)}</label></div>)}</div></div><div className="chart-summary"><span>{chart.reduce((s,d)=>s+d.visits,0)} lượt khám · {chart.reduce((s,d)=>s+d.admissions,0)} đợt nhập viện trong khoảng</span><button className="text-button" onClick={()=>navigate('history')}>Xem lịch sử <ArrowUpRight size={14}/></button></div></article>
  <article className="panel distribution"><div className="panel-heading"><div><h2>Phân bổ chuyên khoa</h2><p>Lượt khám không bao gồm lượt đã hủy</p></div><Activity size={18} color="#81908d"/></div><div className="donut" style={{background:stops.length?`conic-gradient(${stops.join(',')})`:'#edf2ee'}}><div><b>{daily.length}</b><span>Lượt khám trong ngày</span></div></div><div className="department-legend">{counts.map(([name,n],i)=><div key={name}><span><i style={{background:colors[i%colors.length]}}/>{name}</span><b>{n}<small>{Math.round(n/daily.length*100)}%</small></b></div>)}{!counts.length&&<div>Chưa có lượt khám trong ngày đã chọn.</div>}</div></article></section>
  <div className="panel-heading" style={{paddingLeft:0}}><div><h2>Danh sách người bệnh</h2><p>Trạng thái lượt khám gần nhất của từng người bệnh</p></div><button className="text-button" onClick={()=>navigate('history')}>Lịch sử từng lượt <ArrowRight size={14}/></button></div>{children}</>;
