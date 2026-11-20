@@ -209,8 +209,14 @@ OUTPUT inserted.soThuTuHienTai;
             $cmdCounter.Parameters.AddWithValue("@today", $todayStr) | Out-Null
             $stt = [int]$cmdCounter.ExecuteScalar()
 
-            # Generate maLuotKham: LK-yyMMdd-STT
-            $maLuotKham = "LK-" + (Get-Date).ToString("yyMMdd") + "-" + $stt.ToString("000")
+            # Generate globally unique maLuotKham: LK-yyMMdd-XXXX
+            $datePrefix = (Get-Date).ToString("yyMMdd")
+            $cmdSeq = $db.CreateCommand()
+            $cmdSeq.Transaction = $tx
+            $cmdSeq.CommandText = "SELECT COUNT(*) + 1 FROM dbo.LuotKham WHERE maLuotKham LIKE 'LK-' + @pfx + '-%'"
+            $cmdSeq.Parameters.AddWithValue("@pfx", $datePrefix) | Out-Null
+            $seqVal = [int]$cmdSeq.ExecuteScalar()
+            $maLuotKham = "LK-" + $datePrefix + "-" + $seqVal.ToString("0000")
             $valAppt = if ($appointmentId) { $appointmentId } else { [DBNull]::Value }
 
             # Insert LuotKham (ngayKham is a computed column from thoiDiemCapSo)

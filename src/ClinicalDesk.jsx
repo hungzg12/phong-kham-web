@@ -1,6 +1,7 @@
 import React,{useState,useEffect,useRef} from 'react';
 import {Search,Stethoscope,Save,Plus,Printer,LockKeyhole,ArrowRight,X,Check,FileText,Trash2,BookOpen} from 'lucide-react';
 import {useWorkspace,getWorkspace,transact,id,audit,syncLatestPatient} from './workspace';
+import {hisApi} from './api';
 import {actorRoles} from './roles';
 import {today,clinics} from './business-data';
 import {PatientHistory} from './History';
@@ -55,7 +56,54 @@ function EpisodeDesk({episode,patient,role,notify,navigate,inpatient,dirtyRef}){
  useEffect(()=>{const unload=e=>{if(dirty){e.preventDefault();e.returnValue=''}};const leave=e=>{if(!dirty||!e.target.closest('.sidebar nav button,.integrated-operation-tabs button,.breadcrumb a,.profile button'))return;if(!window.confirm('Có nội dung chưa lưu trong bàn khám. Bạn muốn rời màn hình?')){e.preventDefault();e.stopPropagation()}else{setDirty(false);dirtyRef.current=false}};window.addEventListener('beforeunload',unload);document.addEventListener('click',leave,true);return()=>{window.removeEventListener('beforeunload',unload);document.removeEventListener('click',leave,true)}},[dirty]);
  function change(key,value){setNote(n=>({...n,[key]:value}));setDirty(true);setError('')}
  function fresh(nextSheet=sheetId){const e=(inpatient?getWorkspace().admissions:getWorkspace().visits).find(v=>v.id===episode.id);const r=inpatient?getWorkspace().business.careSheets?.find(s=>s.id===nextSheet):e;setNote({...r?.note,vitals:{...r?.note?.vitals}});setRevision(r?.revision||0);setDirty(false);setError('')}
- function save(lock=false){try{saveDeskNote(context,note,revision,lock);if(inpatient&&!sheetId){const saved=getWorkspace().business.careSheets.find(s=>s.episodeId===episode.id);setSheetId(saved.id);setNewSheet(false);fresh(saved.id)}else fresh();notify(lock?'Đã hoàn tất và khóa phiếu demo':'Đã lưu nháp theo đúng hồ sơ')}catch(e){setError(e.message)}}
+ async function save(lock=false){
+  try{
+   saveDeskNote(context,note,revision,lock);
+   if(inpatient&&!sheetId){
+    const saved=getWorkspace().business.careSheets.find(s=>s.episodeId===episode.id);
+    setSheetId(saved.id);
+    setNewSheet(false);
+    fresh(saved.id);
+   }else fresh();
+
+   if(!inpatient && episode.id){
+    if(note.vitals && Object.values(note.vitals).some(v=>v!=='')){
+     const bpParts = String(note.vitals.pressure||'').split('/');
+     hisApi.saveVitals({
+      visitId: episode.id,
+      pulse: note.vitals.pulse ? Number(note.vitals.pulse) : null,
+      temperature: note.vitals.temperature ? Number(note.vitals.temperature) : null,
+      bpSystolic: bpParts[0] ? parseInt(bpParts[0], 10) : null,
+      bpDiastolic: bpParts[1] ? parseInt(bpParts[1], 10) : null,
+      respiration: note.vitals.respiration ? Number(note.vitals.respiration) : null,
+      spo2: note.vitals.spo2 ? Number(note.vitals.spo2) : null,
+      height: note.vitals.height ? Number(note.vitals.height) : null,
+      weight: note.vitals.weight ? Number(note.vitals.weight) : null
+     }).catch(e=>console.warn('SQL saveVitals error:', e));
+    }
+
+    await hisApi.saveExamNote({
+      visitId: episode.id,
+      symptoms: note.symptoms || '',
+      history: note.history || '',
+      examination: note.examination || '',
+      diagnosis: note.diagnosis || '',
+      icd: note.icd || '',
+      plan: note.plan || '',
+      advice: note.advice || '',
+      outcome: note.outcome || 'Điều trị ngoại trú'
+    });
+
+    if(lock){
+      await hisApi.lockRecord(episode.id, 'NV-BS01');
+    }
+   }
+
+   notify(lock ? 'Đã hoàn tất và khóa hồ sơ vào CSDL SQL Server' : 'Đã lưu hồ sơ vào CSDL SQL Server');
+  }catch(e){
+   setError(e.message);
+  }
+ }
  useEffect(()=>{function shortcut(e){if(e.key==='F2'&&!action&&canWrite){e.preventDefault();save(false)}}window.addEventListener('keydown',shortcut);return()=>window.removeEventListener('keydown',shortcut)},[note,revision,action,canWrite,sheetId]);
  function run(fn,message){setError('');try{fn();notify(message);return true}catch(e){setError(e.message);return false}}
  function switchSheet(value){if(dirty&&!window.confirm('Bỏ thay đổi chưa lưu để chuyển tờ điều trị?'))return;setSheetId(value);setNewSheet(!value);fresh(value)}

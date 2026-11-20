@@ -20,7 +20,7 @@ export function WorkspaceBootstrap({children}){
  }
  useEffect(load,[]);
  if(error)return <div className="recovery-page" role="alert"><AlertCircle size={40}/><h1>Không mở được dữ liệu cục bộ</h1><p>{error}</p><small>Ứng dụng không tự xóa hay ghi đè dữ liệu lỗi.</small><div style={{display:'flex',gap:10,marginTop:16,flexWrap:'wrap'}}><button className="primary" onClick={resetAndReload}><RefreshCw size={16}/>Khôi phục dữ liệu ban đầu</button><button className="secondary" onClick={downloadBackup}><Download size={16}/>Tải bản dữ liệu gốc</button><button className="secondary" onClick={load}><RefreshCw size={16}/>Thử lại</button></div></div>;
- return ready?<>{children}<StorageNotice/></>:<div className="startup-loading"><ScreenSkeleton label="Đang đọc dữ liệu trên trình duyệt…"/></div>
+ return ready?<>{children}<StorageNotice/></>:<div className="startup-loading"><ScreenSkeleton label="Đang đồng bộ cơ sở dữ liệu SQL Server (QuanLyBenhVien)…"/></div>
 }
 export class AppBoundary extends React.Component{state={error:null};static getDerivedStateFromError(error){return {error}}render(){if(this.state.error)return <div className="recovery-page" role="alert"><AlertCircle size={40}/><h1>Không hiển thị được màn hình</h1><p>Dữ liệu đã lưu vẫn được giữ trên trình duyệt. Bạn có thể tải lại để thử mở lại giao diện.</p><button className="primary" onClick={()=>location.reload()}><RefreshCw size={16}/>Tải lại giao diện</button></div>;return this.props.children}}
 export function attempt(fn,setError){try{return fn()}catch(e){setError(e.message||'Không thực hiện được thao tác. Vui lòng thử lại.');return null}}

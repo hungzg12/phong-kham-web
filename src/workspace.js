@@ -1,73 +1,550 @@
 import {useSyncExternalStore} from 'react';
 import {initialPatients,initialStock} from './fixtures.js';
 import {seeds,today} from './business-data.js';
+import {hisApi} from './api.js';
 
-export const DATA_KEY='medicare-workspace-v4';
+export const DATA_KEY='medicare-sqlserver-live';
 let state=null,issue=null;
 const subscribers=new Set();
 const alertSubscribers=new Set();
+
 export const id=prefix=>prefix+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,6).toUpperCase();
 const copy=value=>structuredClone(value);
+
 export function reportIssue(message){issue=message;alertSubscribers.forEach(fn=>fn())}
 export function clearIssue(){issue=null;alertSubscribers.forEach(fn=>fn())}
 export function useStorageIssue(){return useSyncExternalStore(fn=>{alertSubscribers.add(fn);return()=>alertSubscribers.delete(fn)},()=>issue)}
-function legacy(key,fallback){const raw=localStorage.getItem(key);if(raw===null)return copy(fallback);try{return JSON.parse(raw)}catch{throw new Error('Không đọc được dữ liệu cũ ở '+key+'. Bản gốc vẫn được giữ nguyên.')}}
-function visitFor(patient,index,note){return {id:'LK-'+String(index+1).padStart(5,'0'),patientId:patient.id,kind:'Ngoại trú',date:today,time:patient.time||'08:00',department:patient.dept,doctor:patient.doctor,status:patient.status||'Chờ khám',note:note||null,createdAt:today+'T'+(patient.time||'08:00'),migrated:true}}
-export function initializeWorkspace(){
- if(state)return state;
- const raw=localStorage.getItem(DATA_KEY)||localStorage.getItem('medicare-workspace-v3');
- if(raw!==null){
-  try{
-   const parsed=JSON.parse(raw);
-   if(typeof parsed==='object'&&parsed!==null){
-    if(!Array.isArray(parsed.patients))parsed.patients=copy(initialPatients);
-    if(!Array.isArray(parsed.visits))parsed.visits=[];
-    if(!Array.isArray(parsed.inventory))parsed.inventory=[];
-    if(!Array.isArray(parsed.beds))parsed.beds=Array.from({length:18},(_,i)=>({id:i+1,patient:i<5?parsed.patients[i]?.id||null:null,cleaning:i===14}));
-    if(!Array.isArray(parsed.admissions))parsed.admissions=[];
-    if(!parsed.business||typeof parsed.business!=='object')parsed.business=copy(seeds);
-    if(!Array.isArray(parsed.ledger))parsed.ledger=[];
-    if(!Array.isArray(parsed.appointments))parsed.appointments=[];
-    if(!Array.isArray(parsed.stock))parsed.stock=copy(initialStock);
-    if(!parsed.notes)parsed.notes={};
-    parsed.version=4;
-    state=parsed;
-    persist(state);
-    return state;
-   }
-  }catch{
-   // Parse error: fall through to clean initial state below
-  }
- }
- const patients=legacy('medicare-patients-v1',initialPatients),stock=legacy('medicare-stock-v1',initialStock),notes=legacy('medicare-notes-v1',{});
- const beds=legacy('medicare-beds-v2',Array.from({length:18},(_,i)=>({id:i+1,patient:i<5?patients[i]?.id||null:null,cleaning:i===14})));
- const visits=patients.map((p,i)=>visitFor(p,i,notes[p.id]));
- const admissions=[];
- for(const bed of beds){if(!bed.patient)continue;const existing=admissions.find(a=>a.patientId===bed.patient&&a.status==='Đang điều trị');if(existing){bed.patient=null;continue}const patient=patients.find(p=>p.id===bed.patient);if(!patient){bed.patient=null;continue}const adm={id:'DTNT-'+String(admissions.length+1).padStart(5,'0'),patientId:bed.patient,visitId:visits.find(v=>v.patientId===bed.patient)?.id,date:today,time:'08:00',department:patient.dept,doctor:patient.doctor,status:'Đang điều trị',reason:'Hồ sơ nội trú được chuyển từ dữ liệu giường hiện có',bedHistory:[{bedId:bed.id,from:today+'T08:00',to:null}],createdAt:today+'T08:00',migrated:true};admissions.push(adm);bed.admissionId=adm.id}
- const business={...copy(seeds),...legacy('medicare-business-v2',{})};
- const contextTabs=['vitals','labs','prescriptions','referrals','rounds','consultations','discharges','archives','advances','settlements'];
- for(const tab of contextTabs){business[tab]=(business[tab]||[]).map(r=>({...r,episodeId:r.episodeId||(['rounds','consultations','discharges'].includes(tab)?admissions.find(a=>a.patientId===r.patient)?.id:null)||visits.find(v=>v.patientId===r.patient)?.id,date:r.date||today}))}
- const inventory=stock.map(s=>({id:'LOT-'+s.id,medicineId:s.id,warehouseId:'KHO001',lot:s.lot||'LO-CU',expiry:s.expiry||'',qty:Number(s.qty)||0,receivedAt:today}));
- for(const row of business.counts||[]){row.lotId=row.lotId||inventory.find(l=>l.medicineId===row.medicine&&l.warehouseId===row.warehouse)?.id}
- const value={version:4,profiles:{},patients,stock,notes,beds,visits,admissions,inventory,business,ledger:[],appointments:legacy('medicare-appointments-v1',[]),paid:legacy('medicare-paid-v1',[]),migratedAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
- persist(value);state=value;return state;
-}
-function persist(next){try{localStorage.setItem(DATA_KEY,JSON.stringify(next))}catch{const error=new Error('Không lưu được dữ liệu trên trình duyệt. Có thể bộ nhớ đã đầy hoặc quyền lưu trữ đang bị chặn. Thay đổi này chưa được áp dụng.');error.name='LocalDataError';reportIssue(error.message);throw error}}
-export function getWorkspace(){return initializeWorkspace()}
-export function transact(fn){const next=copy(getWorkspace());fn(next);next.stock=next.stock.map(s=>({...s,qty:next.inventory.filter(l=>l.medicineId===s.id).reduce((total,l)=>total+Number(l.qty),0)}));next.updatedAt=new Date().toISOString();persist(next);state=next;clearIssue();subscribers.forEach(fn=>fn());return next}
-export function useWorkspace(key){const value=useSyncExternalStore(fn=>{subscribers.add(fn);return()=>subscribers.delete(fn)},()=>getWorkspace()[key]);return [value,update=>transact(d=>{const old=d[key];d[key]=typeof update==='function'?update(old):update;if(key==='patients'){for(const patient of d.patients){const previous=old.find(p=>p.id===patient.id);if(!previous){d.visits.unshift({...visitFor(patient,0),id:id('LK'),migrated:false});continue}if(['status','dept','doctor'].some(k=>patient[k]!==previous[k])){const visit=d.visits.filter(v=>v.patientId===patient.id).sort((a,b)=>(b.date+'T'+b.time).localeCompare(a.date+'T'+a.time))[0];if(visit){visit.status=patient.status;visit.department=patient.dept;visit.doctor=patient.doctor}}}}if(key==='beds')syncBeds(d,old)})]}
-export function syncBeds(d,old){for(const bed of d.beds){const previous=old.find(x=>x.id===bed.id);if(bed.patient&&previous?.patient!==bed.patient){const existing=d.admissions.find(a=>a.patientId===bed.patient&&a.status==='Đang điều trị');if(existing){bed.admissionId=existing.id;existing.bedHistory.filter(x=>!x.to).forEach(x=>x.to=new Date().toISOString());existing.bedHistory.push({bedId:bed.id,from:new Date().toISOString(),to:null})}else{const p=d.patients.find(x=>x.id===bed.patient);const admission={id:id('DTNT'),patientId:bed.patient,visitId:d.visits.find(v=>v.patientId===bed.patient)?.id,date:today,time:'09:00',department:p?.dept||'Nội tổng quát',doctor:p?.doctor||'',status:'Đang điều trị',bedHistory:[{bedId:bed.id,from:new Date().toISOString(),to:null}],createdAt:new Date().toISOString()};d.admissions.unshift(admission);bed.admissionId=admission.id}}if(!bed.patient&&previous?.patient){const a=d.admissions.find(x=>x.id===previous.admissionId);if(a&&!d.beds.some(b=>b.patient===previous.patient)){a.status='Đã ra viện';a.dischargedAt=new Date().toISOString();a.bedHistory.filter(x=>!x.to).forEach(x=>x.to=a.dischargedAt)}delete bed.admissionId}}}
-export function episodeOptions(data,patientId){return [...data.visits.filter(v=>v.patientId===patientId).map(v=>({...v,label:`${v.id} · ${v.date} ${v.time} · ${v.department} · Ngoại trú`})),...data.admissions.filter(a=>a.patientId===patientId).map(a=>({...a,label:`${a.id} · ${a.date} · ${a.department} · Nội trú`}))].sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id))}
-export function syncLatestPatient(d,patientId){const p=d.patients.find(x=>x.id===patientId),latest=d.visits.filter(v=>v.patientId===patientId).sort((a,b)=>(b.date+'T'+b.time+b.createdAt).localeCompare(a.date+'T'+a.time+a.createdAt))[0];if(p&&latest){Object.assign(p,{dept:latest.department,doctor:latest.doctor,time:latest.time,status:latest.status});if(latest.note)d.notes[patientId]=latest.note}}
-export function createVisit(values){let created;transact(d=>{const p=d.patients.find(x=>x.id===values.patientId);if(!p)throw new Error('Không tìm thấy bệnh nhân.');created={...values,id:id('LK'),kind:'Ngoại trú',status:'Chờ khám',note:null,createdAt:new Date().toISOString()};d.visits.unshift(created);syncLatestPatient(d,p.id)});return created}
-export function saveVisitNote(visitId,note){transact(d=>{const visit=d.visits.find(v=>v.id===visitId);if(!visit)throw new Error('Không tìm thấy lượt khám.');if(visit.status==='Đã hủy')throw new Error('Lượt khám đã hủy không thể ghi phiếu khám.');if(visit.locked)throw new Error('Phiếu đã khóa. Mở đính chính tại bàn khám trước khi sửa.');if(visit.note)visit.noteRevisions=[...(visit.noteRevisions||[]),visit.note];visit.note={...note,savedAt:new Date().toISOString()};visit.revision=(visit.revision||0)+1;visit.status=note.outcome==='Chờ kết quả CLS'?'Chờ kết quả':'Hoàn tất';const latest=d.visits.filter(v=>v.patientId===visit.patientId).sort((a,b)=>(b.date+'T'+b.time).localeCompare(a.date+'T'+a.time))[0];if(latest?.id===visit.id){d.notes[visit.patientId]=visit.note;const p=d.patients.find(p=>p.id===visit.patientId);p.status=visit.status}})}
-export function audit(d,event,actor='Phiên demo'){d.business.audit=[{id:id('LOG'),time:new Date().toLocaleString('vi-VN'),actor,event},...(d.business.audit||[])].slice(0,300)}
-export function financialRows(db){return [...db.settlements.filter(x=>['Đã thanh toán','Đã hoàn tiền'].includes(x.status)).map(x=>({id:x.id,date:x.settledDate||x.date,patient:x.patient,signed:(x.received||0)-(x.refund||0),kind:x.balance<0?'Hoàn quyết toán':'Thu quyết toán'})),...db.advances.filter(x=>x.status==='Đã xác nhận').map(x=>({id:x.id,date:x.confirmedDate||x.date,patient:x.patient,signed:(x.kind==='Hoàn tiền'?-1:1)*Number(x.amount),kind:x.kind}))]}
-export function planFEFO(inventory,requests,warehouseId,asOf=today){if(!warehouseId)throw new Error('Chọn kho xuất trước khi xác nhận.');const pool=copy(inventory),allocations=[];for(const request of requests){let remaining=Number(request.quantity);if(!Number.isInteger(remaining)||remaining<1)throw new Error('Số lượng xuất phải là số nguyên dương.');const available=pool.filter(l=>l.medicineId===request.medicine&&l.warehouseId===warehouseId&&l.expiry>=asOf&&l.qty>0).sort((a,b)=>a.expiry.localeCompare(b.expiry)||a.receivedAt.localeCompare(b.receivedAt)||a.id.localeCompare(b.id));for(const lot of available){const quantity=Math.min(remaining,lot.qty);if(quantity){allocations.push({lotId:lot.id,medicineId:lot.medicineId,warehouseId,lot:lot.lot,expiry:lot.expiry,quantity});remaining-=quantity;lot.qty-=quantity}if(!remaining)break}if(remaining)throw new Error('Không đủ tồn còn hạn trong kho đã chọn cho '+request.medicine+'. Còn thiếu '+remaining+'.')}return allocations}
-function consume(d,allocations,event){for(const a of allocations){const lot=d.inventory.find(l=>l.id===a.lotId);if(!lot||lot.qty<a.quantity)throw new Error('Tồn kho đã thay đổi. Vui lòng kiểm tra lại.');lot.qty-=a.quantity;d.ledger.unshift({id:id('NK'),date:today,time:new Date().toISOString(),medicineId:a.medicineId,warehouseId:a.warehouseId,lot:a.lot,delta:-a.quantity,event})}}
-export function applyClinicalStock(tab,rowId,warehouse,actor,details={}){transact(d=>{const row=d.business[tab].find(x=>x.id===rowId);if(!row)throw new Error('Chứng từ không tồn tại.');const dispensing=tab==='prescriptions';if(row.status!==(dispensing?'Đã xác nhận':'Chờ thực hiện'))throw new Error('Chứng từ đã được xử lý hoặc trạng thái đã thay đổi.');const requests=dispensing?row.lines:row.kind==='Dùng thuốc'?[{medicine:row.medicine,quantity:row.quantity}]:[];const allocations=requests.length?planFEFO(d.inventory,requests,warehouse):[];consume(d,allocations,row.id);Object.assign(row,details,{status:dispensing?'Đã cấp phát':'Đã thực hiện',allocations,warehouse,stockRecorded:allocations.length>0,reviewer:actor,updatedAt:new Date().toISOString()});audit(d,(dispensing?'Cấp phát thuốc ':'Thực hiện y lệnh ')+row.id,actor)})}
-export function approveInventoryRow(tab,rowId,actor){transact(d=>{const row=d.business[tab].find(x=>x.id===rowId);if(!row||!['Chờ duyệt','Chờ phê duyệt'].includes(row.status))throw new Error('Chứng từ đã được xử lý.');if(tab==='counts'){const lot=d.inventory.find(l=>l.id===row.lotId&&l.warehouseId===row.warehouse&&l.medicineId===row.medicine);if(!lot)throw new Error('Không tìm thấy lô trong kho đã chọn.');if(lot.qty!==row.expected)throw new Error('Tồn lô đã thay đổi sau kiểm kê. Sửa biên bản để lấy số liệu mới.');const delta=Number(row.actual)-lot.qty;lot.qty=Number(row.actual);d.ledger.unshift({id:id('NK'),date:today,time:new Date().toISOString(),medicineId:lot.medicineId,warehouseId:lot.warehouseId,lot:lot.lot,delta,event:row.id});row.status='Đã điều chỉnh'}else{const quantity=Number(row.quantity);if(!Number.isInteger(quantity)||quantity<1)throw new Error('Số lượng phải là số nguyên dương.');if(['Xuất kho','Điều chuyển'].includes(row.kind)){if(row.kind==='Điều chuyển'&&(!row.destination||row.destination===row.warehouse))throw new Error('Chọn kho đích khác kho nguồn.');row.allocations=planFEFO(d.inventory,[{medicine:row.medicine,quantity}],row.warehouse);consume(d,row.allocations,row.id);if(row.kind==='Điều chuyển')for(const a of row.allocations)addLot(d,{medicineId:row.medicine,warehouseId:row.destination,lot:a.lot,expiry:a.expiry,qty:a.quantity},row.id)}else{if(!row.lot||!row.expiry)throw new Error('Phiếu nhập / hoàn trả cần số lô và hạn dùng.');if(row.expiry<today)throw new Error('Không nhập lô đã hết hạn vào tồn khả dụng.');addLot(d,{medicineId:row.medicine,warehouseId:row.warehouse,lot:row.lot,expiry:row.expiry,qty:quantity},row.id)}row.status='Đã ghi sổ'}row.reviewer=actor;row.updatedAt=new Date().toISOString();audit(d,'Duyệt '+row.id,actor)})}
-export function addLot(d,lot,event){let existing=d.inventory.find(x=>x.medicineId===lot.medicineId&&x.warehouseId===lot.warehouseId&&x.lot===lot.lot);if(existing&&existing.expiry!==lot.expiry)throw new Error('Cùng mã hàng và số lô phải có cùng hạn dùng.');if(existing)existing.qty+=Number(lot.qty);else d.inventory.push({...lot,qty:Number(lot.qty),id:id('LOT'),receivedAt:today});d.ledger.unshift({id:id('NK'),date:today,time:new Date().toISOString(),medicineId:lot.medicineId,warehouseId:lot.warehouseId,lot:lot.lot,delta:Number(lot.qty),event})}
-export function dischargeAdmission(admissionId,actor,dischargeId){transact(d=>{const admission=d.admissions.find(a=>a.id===admissionId);if(!admission||admission.status!=='Đang điều trị')throw new Error('Đợt điều trị không còn hoạt động.');if(d.business.rounds.some(r=>r.episodeId===admissionId&&r.status==='Chờ thực hiện'))throw new Error('Đợt điều trị còn y lệnh chưa thực hiện. Hãy hoàn tất hoặc hủy trước khi ra viện.');admission.status='Đã ra viện';admission.dischargedAt=new Date().toISOString();admission.bedHistory.filter(h=>!h.to).forEach(h=>h.to=admission.dischargedAt);for(const bed of d.beds.filter(b=>b.admissionId===admissionId)){bed.patient=null;bed.cleaning=true;delete bed.admissionId}if(dischargeId){const row=d.business.discharges.find(r=>r.id===dischargeId);if(row){row.status='Đã ra viện';row.reviewer=actor;admission.summary=row.summary}}audit(d,'Hoàn tất đợt nội trú '+admissionId,actor)})}
 
-if(typeof window!=='undefined')window.addEventListener('storage',event=>{if(event.key!==DATA_KEY)return;if(!event.newValue){reportIssue('Dữ liệu đã bị xóa ở tab khác. Tải lại giao diện trước khi tiếp tục.');return}try{const next=JSON.parse(event.newValue);if(![3,4].includes(next.version)||!Array.isArray(next.visits)||!Array.isArray(next.inventory))throw new Error();state=next;subscribers.forEach(fn=>fn())}catch{reportIssue('Dữ liệu thay đổi ở tab khác nhưng không đọc được. Phiên hiện tại vẫn giữ dữ liệu đang hiển thị.')}});
+function visitFor(patient,index,note){
+  return {
+    id:'LK-'+String(index+1).padStart(5,'0'),
+    patientId:patient.id,
+    kind:'Ngoại trú',
+    date:today,
+    time:patient.time||'08:00',
+    department:patient.dept||'Nội tổng quát',
+    doctor:patient.doctor||'BS. Trần Minh Anh',
+    status:patient.status||'Chờ khám',
+    note:note||null,
+    createdAt:today+'T'+(patient.time||'08:00'),
+    migrated:true
+  };
+}
+
+export function initializeWorkspace(){
+  if(state) return state;
+
+  // Clear legacy local storage to ensure 100% SQL Server freshness
+  if(typeof window!=='undefined'){
+    try{
+      localStorage.removeItem('medicare-workspace-v3');
+      localStorage.removeItem('medicare-workspace-v4');
+      localStorage.removeItem('medicare-patients-v1');
+      localStorage.removeItem('medicare-stock-v1');
+    }catch{}
+  }
+
+  const patients=copy(initialPatients);
+  const stock=copy(initialStock);
+  const notes={};
+  const beds=Array.from({length:8},(_,i)=>({
+    id:`G_NOI_301_0${i+1}`,
+    bedNumber:`301-0${i+1}`,
+    roomName:'Buồng 301 - Nội tổng quát',
+    department:'Nội tổng quát',
+    dailyRate:250000,
+    patient:null,
+    admissionId:null,
+    cleaning:false,
+    status:'Sẵn sàng'
+  }));
+
+  const visits=patients.map((p,i)=>visitFor(p,i,notes[p.id]));
+  const admissions=[];
+  const business=copy(seeds);
+  const inventory=stock.map(s=>({
+    id:'LOT-'+s.id,
+    medicineId:s.id,
+    warehouseId:'KHO_NGOAI_TRU',
+    lot:s.lot||'LO-SQL',
+    expiry:s.expiry||'2028-12-31',
+    qty:Number(s.qty)||100,
+    receivedAt:today
+  }));
+
+  state={
+    version:5,
+    source:'SQL Server (QuanLyBenhVien)',
+    profiles:{},
+    patients,
+    stock,
+    notes,
+    beds,
+    visits,
+    admissions,
+    inventory,
+    business,
+    ledger:[],
+    appointments:[],
+    paid:[],
+    migratedAt:new Date().toISOString(),
+    updatedAt:new Date().toISOString()
+  };
+
+  // Asynchronously synchronize with Microsoft SQL Server
+  syncWithSqlServer();
+
+  return state;
+}
+
+export async function syncWithSqlServer(){
+  try{
+    const [pRes,qRes,bRes,mRes,sRes,batchRes,aRes]=await Promise.allSettled([
+      hisApi.getPatients(),
+      hisApi.getQueue(),
+      hisApi.getBeds(),
+      hisApi.getMedicines(),
+      hisApi.getServices(),
+      hisApi.getPharmacyBatches(),
+      hisApi.getAppointments()
+    ]);
+
+    if(!state) return;
+    let hasChanges=false;
+
+    // 1. Patients from SQL Server
+    if(pRes.status==='fulfilled'&&Array.isArray(pRes.value)&&pRes.value.length){
+      const colors=['pink','blue','purple','orange','green'];
+      const sqlPatients=pRes.value.map((p,idx)=>({
+        id:p.id,
+        name:p.name,
+        birth:p.birth,
+        gender:p.gender,
+        phone:p.phone,
+        cccd:p.cccd,
+        insurance:p.insurance,
+        address:p.address,
+        dept:'Nội tổng quát',
+        doctor:'BS. Trần Minh Anh',
+        time:'08:00',
+        status:'Chờ khám',
+        color:colors[idx%colors.length],
+        allergy:p.allergy,
+        allergyStatus:p.allergyStatus
+      }));
+
+      // Merge with default fixtures to keep rich mock profiles if needed
+      const existingIds=new Set(sqlPatients.map(p=>p.id));
+      const merged=[...sqlPatients,...initialPatients.filter(p=>!existingIds.has(p.id))];
+      state.patients=merged;
+      hasChanges=true;
+    }
+
+    // 2. Queue & Visits from SQL Server
+    if(qRes.status==='fulfilled'&&Array.isArray(qRes.value)){
+      const sqlVisits=qRes.value.map(q=>({
+        id:q.id,
+        patientId:q.patientId,
+        kind:'Ngoại trú',
+        date:q.date,
+        time:q.time,
+        department:q.department,
+        doctor:q.doctor||'BS. Trần Minh Anh',
+        status:q.status,
+        queueNumber:q.queueNumber,
+        room:q.room,
+        roomCode:q.roomCode,
+        reason:q.reason,
+        note:null,
+        createdAt:q.date+'T'+q.time
+      }));
+
+      if(sqlVisits.length){
+        state.visits=sqlVisits;
+        // Update patient statuses based on live queue
+        for(const v of sqlVisits){
+          const p=state.patients.find(x=>x.id===v.patientId);
+          if(p){
+            p.dept=v.department;
+            p.status=v.status;
+            p.time=v.time;
+          }
+        }
+        hasChanges=true;
+      }
+    }
+
+    // 3. Beds from SQL Server
+    if(bRes.status==='fulfilled'&&Array.isArray(bRes.value)&&bRes.value.length){
+      state.beds=bRes.value.map(b=>({
+        id:b.id,
+        bedNumber:b.bedNumber,
+        roomName:b.roomName,
+        department:b.departmentName,
+        dailyRate:b.dailyRate,
+        patient:b.patientId||null,
+        admissionId:b.admissionId||null,
+        cleaning:b.statusRaw==='DANG_VE_SINH',
+        status:b.status
+      }));
+      hasChanges=true;
+    }
+
+    // 4. Medicines & Stock from SQL Server
+    if(mRes.status==='fulfilled'&&Array.isArray(mRes.value)&&mRes.value.length){
+      state.stock=mRes.value.map(m=>({
+        id:m.id,
+        name:m.name,
+        type:m.category||'Thuốc',
+        lot:'LO-SQL',
+        expiry:'2028-12-31',
+        qty:m.stockQty??100,
+        unit:m.unit,
+        price:m.price
+      }));
+      hasChanges=true;
+    }
+
+    // 5. Technical Services from SQL Server
+    if(sRes.status==='fulfilled'&&Array.isArray(sRes.value)&&sRes.value.length){
+      state.business.services=sRes.value.map(s=>({
+        id:s.id,
+        name:s.name,
+        kind:s.kind,
+        price:s.price,
+        insurancePrice:s.insurancePrice,
+        status:'Đang hoạt động',
+        categoryRaw:s.categoryRaw
+      }));
+      hasChanges=true;
+    }
+
+    // 6. Pharmacy Batches from SQL Server
+    if(batchRes.status==='fulfilled'&&Array.isArray(batchRes.value)&&batchRes.value.length){
+      state.inventory=batchRes.value.map(b=>({
+        id:b.batchId||('LOT-'+b.medicineId),
+        medicineId:b.medicineId,
+        warehouseId:'KHO_NGOAI_TRU',
+        lot:b.lotNumber,
+        expiry:b.expiryDate,
+        qty:b.quantityOnHand,
+        receivedAt:today
+      }));
+      hasChanges=true;
+    }
+
+    // 7. Appointments from SQL Server
+    if(aRes.status==='fulfilled'&&Array.isArray(aRes.value)&&aRes.value.length){
+      state.appointments=aRes.value.map(a=>({
+        id:a.id,
+        name:a.name,
+        birth:a.birth,
+        gender:a.gender,
+        phone:a.phone,
+        dept:a.dept,
+        date:a.date?(a.date+'T'+(a.time||'08:00')):(a.day+'T'+a.time),
+        status:a.status||'Đã xác nhận',
+        reason:a.reason||''
+      }));
+      hasChanges=true;
+    }
+
+    if(hasChanges){
+      state.updatedAt=new Date().toISOString();
+      subscribers.forEach(fn=>fn());
+    }
+  }catch(err){
+    console.warn('SQL Server background sync notice:', err);
+  }
+}
+
+export function getWorkspace(){return initializeWorkspace()}
+
+export function transact(fn){
+  const next=copy(getWorkspace());
+  fn(next);
+  next.stock=next.stock.map(s=>({
+    ...s,
+    qty:next.inventory.filter(l=>l.medicineId===s.id).reduce((total,l)=>total+Number(l.qty),0)
+  }));
+  next.updatedAt=new Date().toISOString();
+  // Do NOT write to localStorage - state lives in-memory and binds to SQL Server
+  state=next;
+  clearIssue();
+  subscribers.forEach(fn=>fn());
+  return next;
+}
+
+export function useWorkspace(key){
+  const value=useSyncExternalStore(
+    fn=>{
+      subscribers.add(fn);
+      return()=>subscribers.delete(fn);
+    },
+    ()=>getWorkspace()[key]
+  );
+
+  return [value,update=>transact(d=>{
+    const old=d[key];
+    d[key]=typeof update==='function'?update(old):update;
+    if(key==='patients'){
+      for(const patient of d.patients){
+        const previous=old.find(p=>p.id===patient.id);
+        if(!previous){
+          d.visits.unshift({...visitFor(patient,0),id:id('LK'),migrated:false});
+          continue;
+        }
+        if(['status','dept','doctor'].some(k=>patient[k]!==previous[k])){
+          const visit=d.visits.filter(v=>v.patientId===patient.id).sort((a,b)=>(b.date+'T'+b.time).localeCompare(a.date+'T'+a.time))[0];
+          if(visit){
+            visit.status=patient.status;
+            visit.department=patient.dept;
+            visit.doctor=patient.doctor;
+          }
+        }
+      }
+    }
+    if(key==='beds') syncBeds(d,old);
+  })];
+}
+
+export function syncBeds(d,old){
+  for(const bed of d.beds){
+    const previous=old.find(x=>x.id===bed.id);
+    if(bed.patient&&previous?.patient!==bed.patient){
+      const existing=d.admissions.find(a=>a.patientId===bed.patient&&a.status==='Đang điều trị');
+      if(existing){
+        bed.admissionId=existing.id;
+        existing.bedHistory.filter(x=>!x.to).forEach(x=>x.to=new Date().toISOString());
+        existing.bedHistory.push({bedId:bed.id,from:new Date().toISOString(),to:null});
+      }else{
+        const p=d.patients.find(x=>x.id===bed.patient);
+        const admission={
+          id:id('DTNT'),
+          patientId:bed.patient,
+          visitId:d.visits.find(v=>v.patientId===bed.patient)?.id,
+          date:today,
+          time:'09:00',
+          department:p?.dept||'Nội tổng quát',
+          doctor:p?.doctor||'',
+          status:'Đang điều trị',
+          bedHistory:[{bedId:bed.id,from:new Date().toISOString(),to:null}],
+          createdAt:new Date().toISOString()
+        };
+        d.admissions.unshift(admission);
+        bed.admissionId=admission.id;
+      }
+    }
+    if(!bed.patient&&previous?.patient){
+      const a=d.admissions.find(x=>x.id===previous.admissionId);
+      if(a&&!d.beds.some(b=>b.patient===previous.patient)){
+        a.status='Đã ra viện';
+        a.dischargedAt=new Date().toISOString();
+        a.bedHistory.filter(x=>!x.to).forEach(x=>x.to=a.dischargedAt);
+      }
+      delete bed.admissionId;
+    }
+  }
+}
+
+export function episodeOptions(data,patientId){
+  return [
+    ...data.visits.filter(v=>v.patientId===patientId).map(v=>({...v,label:`${v.id} · ${v.date} ${v.time} · ${v.department} · Ngoại trú`})),
+    ...data.admissions.filter(a=>a.patientId===patientId).map(a=>({...a,label:`${a.id} · ${a.date} · ${a.department} · Nội trú`}))
+  ].sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id));
+}
+
+export function syncLatestPatient(d,patientId){
+  const p=d.patients.find(x=>x.id===patientId);
+  const latest=d.visits.filter(v=>v.patientId===patientId).sort((a,b)=>(b.date+'T'+b.time+b.createdAt).localeCompare(a.date+'T'+a.time+a.createdAt))[0];
+  if(p&&latest){
+    Object.assign(p,{dept:latest.department,doctor:latest.doctor,time:latest.time,status:latest.status});
+    if(latest.note) d.notes[patientId]=latest.note;
+  }
+}
+
+export function createVisit(values){
+  let created;
+  transact(d=>{
+    const p=d.patients.find(x=>x.id===values.patientId);
+    if(!p) throw new Error('Không tìm thấy bệnh nhân.');
+    created={...values,id:id('LK'),kind:'Ngoại trú',status:'Chờ khám',note:null,createdAt:new Date().toISOString()};
+    d.visits.unshift(created);
+    syncLatestPatient(d,p.id);
+  });
+
+  // Call SQL Server API in background
+  hisApi.createVisit({
+    patientId:values.patientId,
+    dept:values.department||values.dept||'Nội tổng quát',
+    reason:values.reason||'Khám bệnh'
+  }).then(res=>{
+    if(res&&res.visitId){
+      created.id=res.visitId;
+      created.queueNumber=res.queueNumber;
+      syncWithSqlServer();
+    }
+  }).catch(err=>console.warn('SQL visit create background notice:', err));
+
+  return created;
+}
+
+export function saveVisitNote(visitId,note){
+  transact(d=>{
+    const visit=d.visits.find(v=>v.id===visitId);
+    if(!visit) throw new Error('Không tìm thấy lượt khám.');
+    if(visit.status==='Đã hủy') throw new Error('Lượt khám đã hủy không thể ghi phiếu khám.');
+    if(visit.locked) throw new Error('Phiếu đã khóa. Mở đính chính tại bàn khám trước khi sửa.');
+    if(visit.note) visit.noteRevisions=[...(visit.noteRevisions||[]),visit.note];
+    visit.note={...note,savedAt:new Date().toISOString()};
+    visit.revision=(visit.revision||0)+1;
+    visit.status=note.outcome==='Chờ kết quả CLS'?'Chờ kết quả':'Hoàn tất';
+    const latest=d.visits.filter(v=>v.patientId===visit.patientId).sort((a,b)=>(b.date+'T'+b.time).localeCompare(a.date+'T'+a.time))[0];
+    if(latest?.id===visit.id){
+      d.notes[visit.patientId]=visit.note;
+      const p=d.patients.find(p=>p.id===visit.patientId);
+      if(p) p.status=visit.status;
+    }
+  });
+
+  // Call SQL Server API
+  hisApi.saveExamNote({
+    visitId,
+    symptoms:note.symptoms||'',
+    history:note.history||'',
+    examination:note.examination||'',
+    diagnosis:note.diagnosis||'',
+    icd:note.icd||'',
+    plan:note.plan||'',
+    advice:note.advice||'',
+    outcome:note.outcome||'Điều trị ngoại trú'
+  }).catch(err=>console.warn('SQL save exam note error:', err));
+}
+
+export function audit(d,event,actor='Phiên làm việc'){
+  d.business.audit=[{id:id('LOG'),time:new Date().toLocaleString('vi-VN'),actor,event},...(d.business.audit||[])].slice(0,300);
+}
+
+export function financialRows(db){
+  return [
+    ...db.settlements.filter(x=>['Đã thanh toán','Đã hoàn tiền'].includes(x.status)).map(x=>({
+      id:x.id,date:x.settledDate||x.date,patient:x.patient,signed:(x.received||0)-(x.refund||0),kind:x.balance<0?'Hoàn quyết toán':'Thu quyết toán'
+    })),
+    ...db.advances.filter(x=>x.status==='Đã xác nhận').map(x=>({
+      id:x.id,date:x.confirmedDate||x.date,patient:x.patient,signed:(x.kind==='Hoàn tiền'?-1:1)*Number(x.amount),kind:x.kind
+    }))
+  ];
+}
+
+export function planFEFO(inventory,requests,warehouseId,asOf=today){
+  if(!warehouseId) throw new Error('Chọn kho xuất trước khi xác nhận.');
+  const pool=copy(inventory),allocations=[];
+  for(const request of requests){
+    let remaining=Number(request.quantity);
+    if(!Number.isInteger(remaining)||remaining<1) throw new Error('Số lượng xuất phải là số nguyên dương.');
+    const available=pool.filter(l=>l.medicineId===request.medicine&&l.warehouseId===warehouseId&&l.expiry>=asOf&&l.qty>0).sort((a,b)=>a.expiry.localeCompare(b.expiry)||a.receivedAt.localeCompare(b.receivedAt)||a.id.localeCompare(b.id));
+    for(const lot of available){
+      const quantity=Math.min(remaining,lot.qty);
+      if(quantity){
+        allocations.push({lotId:lot.id,medicineId:lot.medicineId,warehouseId,lot:lot.lot,expiry:lot.expiry,quantity});
+        remaining-=quantity;
+        lot.qty-=quantity;
+      }
+      if(!remaining) break;
+    }
+    if(remaining) throw new Error('Không đủ tồn còn hạn trong kho đã chọn cho '+request.medicine+'. Còn thiếu '+remaining+'.');
+  }
+  return allocations;
+}
+
+function consume(d,allocations,event){
+  for(const a of allocations){
+    const lot=d.inventory.find(l=>l.id===a.lotId);
+    if(!lot||lot.qty<a.quantity) throw new Error('Tồn kho đã thay đổi. Vui lòng kiểm tra lại.');
+    lot.qty-=a.quantity;
+    d.ledger.unshift({id:id('NK'),date:today,time:new Date().toISOString(),medicineId:a.medicineId,warehouseId:a.warehouseId,lot:a.lot,delta:-a.quantity,event});
+  }
+}
+
+export function applyClinicalStock(tab,rowId,warehouse,actor,details={}){
+  transact(d=>{
+    const row=d.business[tab].find(x=>x.id===rowId);
+    if(!row) throw new Error('Chứng từ không tồn tại.');
+    const dispensing=tab==='prescriptions';
+    if(row.status!==(dispensing?'Đã xác nhận':'Chờ thực hiện')) throw new Error('Chứng từ đã được xử lý hoặc trạng thái đã thay đổi.');
+    const requests=dispensing?row.lines:row.kind==='Dùng thuốc'?[{medicine:row.medicine,quantity:row.quantity}]:[];
+    const allocations=requests.length?planFEFO(d.inventory,requests,warehouse):[];
+    consume(d,allocations,row.id);
+    Object.assign(row,details,{status:dispensing?'Đã cấp phát':'Đã thực hiện',allocations,warehouse,stockRecorded:allocations.length>0,reviewer:actor,updatedAt:new Date().toISOString()});
+    audit(d,(dispensing?'Cấp phát thuốc ':'Thực hiện y lệnh ')+row.id,actor);
+  });
+}
+
+export function approveInventoryRow(tab,rowId,actor){
+  transact(d=>{
+    const row=d.business[tab].find(x=>x.id===rowId);
+    if(!row||!['Chờ duyệt','Chờ phê duyệt'].includes(row.status)) throw new Error('Chứng từ đã được xử lý.');
+    if(tab==='counts'){
+      const lot=d.inventory.find(l=>l.id===row.lotId&&l.warehouseId===row.warehouse&&l.medicineId===row.medicine);
+      if(!lot) throw new Error('Không tìm thấy lô trong kho đã chọn.');
+      if(lot.qty!==row.expected) throw new Error('Tồn lô đã thay đổi sau kiểm kê. Sửa biên bản để lấy số liệu mới.');
+      const delta=Number(row.actual)-lot.qty;
+      lot.qty=Number(row.actual);
+      d.ledger.unshift({id:id('NK'),date:today,time:new Date().toISOString(),medicineId:lot.medicineId,warehouseId:lot.warehouseId,lot:lot.lot,delta,event:row.id});
+      row.status='Đã điều chỉnh';
+    }else{
+      const quantity=Number(row.quantity);
+      if(!Number.isInteger(quantity)||quantity<1) throw new Error('Số lượng phải là số nguyên dương.');
+      if(['Xuất kho','Điều chuyển'].includes(row.kind)){
+        if(row.kind==='Điều chuyển'&&(!row.destination||row.destination===row.warehouse)) throw new Error('Chọn kho đích khác kho nguồn.');
+        row.allocations=planFEFO(d.inventory,[{medicine:row.medicine,quantity}],row.warehouse);
+        consume(d,row.allocations,row.id);
+        if(row.kind==='Điều chuyển') for(const a of row.allocations) addLot(d,{medicineId:row.medicine,warehouseId:row.destination,lot:a.lot,expiry:a.expiry,qty:a.quantity},row.id);
+      }else{
+        if(!row.lot||!row.expiry) throw new Error('Phiếu nhập / hoàn trả cần số lô và hạn dùng.');
+        if(row.expiry<today) throw new Error('Không nhập lô đã hết hạn vào tồn khả dụng.');
+        addLot(d,{medicineId:row.medicine,warehouseId:row.warehouse,lot:row.lot,expiry:row.expiry,qty:quantity},row.id);
+      }
+      row.status='Đã ghi sổ';
+    }
+    row.reviewer=actor;
+    row.updatedAt=new Date().toISOString();
+    audit(d,'Duyệt '+row.id,actor);
+  });
+}
+
+export function addLot(d,lot,event){
+  let existing=d.inventory.find(x=>x.medicineId===lot.medicineId&&x.warehouseId===lot.warehouseId&&x.lot===lot.lot);
+  if(existing&&existing.expiry!==lot.expiry) throw new Error('Cùng mã hàng và số lô phải có cùng hạn dùng.');
+  if(existing) existing.qty+=Number(lot.qty);
+  else d.inventory.push({...lot,qty:Number(lot.qty),id:id('LOT'),receivedAt:today});
+  d.ledger.unshift({id:id('NK'),date:today,time:new Date().toISOString(),medicineId:lot.medicineId,warehouseId:lot.warehouseId,lot:lot.lot,delta:Number(lot.qty),event});
+}
+
+export function dischargeAdmission(admissionId,actor,dischargeId){
+  transact(d=>{
+    const admission=d.admissions.find(a=>a.id===admissionId);
+    if(!admission||admission.status!=='Đang điều trị') throw new Error('Đợt điều trị không còn hoạt động.');
+    if(d.business.rounds.some(r=>r.episodeId===admissionId&&r.status==='Chờ thực hiện')) throw new Error('Đợt điều trị còn y lệnh chưa thực hiện. Hãy hoàn tất hoặc hủy trước khi ra viện.');
+    admission.status='Đã ra viện';
+    admission.dischargedAt=new Date().toISOString();
+    admission.bedHistory.filter(h=>!h.to).forEach(h=>h.to=admission.dischargedAt);
+    for(const bed of d.beds.filter(b=>b.admissionId===admissionId)){
+      bed.patient=null;
+      bed.cleaning=true;
+      delete bed.admissionId;
+    }
+    if(dischargeId){
+      const row=d.business.discharges.find(r=>r.id===dischargeId);
+      if(row){
+        row.status='Đã ra viện';
+        row.reviewer=actor;
+        admission.summary=row.summary;
+      }
+    }
+    audit(d,'Hoàn tất đợt nội trú '+admissionId,actor);
+  });
+
+  // Call SQL Server API
+  hisApi.dischargeInpatient({admissionId}).catch(err=>console.warn('SQL discharge notice:', err));
+}
