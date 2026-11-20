@@ -62,15 +62,7 @@ export function initializeWorkspace(){
   const visits=patients.map((p,i)=>visitFor(p,i,notes[p.id]));
   const admissions=[];
   const business=copy(seeds);
-  const inventory=stock.map(s=>({
-    id:'LOT-'+s.id,
-    medicineId:s.id,
-    warehouseId:'KHO_NGOAI_TRU',
-    lot:s.lot||'LO-SQL',
-    expiry:s.expiry||'2028-12-31',
-    qty:Number(s.qty)||100,
-    receivedAt:today
-  }));
+  const inventory=[];
 
   state={
     version:5,
@@ -216,7 +208,7 @@ export async function syncWithSqlServer(){
     }
 
     // 6. Pharmacy Batches from SQL Server
-    if(batchRes.status==='fulfilled'&&Array.isArray(batchRes.value)&&batchRes.value.length){
+    if(batchRes.status==='fulfilled'&&Array.isArray(batchRes.value)){
       state.inventory=batchRes.value.map(b=>({
         id:b.maLoHang+'_'+(b.maKho||'KHO')+'_'+b.soLoNhaSanXuat,
         medicineId:b.maHang||b.maLoHang,
