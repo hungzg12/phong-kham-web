@@ -235,6 +235,17 @@ CREATE TABLE dbo.DichVuKyThuat (
     thoiGianTrungBinhPhut INT NOT NULL DEFAULT 30 CHECK (thoiGianTrungBinhPhut > 0),
     dangHoatDong BIT NOT NULL DEFAULT 1
 );';
+    EXEC sys.sp_executesql N'-- 18b. Bảng DanhMucICD10
+CREATE TABLE dbo.DanhMucICD10 (
+    maICD VARCHAR(20) NOT NULL PRIMARY KEY,
+    tenBenh NVARCHAR(350) NOT NULL,
+    tenTiengAnh NVARCHAR(350) NULL,
+    maChuong VARCHAR(10) NULL,
+    tenChuong NVARCHAR(250) NULL,
+    maNhom VARCHAR(20) NULL,
+    tenNhom NVARCHAR(250) NULL,
+    dangHoatDong BIT NOT NULL DEFAULT 1
+);';
     EXEC sys.sp_executesql N'-- 19. Bảng BoDemSoThuTuKham
 CREATE TABLE dbo.BoDemSoThuTuKham (
     maBuong VARCHAR(20) NOT NULL REFERENCES dbo.BuongKham(maBuong),
