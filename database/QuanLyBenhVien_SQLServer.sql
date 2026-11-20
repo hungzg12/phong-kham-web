@@ -117,19 +117,6 @@ CREATE TABLE dbo.KhoDuoc (
     dangKiemKe AS (CASE WHEN maKiemKeDangMo IS NOT NULL THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END),
     dangHoatDong BIT NOT NULL DEFAULT 1
 );';
-    EXEC sys.sp_executesql N'-- 10. Bảng ThietBiYTe
-CREATE TABLE dbo.ThietBiYTe (
-    maThietBi VARCHAR(20) NOT NULL PRIMARY KEY,
-    tenThietBi NVARCHAR(150) NOT NULL,
-    maKhoaQuanLy VARCHAR(20) NOT NULL REFERENCES dbo.Khoa(maKhoa),
-    hangSanXuat NVARCHAR(100) NULL,
-    nuocSanXuat NVARCHAR(100) NULL,
-    namSanXuat INT NULL,
-    ngayDuaVaoSuDung DATE NOT NULL,
-    soSerial VARCHAR(50) NULL,
-    trangThai VARCHAR(30) NOT NULL DEFAULT ''HOAT_DONG'' CHECK (trangThai IN (''HOAT_DONG'', ''BAO_HONG'', ''DANG_BAO_TRI'', ''NGUNG_SU_DUNG'', ''THANH_LY'')),
-    dangHoatDong BIT NOT NULL DEFAULT 1
-);';
     EXEC sys.sp_executesql N'-- 11. Bảng TaiKhoan
 CREATE TABLE dbo.TaiKhoan (
     maTaiKhoan VARCHAR(20) NOT NULL PRIMARY KEY,
@@ -265,36 +252,6 @@ CREATE TABLE dbo.GiuongBenh (
     trangThaiHienTai VARCHAR(30) NOT NULL DEFAULT ''TRONG'' CHECK (trangThaiHienTai IN (''TRONG'', ''DANG_SU_DUNG'', ''DANG_VE_SINH'', ''BAO_TRI'', ''KHOA'')),
     dangHoatDong BIT NOT NULL DEFAULT 1,
     CONSTRAINT UQ_Giuong_BuongSo UNIQUE (maBuongBenh, soHieuGiuong)
-);';
-    EXEC sys.sp_executesql N'-- 21. Bảng PhieuBaoHong
-CREATE TABLE dbo.PhieuBaoHong (
-    maBaoHong VARCHAR(20) NOT NULL PRIMARY KEY,
-    maThietBi VARCHAR(20) NOT NULL REFERENCES dbo.ThietBiYTe(maThietBi),
-    thoiDiemBao DATETIME2(0) NOT NULL DEFAULT SYSDATETIME(),
-    maNguoiBao VARCHAR(20) NOT NULL REFERENCES dbo.NhanVien(maNhanVien),
-    moTaSuCo NVARCHAR(MAX) NOT NULL,
-    mucDoUuTien VARCHAR(20) NOT NULL DEFAULT ''THUONG'' CHECK (mucDoUuTien IN (''THAP'', ''THUONG'', ''CAO'', ''KHAN_CAP'')),
-    trangThai VARCHAR(30) NOT NULL DEFAULT ''CHO_TIEP_NHAN'' CHECK (trangThai IN (''CHO_TIEP_NHAN'', ''DA_TIEP_NHAN'', ''DANG_SUA_CHUA'', ''DA_KHAC_PHUC'', ''KHONG_THE_SUA'')),
-    maNguoiTiepNhan VARCHAR(20) NULL REFERENCES dbo.NhanVien(maNhanVien),
-    thoiDiemTiepNhan DATETIME2(0) NULL
-);';
-    EXEC sys.sp_executesql N'-- 22. Bảng BienBanBaoTri
-CREATE TABLE dbo.BienBanBaoTri (
-    maBaoTri VARCHAR(20) NOT NULL PRIMARY KEY,
-    maThietBi VARCHAR(20) NOT NULL REFERENCES dbo.ThietBiYTe(maThietBi),
-    maBaoHong VARCHAR(20) NULL REFERENCES dbo.PhieuBaoHong(maBaoHong),
-    loaiBaoTri VARCHAR(30) NOT NULL CHECK (loaiBaoTri IN (''DINH_KY'', ''SUA_CHUA_SU_CO'', ''HIEU_CHUAN_KIEM_DINH'')),
-    thoiDiemBatDau DATETIME2(0) NOT NULL,
-    thoiDiemKetThuc DATETIME2(0) NULL,
-    maKySuThucHien VARCHAR(20) NOT NULL REFERENCES dbo.NhanVien(maNhanVien),
-    donViBaoTriNgoai NVARCHAR(150) NULL,
-    noiDungThucHien NVARCHAR(MAX) NOT NULL,
-    ketQuaBaoTri VARCHAR(30) NOT NULL DEFAULT ''HOAN_TAT'' CHECK (ketQuaBaoTri IN (''HOAN_TAT'', ''CHUA_DAT'', ''CHO_LINH_KIEN'')),
-    chiPhiSuaChua DECIMAL(18,2) NOT NULL DEFAULT 0 CHECK (chiPhiSuaChua >= 0),
-    maNguoiNghiemThu VARCHAR(20) NULL REFERENCES dbo.NhanVien(maNhanVien),
-    thoiDiemNghiemThu DATETIME2(0) NULL,
-    danhGiaNghiemThu NVARCHAR(500) NULL,
-    CONSTRAINT CK_BaoTri_ThoiGian CHECK (thoiDiemKetThuc IS NULL OR thoiDiemKetThuc >= thoiDiemBatDau)
 );';
     EXEC sys.sp_executesql N'-- 23. Bảng BaoCaoVienPhi
 CREATE TABLE dbo.BaoCaoVienPhi (

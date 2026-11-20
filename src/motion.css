@@ -1,0 +1,89 @@
+:root {
+  --motion-smooth: 420ms;
+  --motion-layout: 480ms;
+  --motion-ease: cubic-bezier(.22, 1, .36, 1);
+}
+
+button {
+  transition:
+    background-color var(--motion-smooth) ease,
+    color var(--motion-smooth) ease,
+    border-color var(--motion-smooth) ease,
+    box-shadow var(--motion-smooth) var(--motion-ease),
+    transform var(--motion-smooth) var(--motion-ease),
+    filter var(--motion-smooth) ease;
+}
+
+.primary, .secondary, .icon-button, .actor-task, .actor-choice,
+.actor-switch, .nav-item, .business-tabs > button, .auth-role-tabs > button {
+  transform-origin: center;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 7px 18px #106b6028;
+  }
+  .secondary:hover:not(:disabled), .actor-switch:hover:not(:disabled) {
+    transform: translateY(-1px);
+    background-color: #f0f7f2;
+    border-color: #bdd6c5;
+    box-shadow: 0 4px 10px #245f3610;
+  }
+  .icon-button:hover:not(:disabled) {
+    background-color: #eaf3ed;
+    color: #397b5b;
+  }
+  .nav-item:hover:not(:disabled) {
+    background-color: #f1f7f3;
+    color: #317459;
+    transform: translateX(2px);
+  }
+  .nav-item.active:hover { background-color: #e5f2eb; }
+  .actor-task:hover, .actor-choice:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 22px #255e3614;
+  }
+  .actor-task > svg, .text-button > svg {
+    transition: transform var(--motion-smooth) var(--motion-ease);
+  }
+  .actor-task:hover > svg { transform: translate(2px, -2px); }
+  .text-button:hover > svg { transform: translateX(3px); }
+  .business-tabs > button:hover, .auth-role-tabs > button:hover {
+    background-color: #f5faf6;
+    color: #3d8060;
+  }
+}
+
+button:not(:disabled):not(.sidebar-backdrop):active {
+  transform: scale(.97);
+  transition-duration: 120ms;
+}
+
+.sidebar {
+  transition:
+    width var(--motion-layout) var(--motion-ease),
+    padding var(--motion-layout) var(--motion-ease),
+    transform var(--motion-layout) var(--motion-ease);
+}
+.workspace {
+  transition:
+    margin-left var(--motion-layout) var(--motion-ease),
+    width var(--motion-layout) var(--motion-ease);
+}
+.modal { animation: dialog-arrive 320ms var(--motion-ease) both; }
+@keyframes dialog-arrive {
+  from { opacity: 0; transform: translateY(12px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button, .sidebar, .workspace, .actor-task > svg, .text-button > svg {
+    transition: none !important;
+  }
+  .modal { animation: none !important; }
+  button:not(:disabled):hover, button:not(:disabled):active,
+  .actor-task:hover > svg, .text-button:hover > svg {
+    transform: none !important;
+  }
+}
