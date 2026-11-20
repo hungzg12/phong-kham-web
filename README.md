@@ -92,3 +92,20 @@ Kiểm thử dùng Playwright với Microsoft Edge đã cài trên Windows, ch�
 Trên Windows, chạy lần lượt `database/QuanLyBenhVien_SQLServer.sql` và `scripts/sql-booking-seed.sql` trong SSMS. Khi chạy file seed, chọn database `QuanLyBenhVien`. Mặc định ứng dụng dùng Windows Authentication với instance `.\SQLEXPRESS`.
 
 Chạy `npm ci` rồi `npm run dev -- --port 5175`. Mở http://127.0.0.1:5175/. Trang đặt lịch ghi vào SQL Server. Mục **Vào hệ thống → Lịch hẹn** có danh sách đọc trực tiếp từ SQL Server. Các nghiệp vụ khác dùng dữ liệu demo. API SQL chạy trong Vite dev trên máy Windows.
+
+## Chạy thử MediCare HIS ngoại trú có xác thực
+
+Chạy Vite mặc định để dùng các chức năng hiện tại trên main, gồm API kho. Để kiểm thử đăng nhập Argon2id, đặt lịch, tiếp đón và khám ngoại trú, chạy một phiên Vite riêng với MEDICARE_SQL_MODE=true. Phiên này dùng middleware ngoại trú có kiểm tra quyền. Các API kho hiện tại dùng phiên Vite mặc định.
+
+Dùng Node.js 24.7 trở lên và một database SQL Server phát triển. Áp dụng các migration 001, 002, 003 trong database/migrations theo thứ tự. Tạo tài khoản nhân viên trong dbo.TaiKhoan và cấp vai trò còn hiệu lực ở dbo.TaiKhoanVaiTro. Tiếp tân cần vai trò receptionist với TOAN_VIEN. Bác sĩ cần vai trò doctor với THEO_KHOA trùng khoa công tác. Cả hai cần phạm vi NGOAI_TRU hoặc CA_HAI.
+
+Trong PowerShell 7, đặt MEDICARE_SQL_CONNECTION trỏ đến database phát triển, rồi chạy:
+
+```powershell
+$OutputEncoding = [System.Text.UTF8Encoding]::new()
+(Read-Host -MaskInput 'Mật khẩu mới (từ 12 ký tự)') | node scripts/set-sql-password.mjs ten-dang-nhap
+$env:MEDICARE_SQL_MODE='true'
+npm run dev -- --port 5175 --strictPort
+```
+
+Vào http://127.0.0.1:5175/#management. Chạy `pwsh -File scripts/test-sql-outpatient.ps1` để kiểm tra luồng SQL và giao diện đăng nhập bằng dữ liệu tổng hợp trong database riêng.

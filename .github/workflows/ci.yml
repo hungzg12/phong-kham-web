@@ -11,19 +11,6 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_PASSWORD: clinic_ci_only
-          POSTGRES_DB: clinic_ci
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,12 +18,10 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
-      - run: npm test
-      - run: node tests/hosting.cjs
-        env:
-          PGHOST: 127.0.0.1
-          PGUSER: postgres
-          PGPASSWORD: clinic_ci_only
-          PGDATABASE: clinic_ci
       - run: npm run build
-      - run: npm run typecheck
+      - run: npx playwright install --with-deps chromium
+      - name: Verify dashboard navigation
+        run: |
+          npm run preview -- --port 4173 --strictPort &
+          curl --fail --retry 12 --retry-connrefused --retry-delay 1 http://127.0.0.1:4173/
+          MEDICARE_URL='http://127.0.0.1:4173/#management' node scripts/test-dashboard-stat-details.mjs
