@@ -15,4 +15,4 @@ export interface Medicine {id:string;name:string;unit:string;description:string;
 export interface Notification {id:string;userId:string;text:string;createdAt:string;read:boolean}
 export interface State {users:User[];patients:Patient[];doctors:Doctor[];specialties:Specialty[];shifts:Shift[];appointments:Appointment[];visits:Visit[];records:MedicalRecord[];medicines:Medicine[];notifications:Notification[]}
 export type SafeUser = Omit<User,"passwordHash"|"version">;
-export interface AppData extends Omit<State,"users"> {users:SafeUser[];me:SafeUser;storage:"local"|"postgres";demo:boolean}
+export interface AppData extends Omit<State,"users"> {users:SafeUser[];me:SafeUser;storage:"local"|"postgres"|"sqlserver";demo:boolean}

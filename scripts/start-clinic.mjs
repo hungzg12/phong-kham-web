@@ -43,7 +43,10 @@ if (await healthy()) {
   process.exit(0);
 }
 if (!existsSync(path.join(root, 'node_modules', 'next'))) npm(['ci', '--no-audit', '--no-fund']);
-npm(['run', 'db:start']);
+const localEnv = path.join(root, '.env.local');
+const sqlServerConfigured = process.env.CLINIC_SQLSERVER_CONNECTION ||
+  (existsSync(localEnv) && /^CLINIC_SQLSERVER_CONNECTION=.+/m.test(readFileSync(localEnv, 'utf8')));
+if (!sqlServerConfigured) npm(['run', 'db:start']);
 const buildId = path.join(root, '.next', 'BUILD_ID');
 const buildTime = existsSync(buildId) ? statSync(buildId).mtimeMs : 0;
 const changed = ['src', 'database', 'next.config.ts', 'package.json', 'package-lock.json', 'postcss.config.mjs']

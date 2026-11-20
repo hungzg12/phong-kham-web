@@ -158,3 +158,11 @@ Chưa có tích hợp email, SMS, xét nghiệm, bảo hiểm, viện phí hoặ
 ## Website công khai
 
 Xem [hướng dẫn deploy Render](DEPLOYMENT.md). Repository có sẵn render.yaml để tạo Web Service và PostgreSQL; bản công khai dùng DEMO_MODE=false và tài khoản quản trị riêng. Chỉ có mã nguồn trên GitHub chưa đồng nghĩa website đã chạy công khai.
+
+## Chạy local bằng SQL Server
+
+Chạy database/antam-sqlserver.sql, rồi chạy database/migrations/003_sqlserver_clinic_tables.sql trong database AnTamClinic bằng SSMS. Nếu nâng cấp bản cũ, hãy dừng web trước khi chạy migration. Đặt CLINIC_SQLSERVER_CONNECTION trong .env.local, ví dụ Server=.\SQLEXPRESS;Database=AnTamClinic;Integrated Security=True;TrustServerCertificate=True. Biến này được ưu tiên hơn DATABASE_URL. Khởi động bằng npm run dev -- --port 3000. Không chạy db:start nếu chỉ dùng SQL Server.
+
+Migration chuyển dữ liệu cũ sang 10 bảng nghiệp vụ, mỗi dòng lưu một thực thể có mã riêng và nội dung JSON. Bảng ClinicState giữ phiên bản giao dịch. Thủ tục SQL giữ khóa và kiểm tra rowversion để tránh ghi đè thay đổi đồng thời. Database này độc lập với schema QuanLyBenhVien của MediCare.
+
+Kiểm thử trình duyệt với SQL Server: đặt CLINIC_EXPECT_STORAGE=sqlserver rồi chạy node tests/e2e.cjs trên dữ liệu demo. Có thể đặt CLINIC_BROWSER_CHANNEL=msedge để dùng Edge đã cài. Bài kiểm thử tạo dữ liệu mẫu và đi qua bệnh nhân, lễ tân, bác sĩ và quản trị viên.
