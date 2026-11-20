@@ -57,6 +57,12 @@ export function createApiMiddleware() {
         return respond(200, JSON.parse(result));
       }
 
+      // 2b. Pharmacy Shipments & Batches Overview (GET /api/pharmacy/shipments)
+      if (url === '/api/pharmacy/shipments' && req.method === 'GET') {
+        const result = await runSqlScript('scripts/sql-pharmacy-shipments.ps1');
+        return respond(200, JSON.parse(result));
+      }
+
       // 3. Pharmacy Stats by Manufacturer
       if (url === '/api/pharmacy/stats' && req.method === 'GET') {
         const result = await runSqlScript('scripts/sql-pharmacy-stats.ps1');

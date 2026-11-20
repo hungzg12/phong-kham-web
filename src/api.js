@@ -58,6 +58,7 @@ export const hisApi = {
   // 4. Pharmacy & Prescriptions
   getMedicines: (warehouse = 'KHO_NGOAI_TRU') => req(`/api/medicines?warehouse=${encodeURIComponent(warehouse)}`),
   getPharmacyBatches: () => req('/api/pharmacy/batches'),
+  getPharmacyShipments: () => req('/api/pharmacy/shipments'),
   getPharmacyStats: () => req('/api/pharmacy/stats'),
   importPharmacyLot: (data) => req('/api/pharmacy/import', {
     method: 'POST',

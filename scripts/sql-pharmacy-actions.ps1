@@ -1,6 +1,6 @@
 ﻿$ErrorActionPreference = 'Stop'
 [Console]::InputEncoding = [System.Text.Encoding]::UTF8
-[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $servers = @('.\MSSQLVESE', '.\SQLEXPRESS', 'localhost', '127.0.0.1')
 $db = $null
@@ -20,61 +20,122 @@ try {
     $action = if ($payload.action) { $payload.action.ToString() } else { throw "action is required." }
 
     # =========================================================================
-    # 1. IMPORT PHARMACY / SUPPLY LOT (NHẬP LÔ THUỐC / VẬT TƯ Y TẾ)
+    # 1. IMPORT PHARMACY / SUPPLY LOT & SHIPMENT (NHẬP LÔ HÀNG GỒM NHIỀU THUỐC)
     # =========================================================================
-    if ($action -eq 'import_lot') {
-        $medicineId = if ($payload.medicineId) { $payload.medicineId.ToString().Trim() } else { throw "medicineId is required." }
-        $warehouseId = if ($payload.warehouseId) { $payload.warehouseId.ToString().Trim() } else { 'KHO_NGOAI_TRU' }
-        $lot = if ($payload.lot) { $payload.lot.ToString().Trim() } else { throw "lot is required." }
-        $expiry = if ($payload.expiry) { $payload.expiry.ToString().Trim() } else { throw "expiry is required." }
-        $qty = [decimal]($payload.qty)
-        if ($qty -le 0) { throw "Quantity must be greater than zero." }
-        $unitPrice = if ($payload.unitPrice) { [decimal]($payload.unitPrice) } else { 1000 }
-        $mfg = if ($payload.manufacturer) { $payload.manufacturer.ToString().Trim() } else { 'Việt Nam' }
-        $mfgDate = if ($payload.mfgDate) { $payload.mfgDate.ToString().Trim() } else { (Get-Date).ToString("yyyy-MM-dd") }
-        $shelf = if ($payload.shelfLocation) { $payload.shelfLocation.ToString().Trim() } else { 'Kệ nhập mới' }
+    if ($action -eq 'import_lot' -or $action -eq 'import_shipment') {
+        $warehouseId = if ($payload.warehouseId) { $payload.warehouseId.ToString().Trim() } else { 'KHO_TONG' }
+        $supplier = if ($payload.supplier) { $payload.supplier.ToString().Trim() } else { 'Công ty Dược phẩm' }
+        $manufacturer = if ($payload.manufacturer) { $payload.manufacturer.ToString().Trim() } else { 'Việt Nam' }
+        $importDate = if ($payload.importDate) { $payload.importDate.ToString().Trim() } else { (Get-Date).ToString("yyyy-MM-dd") }
+        $invoice = if ($payload.invoiceNumber) { $payload.invoiceNumber.ToString().Trim() } else { 'HD-' + (Get-Date).ToString("yyMMddHHmm") }
+        $shipmentName = if ($payload.shipmentName) { $payload.shipmentName.ToString().Trim() } else { 'Lô hàng nhập ' + (Get-Date).ToString("dd/MM/yyyy") }
+
+        # Prepare lines: either $payload.lines (array) or single item from $payload
+        $lines = @()
+        if ($payload.lines -and $payload.lines.Count -gt 0) {
+            $lines = $payload.lines
+        } elseif ($payload.medicineId) {
+            $lines = @([PSCustomObject]@{
+                medicineId = $payload.medicineId
+                lot = $payload.lot
+                expiry = $payload.expiry
+                qty = $payload.qty
+                unitPrice = if ($payload.unitPrice) { $payload.unitPrice } else { 1000 }
+                shelfLocation = if ($payload.shelfLocation) { $payload.shelfLocation } else { 'Kệ nhập mới' }
+            })
+        } else {
+            throw "Cần ít nhất một dòng thuốc / vật tư để nhập kho."
+        }
 
         $tx = $db.BeginTransaction()
         try {
-            # Check or create LoHang
-            $chkCmd = $db.CreateCommand()
-            $chkCmd.Transaction = $tx
-            $chkCmd.CommandText = "SELECT TOP 1 maLoHang FROM dbo.LoHang WHERE maHang = @mId AND soLoNhaSanXuat = @lot"
-            $chkCmd.Parameters.AddWithValue("@mId", $medicineId) | Out-Null
-            $chkCmd.Parameters.AddWithValue("@lot", $lot) | Out-Null
-            $existingBatchId = $chkCmd.ExecuteScalar()
+            # 1. Check or create DotNhapHang
+            $pfx = (Get-Date).ToString("yyMMdd")
+            $cntCmd = $db.CreateCommand()
+            $cntCmd.Transaction = $tx
+            $cntCmd.CommandText = "SELECT COUNT(*) + 1 FROM dbo.DotNhapHang"
+            $dotSeq = [int]$cntCmd.ExecuteScalar()
+            $dotNhapId = if ($payload.shipmentId) { $payload.shipmentId.ToString().Trim() } else { "DOT_" + $pfx + "_" + $dotSeq.ToString("D3") }
 
-            if (-not $existingBatchId) {
-                $pfx = (Get-Date).ToString("yyMMdd")
-                $cntCmd = $db.CreateCommand()
-                $cntCmd.Transaction = $tx
-                $cntCmd.CommandText = "SELECT COUNT(*) + 1 FROM dbo.LoHang"
-                $seq = [int]$cntCmd.ExecuteScalar()
-                $batchId = "LO_" + $medicineId + "_" + $seq
-
-                $insLoCmd = $db.CreateCommand()
-                $insLoCmd.Transaction = $tx
-                $insLoCmd.CommandText = @"
-INSERT INTO dbo.LoHang (maLoHang, maHang, soLoNhaSanXuat, ngaySanXuat, hanSuDung, hangSanXuat, nuocSanXuat, donGiaNhap, soLuongNhap)
-VALUES (@bId, @mId, @lot, @mfgDate, @exp, @mfg, N'Việt Nam', @prc, @qty);
+            $insDotCmd = $db.CreateCommand()
+            $insDotCmd.Transaction = $tx
+            $insDotCmd.CommandText = @"
+IF NOT EXISTS (SELECT 1 FROM dbo.DotNhapHang WHERE maDotNhap = @dId)
+BEGIN
+    INSERT INTO dbo.DotNhapHang (maDotNhap, tenDotNhap, hangSanXuat, nhaCungCap, soHoaDon, ngayNhapKho, maKhoNhap, nguoiGiaoHang, nguoiNhanHang, ghiChu)
+    VALUES (@dId, @name, @mfg, @sup, @inv, @dt, @wId, N'Người giao hàng', N'Dược sĩ Trưởng', @note);
+END
 "@
-                $insLoCmd.Parameters.AddWithValue("@bId", $batchId) | Out-Null
-                $insLoCmd.Parameters.AddWithValue("@mId", $medicineId) | Out-Null
-                $insLoCmd.Parameters.AddWithValue("@lot", $lot) | Out-Null
-                $insLoCmd.Parameters.AddWithValue("@mfgDate", $mfgDate) | Out-Null
-                $insLoCmd.Parameters.AddWithValue("@exp", $expiry) | Out-Null
-                $insLoCmd.Parameters.AddWithValue("@mfg", $mfg) | Out-Null
-                $insLoCmd.Parameters.AddWithValue("@prc", $unitPrice) | Out-Null
-                $insLoCmd.Parameters.AddWithValue("@qty", $qty) | Out-Null
-                $insLoCmd.ExecuteNonQuery() | Out-Null
-            } else {
-                $batchId = [string]$existingBatchId
-            }
+            $insDotCmd.Parameters.AddWithValue("@dId", $dotNhapId) | Out-Null
+            $insDotCmd.Parameters.AddWithValue("@name", $shipmentName) | Out-Null
+            $insDotCmd.Parameters.AddWithValue("@mfg", $manufacturer) | Out-Null
+            $insDotCmd.Parameters.AddWithValue("@sup", $supplier) | Out-Null
+            $insDotCmd.Parameters.AddWithValue("@inv", $invoice) | Out-Null
+            $insDotCmd.Parameters.AddWithValue("@dt", $importDate) | Out-Null
+            $insDotCmd.Parameters.AddWithValue("@wId", $warehouseId) | Out-Null
+            $insDotCmd.Parameters.AddWithValue("@note", "Nhập đợt hàng gồm " + $lines.Count + " mặt hàng") | Out-Null
+            $insDotCmd.ExecuteNonQuery() | Out-Null
 
-            # Upsert into LoTonKho
-            $upsertCmd = $db.CreateCommand()
-            $upsertCmd.Transaction = $tx
-            $upsertCmd.CommandText = @"
+            # 2. Iterate each medicine line
+            $importedCount = 0
+            $totalUnits = [decimal]0
+            $lineResults = @()
+
+            foreach ($line in $lines) {
+                $mId = $line.medicineId.ToString().Trim()
+                $lot = $line.lot.ToString().Trim()
+                $exp = $line.expiry.ToString().Trim()
+                $qty = [decimal]($line.qty)
+                if ($qty -le 0) { continue }
+                $unitPrc = if ($line.unitPrice) { [decimal]($line.unitPrice) } else { 1000 }
+                $shelf = if ($line.shelfLocation) { $line.shelfLocation.ToString().Trim() } else { 'Kệ nhập mới' }
+
+                # Check or insert LoHang
+                $chkLoCmd = $db.CreateCommand()
+                $chkLoCmd.Transaction = $tx
+                $chkLoCmd.CommandText = "SELECT TOP 1 maLoHang FROM dbo.LoHang WHERE maHang = @mId AND soLoNhaSanXuat = @lot"
+                $chkLoCmd.Parameters.AddWithValue("@mId", $mId) | Out-Null
+                $chkLoCmd.Parameters.AddWithValue("@lot", $lot) | Out-Null
+                $existBatch = $chkLoCmd.ExecuteScalar()
+
+                if (-not $existBatch) {
+                    $cntLoCmd = $db.CreateCommand()
+                    $cntLoCmd.Transaction = $tx
+                    $cntLoCmd.CommandText = "SELECT COUNT(*) + 1 FROM dbo.LoHang"
+                    $seqLo = [int]$cntLoCmd.ExecuteScalar()
+                    $batchId = "LO_" + $mId + "_" + $seqLo
+
+                    $insLo = $db.CreateCommand()
+                    $insLo.Transaction = $tx
+                    $insLo.CommandText = @"
+INSERT INTO dbo.LoHang (maLoHang, maDotNhap, maHang, soLoNhaSanXuat, ngaySanXuat, hanSuDung, hangSanXuat, nuocSanXuat, donGiaNhap, soLuongNhap)
+VALUES (@bId, @dId, @mId, @lot, @dt, @exp, @mfg, N'Việt Nam', @prc, @qty);
+"@
+                    $insLo.Parameters.AddWithValue("@bId", $batchId) | Out-Null
+                    $insLo.Parameters.AddWithValue("@dId", $dotNhapId) | Out-Null
+                    $insLo.Parameters.AddWithValue("@mId", $mId) | Out-Null
+                    $insLo.Parameters.AddWithValue("@lot", $lot) | Out-Null
+                    $insLo.Parameters.AddWithValue("@dt", $importDate) | Out-Null
+                    $insLo.Parameters.AddWithValue("@exp", $exp) | Out-Null
+                    $insLo.Parameters.AddWithValue("@mfg", $manufacturer) | Out-Null
+                    $insLo.Parameters.AddWithValue("@prc", $unitPrc) | Out-Null
+                    $insLo.Parameters.AddWithValue("@qty", $qty) | Out-Null
+                    $insLo.ExecuteNonQuery() | Out-Null
+                } else {
+                    $batchId = [string]$existBatch
+                    # Update maDotNhap if unlinked
+                    $updLo = $db.CreateCommand()
+                    $updLo.Transaction = $tx
+                    $updLo.CommandText = "UPDATE dbo.LoHang SET maDotNhap = ISNULL(maDotNhap, @dId) WHERE maLoHang = @bId"
+                    $updLo.Parameters.AddWithValue("@dId", $dotNhapId) | Out-Null
+                    $updLo.Parameters.AddWithValue("@bId", $batchId) | Out-Null
+                    $updLo.ExecuteNonQuery() | Out-Null
+                }
+
+                # Upsert LoTonKho
+                $upsertLtk = $db.CreateCommand()
+                $upsertLtk.Transaction = $tx
+                $upsertLtk.CommandText = @"
 IF EXISTS (SELECT 1 FROM dbo.LoTonKho WHERE maKho = @wId AND maLoHang = @bId)
 BEGIN
     UPDATE dbo.LoTonKho
@@ -90,20 +151,31 @@ BEGIN
     VALUES (@loTonId, @wId, @bId, @qty, @qty, @shelf, 0);
 END
 "@
-            $upsertCmd.Parameters.AddWithValue("@wId", $warehouseId) | Out-Null
-            $upsertCmd.Parameters.AddWithValue("@bId", $batchId) | Out-Null
-            $upsertCmd.Parameters.AddWithValue("@qty", $qty) | Out-Null
-            $upsertCmd.Parameters.AddWithValue("@shelf", $shelf) | Out-Null
-            $upsertCmd.ExecuteNonQuery() | Out-Null
+                $upsertLtk.Parameters.AddWithValue("@wId", $warehouseId) | Out-Null
+                $upsertLtk.Parameters.AddWithValue("@bId", $batchId) | Out-Null
+                $upsertLtk.Parameters.AddWithValue("@qty", $qty) | Out-Null
+                $upsertLtk.Parameters.AddWithValue("@shelf", $shelf) | Out-Null
+                $upsertLtk.ExecuteNonQuery() | Out-Null
+
+                $importedCount++
+                $totalUnits += $qty
+                $lineResults += [PSCustomObject]@{
+                    medicineId = $mId
+                    lot = $lot
+                    batchId = $batchId
+                    qty = $qty
+                }
+            }
 
             $tx.Commit()
             $resObj = [PSCustomObject]@{
                 success = $true
-                batchId = $batchId
-                medicineId = $medicineId
-                lot = $lot
-                warehouse = $warehouseId
-                addedQty = $qty
+                shipmentId = $dotNhapId
+                shipmentName = $shipmentName
+                warehouseId = $warehouseId
+                totalItemTypes = $importedCount
+                totalUnits = $totalUnits
+                items = $lineResults
             }
             [Console]::Write(($resObj | ConvertTo-Json -Compress))
         } catch {
@@ -188,7 +260,6 @@ END
 
         $tx = $db.BeginTransaction()
         try {
-            # Find available batch in source warehouse
             $findCmd = $db.CreateCommand()
             $findCmd.Transaction = $tx
             $findCmd.CommandText = @"
@@ -211,7 +282,6 @@ ORDER BY lh.hanSuDung ASC;
             $batchId = $reader.GetString(1)
             $reader.Close()
 
-            # Decrement source warehouse
             $decCmd = $db.CreateCommand()
             $decCmd.Transaction = $tx
             $decCmd.CommandText = @"
@@ -224,7 +294,6 @@ WHERE maLoTon = @lotTonId;
             $decCmd.Parameters.AddWithValue("@lotTonId", $srcLotTonId) | Out-Null
             $decCmd.ExecuteNonQuery() | Out-Null
 
-            # Increment target warehouse
             $incCmd = $db.CreateCommand()
             $incCmd.Transaction = $tx
             $incCmd.CommandText = @"
