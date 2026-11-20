@@ -35,12 +35,12 @@ export const pageGroups={
 export const extraTitles={clinical:'Cận lâm sàng & đơn thuốc',care:'Y lệnh & chăm sóc',warehouse:'Kho & kiểm kê',finance:'Quyết toán & báo cáo',archive:'Bệnh án & ủy quyền',admin:'Quản trị hệ thống',devices:'Thiết bị & bảo trì',portal:'Cổng người bệnh'};
 export const permissionNames=['Tiếp đón bệnh nhân','Khám và chỉ định','Duyệt kết quả CLS','Kê đơn thuốc','Thực hiện y lệnh','Quản lý kho dược','Thu chi viện phí','Xem hồ sơ bệnh án','Duyệt đính chính','Quản trị hệ thống'];
 export const seeds={
- vitals:[{id:'SH001',patient:'BN0001',time:'2026-11-11T08:00',pressure:'120/80',pulse:76,temperature:36.8,spo2:98,weight:54,height:160,status:'Đã ghi nhận'}],
- labs:[{id:'CLS001',patient:'BN0003',service:'DV002',diagnosis:'Theo dõi viêm đường hô hấp',priority:'Thường quy',doctor:'NV001',status:'Đang thực hiện'}],
- prescriptions:[{id:'DT001',patient:'BN0004',doctor:'NV001',diagnosis:'Theo dõi sau khám',advice:'Dữ liệu minh họa, không phải chỉ định điều trị.',lines:[{medicine:'TH001',quantity:10,dose:'Theo đơn bác sĩ',route:'Uống',frequency:'Theo chỉ định',days:5}],status:'Nháp'}],
- referrals:[], rounds:[{id:'YL001',patient:'BN0002',doctor:'NV001',progress:'Người bệnh tỉnh, tiếp xúc tốt.',plan:'Theo dõi diễn biến và sinh hiệu.',kind:'Theo dõi sinh hiệu',scheduled:'2026-11-11T10:00',status:'Chờ thực hiện'}],consultations:[],discharges:[],
+ vitals:[],
+ labs:[],
+ prescriptions:[],
+ referrals:[], rounds:[],consultations:[],discharges:[],
  warehouses:[{id:'KHO001',name:'Kho Dược Tổng Toàn Viện',kind:'Kho tổng',manager:'NV003',location:'Tầng hầm B1 · Khu Dược',status:'Đang hoạt động'},{id:'KHO002',name:'Nhà Thuốc Khám Ngoại Trú',kind:'Kho lẻ',manager:'NV002',location:'Tầng 1 · Cổng chính',status:'Đang hoạt động'},{id:'KHO003',name:'Tủ Trực Cấp Cứu 24/7',kind:'Kho khoa',manager:'NV001',location:'Khoa Cấp Cứu',status:'Đang hoạt động'}],movements:[],counts:[],advances:[],shifts:[],
- archives:[{id:'BA001',patient:'BN0001',kind:'Ngoại trú',diagnosis:'Theo dõi sức khỏe định kỳ',summary:'Hồ sơ mẫu phục vụ trình diễn giao diện.',doctor:'NV001',status:'Đang mở'}],corrections:[],authorizations:[],
+ archives:[],corrections:[],authorizations:[],
  staff:[{id:'NV001',name:'Trần Minh Anh',title:'Bác sĩ',department:'Nội tổng quát',certificate:'CCHN-001',phone:'0901000001',status:'Đang hoạt động'},{id:'NV002',name:'Phạm Thu Hà',title:'Điều dưỡng',department:'Nội tổng quát',phone:'0901000002',status:'Đang hoạt động'},{id:'NV003',name:'Lê Quốc Huy',title:'Dược sĩ',department:'Nội tổng quát',phone:'0901000003',status:'Đang hoạt động'},{id:'NV004',name:'Nguyễn Hoàng Anh',title:'Thu ngân',department:'Nội tổng quát',phone:'0901000004',status:'Đang hoạt động'}],
  departments:clinics.map((name,i)=>({id:'KP00'+(i+1),name:'Phòng khám '+name,kind:'Phòng khám',department:name,capacity:40,location:'Tầng 1 · P'+(101+i),status:'Đang hoạt động'})),
  services:[{id:'DV001',name:'Khám chuyên khoa',kind:'Khám bệnh',price:150000,unit:'Lượt',status:'Đang hoạt động'},{id:'DV002',name:'Công thức máu',kind:'Xét nghiệm',price:120000,unit:'Lần',status:'Đang hoạt động'},{id:'DV003',name:'X-quang ngực thẳng',kind:'Chẩn đoán hình ảnh',price:80000,unit:'Lần',status:'Đang hoạt động'},{id:'DV004',name:'Siêu âm tổng quát',kind:'Chẩn đoán hình ảnh',price:180000,unit:'Lần',status:'Đang hoạt động'}],

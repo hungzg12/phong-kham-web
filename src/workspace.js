@@ -113,7 +113,7 @@ export async function syncWithSqlServer(){
     let hasChanges=false;
 
     // 1. Patients from SQL Server
-    if(pRes.status==='fulfilled'&&Array.isArray(pRes.value)&&pRes.value.length){
+    if(pRes.status==='fulfilled'&&Array.isArray(pRes.value)){
       const colors=['pink','blue','purple','orange','green'];
       const sqlPatients=pRes.value.map((p,idx)=>({
         id:p.id,
@@ -133,10 +133,7 @@ export async function syncWithSqlServer(){
         allergyStatus:p.allergyStatus
       }));
 
-      // Merge with default fixtures to keep rich mock profiles if needed
-      const existingIds=new Set(sqlPatients.map(p=>p.id));
-      const merged=[...sqlPatients,...initialPatients.filter(p=>!existingIds.has(p.id))];
-      state.patients=merged;
+      state.patients=sqlPatients;
       hasChanges=true;
     }
 
@@ -159,19 +156,16 @@ export async function syncWithSqlServer(){
         createdAt:q.date+'T'+q.time
       }));
 
-      if(sqlVisits.length){
-        state.visits=sqlVisits;
-        // Update patient statuses based on live queue
-        for(const v of sqlVisits){
-          const p=state.patients.find(x=>x.id===v.patientId);
-          if(p){
-            p.dept=v.department;
-            p.status=v.status;
-            p.time=v.time;
-          }
+      state.visits=sqlVisits;
+      for(const v of sqlVisits){
+        const p=state.patients.find(x=>x.id===v.patientId);
+        if(p){
+          p.dept=v.department;
+          p.status=v.status;
+          p.time=v.time;
         }
-        hasChanges=true;
       }
+      hasChanges=true;
     }
 
     // 3. Beds from SQL Server
