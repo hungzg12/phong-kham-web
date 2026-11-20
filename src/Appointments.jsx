@@ -143,21 +143,27 @@ export default function Appointments({ appointments, setAppointments, patients, 
 
   async function checkIn(a) {
     try {
-      let patientId = a.id?.startsWith('BN') ? a.id : null;
+      let patientId = a.patientId || (a.id?.startsWith('BN') ? a.id : null);
       if (!patientId) {
-        const resP = await fetch('/api/patients', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: a.name,
-            phone: a.phone,
-            birth: a.birth || '1990-01-01',
-            gender: a.gender || 'Nam',
-            insurance: a.insurance || ''
-          })
-        });
-        const dataP = await resP.json();
-        patientId = dataP.id;
+        // Find existing patient by phone first to prevent duplicate BN records
+        const existing = patients.find(p => p.phone && p.phone === a.phone);
+        if (existing) {
+          patientId = existing.id;
+        } else {
+          const resP = await fetch('/api/patients', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: a.name,
+              phone: a.phone,
+              birth: a.birth || '1990-01-01',
+              gender: a.gender || 'Nam',
+              insurance: a.insurance || ''
+            })
+          });
+          const dataP = await resP.json();
+          patientId = dataP.id;
+        }
       }
 
       const resV = await fetch('/api/visits', {
@@ -170,15 +176,18 @@ export default function Appointments({ appointments, setAppointments, patients, 
           appointmentId: a.id
         })
       });
+      if (!resV.ok) {
+        const errJson = await resV.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Không thể cấp số thứ tự vào buồng khám.');
+      }
       const dataV = await resV.json();
 
       setAppointments(list => list.map(x => x.id === a.id ? { ...x, status: 'Đã tiếp đón' } : x));
       setModal(null);
-      notify(`Đã tiếp đón! STT ${dataV.queueNumber} tại ${dataV.roomName}`);
-    } catch {
-      setAppointments(list => list.map(x => x.id === a.id ? { ...x, status: 'Đã tiếp đón' } : x));
-      setModal(null);
-      notify('Đã check-in và chuyển bệnh nhân vào danh sách chờ khám');
+      notify(`Đã tiếp đón thành công! STT ${dataV.queueNumber} tại ${dataV.roomName}`);
+    } catch (err) {
+      setError('Lỗi tiếp đón: ' + (err.message || 'Không kết nối được SQL Server'));
+      notify('Lỗi tiếp đón: ' + (err.message || 'Không thể hoàn tất tiếp đón'));
     }
   }
 

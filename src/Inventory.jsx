@@ -48,55 +48,56 @@ export default function Inventory({ role = 'admin', notify }) {
   const actor = actorRoles[role];
   const warehouses = db.warehouses.filter(w => w.status === 'Đang hoạt động');
 
-  // Normalize lots: prioritize live SQL Server batches if loaded, otherwise fallback to local workspace
-  const activeLots = sqlBatches.length > 0
-    ? sqlBatches.map(b => ({
-        id: b.maLoHang + '_' + (b.tenKho || '') + '_' + b.soLoNhaSanXuat,
-        medicineId: b.maHang || b.maLoHang,
-        name: b.tenHang,
-        activeIngredient: b.hoatChat,
-        manufacturer: b.hangSanXuat,
-        country: b.nuocSanXuat,
-        warehouseName: b.tenKho || 'Kho Dược',
-        warehouseId: b.tenKho,
-        shelfLocation: b.viTriDayKe,
-        lot: b.soLoNhaSanXuat,
-        expiry: b.hanSuDung,
-        daysLeft: b.soNgayConHan,
-        qty: b.soLuongTon ?? 0,
-        availQty: b.soLuongKhaDung ?? 0,
-        unit: b.donViCoSo || 'Viên',
-        unitPrice: b.donGiaNhap || 0,
-        isLocked: !!b.trangThaiKhoa,
-        statusLabel: b.trangThaiHanDung
-      }))
-    : inventory.map(l => {
-        const s = stock.find(item => item.id === l.medicineId);
-        const w = db.warehouses.find(item => item.id === l.warehouseId);
-        const expiryDate = new Date(l.expiry);
-        const todayDate = new Date(today);
-        const diffDays = Math.ceil((expiryDate - todayDate) / (1000 * 60 * 60 * 24));
-        return {
-          id: l.id,
-          medicineId: l.medicineId,
-          name: s?.name || l.medicineId,
-          activeIngredient: '',
-          manufacturer: 'Việt Nam',
-          country: '',
-          warehouseName: w?.name || l.warehouseId,
-          warehouseId: l.warehouseId,
-          shelfLocation: '',
-          lot: l.lot,
-          expiry: l.expiry,
-          daysLeft: isNaN(diffDays) ? undefined : diffDays,
-          qty: l.qty,
-          availQty: l.qty,
-          unit: s?.unit || 'Đơn vị',
-          unitPrice: 0,
-          isLocked: l.expiry < today,
-          statusLabel: l.expiry < today ? 'ĐÃ HẾT HẠN' : diffDays <= 90 ? 'CẬN DATE' : 'CÒN HẠN SỬ DỤNG'
-        };
-      });
+  // Normalize lots: merge live SQL Server batches with any newly added workspace lots so data never desyncs
+  const activeLots = [
+    ...sqlBatches.map(b => ({
+      id: b.maLoHang + '_' + (b.tenKho || '') + '_' + b.soLoNhaSanXuat,
+      medicineId: b.maHang || b.maLoHang,
+      name: b.tenHang,
+      activeIngredient: b.hoatChat,
+      manufacturer: b.hangSanXuat,
+      country: b.nuocSanXuat,
+      warehouseName: b.tenKho || 'Kho Dược',
+      warehouseId: b.tenKho,
+      shelfLocation: b.viTriDayKe,
+      lot: b.soLoNhaSanXuat,
+      expiry: b.hanSuDung,
+      daysLeft: b.soNgayConHan,
+      qty: b.soLuongTon ?? 0,
+      availQty: b.soLuongKhaDung ?? 0,
+      unit: b.donViCoSo || 'Viên',
+      unitPrice: b.donGiaNhap || 0,
+      isLocked: !!b.trangThaiKhoa,
+      statusLabel: b.trangThaiHanDung
+    })),
+    ...inventory.filter(l => !sqlBatches.some(b => b.soLoNhaSanXuat === l.lot && (b.maHang === l.medicineId || b.maLoHang === l.medicineId))).map(l => {
+      const s = stock.find(item => item.id === l.medicineId);
+      const w = db.warehouses.find(item => item.id === l.warehouseId);
+      const expiryDate = new Date(l.expiry);
+      const todayDate = new Date(today);
+      const diffDays = Math.ceil((expiryDate - todayDate) / (1000 * 60 * 60 * 24));
+      return {
+        id: l.id,
+        medicineId: l.medicineId,
+        name: s?.name || l.medicineId,
+        activeIngredient: '',
+        manufacturer: 'Việt Nam',
+        country: '',
+        warehouseName: w?.name || l.warehouseId,
+        warehouseId: l.warehouseId,
+        shelfLocation: '',
+        lot: l.lot,
+        expiry: l.expiry,
+        daysLeft: isNaN(diffDays) ? undefined : diffDays,
+        qty: l.qty,
+        availQty: l.qty,
+        unit: s?.unit || 'Đơn vị',
+        unitPrice: 0,
+        isLocked: l.expiry < today,
+        statusLabel: l.expiry < today ? 'ĐÃ HẾT HẠN' : diffDays <= 90 ? 'CẬN DATE' : 'CÒN HẠN SỬ DỤNG'
+      };
+    })
+  ];
 
   // Unique list of warehouses and manufacturers for filtering
   const availableWarehouses = Array.from(new Set(activeLots.map(l => l.warehouseName).filter(Boolean)));
