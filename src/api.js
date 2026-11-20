@@ -59,6 +59,21 @@ export const hisApi = {
   getMedicines: (warehouse = 'KHO_NGOAI_TRU') => req(`/api/medicines?warehouse=${encodeURIComponent(warehouse)}`),
   getPharmacyBatches: () => req('/api/pharmacy/batches'),
   getPharmacyStats: () => req('/api/pharmacy/stats'),
+  importPharmacyLot: (data) => req('/api/pharmacy/import', {
+    method: 'POST',
+    headers: jsonHeaders,
+    body: JSON.stringify(data),
+  }),
+  createPharmacyProduct: (data) => req('/api/pharmacy/product', {
+    method: 'POST',
+    headers: jsonHeaders,
+    body: JSON.stringify(data),
+  }),
+  transferPharmacyStock: (data) => req('/api/pharmacy/transfer', {
+    method: 'POST',
+    headers: jsonHeaders,
+    body: JSON.stringify(data),
+  }),
   createPrescription: (data) => req('/api/prescriptions', {
     method: 'POST',
     headers: jsonHeaders,

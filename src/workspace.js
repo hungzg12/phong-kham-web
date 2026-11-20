@@ -189,12 +189,14 @@ export async function syncWithSqlServer(){
       state.stock=mRes.value.map(m=>({
         id:m.id,
         name:m.name,
-        type:m.category||'Thuốc',
+        type:m.kind==='VAT_TU'?'Vật tư y tế':'Thuốc',
+        kind:m.kind,
         lot:'LO-SQL',
         expiry:'2028-12-31',
-        qty:m.stockQty??100,
+        qty:Number(m.stockQty??0),
         unit:m.unit,
-        price:m.price
+        price:m.price,
+        insurancePrice:m.insurancePrice
       }));
       hasChanges=true;
     }
@@ -216,12 +218,12 @@ export async function syncWithSqlServer(){
     // 6. Pharmacy Batches from SQL Server
     if(batchRes.status==='fulfilled'&&Array.isArray(batchRes.value)&&batchRes.value.length){
       state.inventory=batchRes.value.map(b=>({
-        id:b.batchId||('LOT-'+b.medicineId),
-        medicineId:b.medicineId,
-        warehouseId:'KHO_NGOAI_TRU',
-        lot:b.lotNumber,
-        expiry:b.expiryDate,
-        qty:b.quantityOnHand,
+        id:b.maLoHang+'_'+(b.maKho||'KHO')+'_'+b.soLoNhaSanXuat,
+        medicineId:b.maHang||b.maLoHang,
+        warehouseId:b.maKho||'KHO_NGOAI_TRU',
+        lot:b.soLoNhaSanXuat,
+        expiry:b.hanSuDung,
+        qty:Number(b.soLuongKhaDung??b.soLuongTon??0),
         receivedAt:today
       }));
       hasChanges=true;

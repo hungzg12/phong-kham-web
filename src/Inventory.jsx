@@ -4,6 +4,7 @@ import { useWorkspace, getWorkspace, transact, addLot, planFEFO, id, audit } fro
 import { today } from './business-data';
 import { actorRoles } from './roles';
 import { AllocationPreview } from './AllocationPreview';
+import { hisApi } from './api';
 
 export default function Inventory({ role = 'admin', notify }) {
   const [inventory] = useWorkspace('inventory');
@@ -151,23 +152,52 @@ export default function Inventory({ role = 'admin', notify }) {
     }
   }
 
-  function confirm() {
+  async function confirm() {
     try {
+      if (modal === 'lot') {
+        await hisApi.importPharmacyLot({
+          medicineId: draft.medicine,
+          warehouseId: draft.warehouse || 'KHO_NGOAI_TRU',
+          lot: draft.lot,
+          expiry: draft.expiry,
+          qty: Number(draft.qty),
+          unitPrice: 1500,
+          manufacturer: 'Việt Nam'
+        });
+      } else if (modal === 'product') {
+        await hisApi.createPharmacyProduct({
+          id: draft.id,
+          name: draft.name,
+          type: draft.type,
+          unit: draft.unit,
+          price: 10000
+        });
+      } else if (modal === 'transfer') {
+        await hisApi.transferPharmacyStock({
+          medicineId: draft.medicine,
+          sourceWarehouse: draft.source,
+          targetWarehouse: draft.destination,
+          quantity: Number(draft.quantity)
+        });
+      }
+
       transact(d => {
         const event = id(modal === 'transfer' ? 'DC' : 'NK');
         if (modal === 'transfer') {
           const allocations = planFEFO(d.inventory, [{ medicine: draft.medicine, quantity: Number(draft.quantity) }], draft.source);
           for (const a of allocations) {
-            d.inventory.find(l => l.id === a.lotId).qty -= a.quantity;
+            const matchLot = d.inventory.find(l => l.id === a.lotId);
+            if (matchLot) matchLot.qty -= a.quantity;
             d.ledger.unshift({ id: id('NK'), date: today, time: new Date().toISOString(), medicineId: a.medicineId, warehouseId: a.warehouseId, lot: a.lot, delta: -a.quantity, event });
             addLot(d, { medicineId: a.medicineId, warehouseId: draft.destination, lot: a.lot, expiry: a.expiry, qty: a.quantity }, event);
           }
         } else {
           let medicine = draft.medicine;
           if (modal === 'product') {
-            if (d.stock.some(s => s.id === draft.id)) throw new Error('Mã mặt hàng đã tồn tại.');
-            medicine = draft.id;
-            d.stock.push({ id: medicine, name: draft.name, type: draft.type, unit: draft.unit, qty: 0 });
+            if (!d.stock.some(s => s.id === draft.id)) {
+              medicine = draft.id;
+              d.stock.push({ id: medicine, name: draft.name, type: draft.type, unit: draft.unit, qty: 0 });
+            }
           }
           if (Number(draft.qty) > 0) {
             addLot(d, { medicineId: medicine, warehouseId: draft.warehouse, lot: draft.lot, expiry: draft.expiry, qty: Number(draft.qty) }, event);
@@ -175,11 +205,12 @@ export default function Inventory({ role = 'admin', notify }) {
         }
         audit(d, (modal === 'transfer' ? 'Điều chuyển kho ' : 'Nhập lô ') + event, actor.person);
       });
+
       setModal(null);
-      notify(modal === 'transfer' ? 'Đã điều chuyển đúng lô giữa hai kho' : 'Đã nhập lô vào kho đã chọn');
-      fetchSqlBatches();
+      notify(modal === 'transfer' ? 'Đã điều chuyển kho thành công (SQL Server)' : modal === 'product' ? 'Đã thêm mặt hàng mới (SQL Server)' : 'Đã nhập lô vào kho thành công (SQL Server)');
+      await fetchSqlBatches();
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Lỗi xử lý giao dịch kho SQL Server.');
     }
   }
 

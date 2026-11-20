@@ -63,6 +63,33 @@ export function createApiMiddleware() {
         return respond(200, JSON.parse(result));
       }
 
+      // 3b. Pharmacy Import Lot (POST /api/pharmacy/import)
+      if (url === '/api/pharmacy/import' && req.method === 'POST') {
+        let body = '';
+        for await (const part of req) { body += part; }
+        const data = JSON.parse(body);
+        const result = await runSqlScript('scripts/sql-pharmacy-actions.ps1', { action: 'import_lot', ...data });
+        return respond(201, JSON.parse(result));
+      }
+
+      // 3c. Pharmacy Create Product (POST /api/pharmacy/product)
+      if (url === '/api/pharmacy/product' && req.method === 'POST') {
+        let body = '';
+        for await (const part of req) { body += part; }
+        const data = JSON.parse(body);
+        const result = await runSqlScript('scripts/sql-pharmacy-actions.ps1', { action: 'create_product', ...data });
+        return respond(201, JSON.parse(result));
+      }
+
+      // 3d. Pharmacy Transfer Stock (POST /api/pharmacy/transfer)
+      if (url === '/api/pharmacy/transfer' && req.method === 'POST') {
+        let body = '';
+        for await (const part of req) { body += part; }
+        const data = JSON.parse(body);
+        const result = await runSqlScript('scripts/sql-pharmacy-actions.ps1', { action: 'transfer_stock', ...data });
+        return respond(200, JSON.parse(result));
+      }
+
       // 4. Appointments list & booking
       if (url === '/api/appointments') {
         if (req.method === 'GET') {

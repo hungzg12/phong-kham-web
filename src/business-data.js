@@ -39,7 +39,7 @@ export const seeds={
  labs:[],
  prescriptions:[],
  referrals:[], rounds:[],consultations:[],discharges:[],
- warehouses:[{id:'KHO001',name:'Kho Dược Tổng Toàn Viện',kind:'Kho tổng',manager:'NV003',location:'Tầng hầm B1 · Khu Dược',status:'Đang hoạt động'},{id:'KHO002',name:'Nhà Thuốc Khám Ngoại Trú',kind:'Kho lẻ',manager:'NV002',location:'Tầng 1 · Cổng chính',status:'Đang hoạt động'},{id:'KHO003',name:'Tủ Trực Cấp Cứu 24/7',kind:'Kho khoa',manager:'NV001',location:'Khoa Cấp Cứu',status:'Đang hoạt động'}],movements:[],counts:[],advances:[],shifts:[],
+ warehouses:[{id:'KHO_TONG',name:'Kho Dược Tổng Toàn Viện',kind:'Kho tổng',manager:'NV003',location:'Tầng hầm B1 · Khu Dược',status:'Đang hoạt động'},{id:'KHO_NGOAI_TRU',name:'Nhà Thuốc Khám Ngoại Trú',kind:'Kho lẻ',manager:'NV002',location:'Tầng 1 · Cổng chính',status:'Đang hoạt động'},{id:'TU_TRUC_CAP_CUU',name:'Tủ Trực Cấp Cứu 24/7',kind:'Kho khoa',manager:'NV001',location:'Khoa Cấp Cứu',status:'Đang hoạt động'}],movements:[],counts:[],advances:[],shifts:[],
  archives:[],corrections:[],authorizations:[],
  staff:[{id:'NV001',name:'Trần Minh Anh',title:'Bác sĩ',department:'Nội tổng quát',certificate:'CCHN-001',phone:'0901000001',status:'Đang hoạt động'},{id:'NV002',name:'Phạm Thu Hà',title:'Điều dưỡng',department:'Nội tổng quát',phone:'0901000002',status:'Đang hoạt động'},{id:'NV003',name:'Lê Quốc Huy',title:'Dược sĩ',department:'Nội tổng quát',phone:'0901000003',status:'Đang hoạt động'},{id:'NV004',name:'Nguyễn Hoàng Anh',title:'Thu ngân',department:'Nội tổng quát',phone:'0901000004',status:'Đang hoạt động'}],
  departments:clinics.map((name,i)=>({id:'KP00'+(i+1),name:'Phòng khám '+name,kind:'Phòng khám',department:name,capacity:40,location:'Tầng 1 · P'+(101+i),status:'Đang hoạt động'})),
