@@ -28,12 +28,12 @@ export default function SqlAppointments() {
   }, [revision]);
 
   return <section className="panel">
-    <h2>Lịch hẹn từ SQL Server</h2>
-    <button type="button" onClick={() => setRevision(previous => previous + 1)}>Tải lại</button>
+    <div className="panel-heading"><div><h2>Danh sách lịch hẹn</h2><p>Lịch đã lưu vào SQL Server</p></div>
+    <button className="secondary" type="button" onClick={() => setRevision(previous => previous + 1)}>Tải lại</button></div>
     {result.error && <p role="alert">{result.error}</p>}
     {!result.error && !result.rows && <p role="status">Đang tải lịch hẹn…</p>}
     {result.rows?.length === 0 && <p>Chưa có lịch hẹn.</p>}
-    {result.rows?.length > 0 && <div style={{ overflowX: 'auto' }}>
+    {result.rows?.length > 0 && <div className="table-scroll">
       <table>
         <thead><tr><th>Mã lịch</th><th>Ngày giờ</th><th>Chuyên khoa</th><th>Phòng</th><th>Trạng thái</th></tr></thead>
         <tbody>{result.rows.map(row => <tr key={row.id}>
