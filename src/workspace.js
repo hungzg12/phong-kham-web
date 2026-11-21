@@ -1,10 +1,14 @@
+import {currentIdentity} from './session.js';
 import {useSyncExternalStore} from 'react';
 import {initialPatients,initialStock} from './fixtures.js';
 import {seeds,today} from './business-data.js';
 import {hisApi} from './api.js';
+import {actorRoles} from './roles.js';
 
 export const DATA_KEY='medicare-sqlserver-live';
-let state=null,issue=null;
+let state=null,issue=null,workspaceEpoch=0;
+export function resetWorkspaceMemory(){workspaceEpoch++;state=null;issue=null;}
+
 const subscribers=new Set();
 const alertSubscribers=new Set();
 
@@ -34,15 +38,7 @@ function visitFor(patient,index,note){
 export function initializeWorkspace(){
   if(state) return state;
 
-  // Clear legacy local storage to ensure 100% SQL Server freshness
-  if(typeof window!=='undefined'){
-    try{
-      localStorage.removeItem('medicare-workspace-v3');
-      localStorage.removeItem('medicare-workspace-v4');
-      localStorage.removeItem('medicare-patients-v1');
-      localStorage.removeItem('medicare-stock-v1');
-    }catch{}
-  }
+  // Preserve existing browser data during SQL synchronization.
 
   const patients=copy(initialPatients);
   const stock=copy(initialStock);
@@ -90,19 +86,49 @@ export function initializeWorkspace(){
 }
 
 export async function syncWithSqlServer(){
+  const epoch=workspaceEpoch;
   try{
-    const [pRes,qRes,bRes,mRes,sRes,batchRes,aRes]=await Promise.allSettled([
+    const [pRes,qRes,bRes,mRes,sRes,batchRes,aRes,doctorRes,ancillaryRes,financeRes,pharmacyRes]=await Promise.allSettled([
       hisApi.getPatients(),
-      hisApi.getQueue(),
+      hisApi.getQueue('',true),
       hisApi.getBeds(),
       hisApi.getMedicines(),
       hisApi.getServices(),
       hisApi.getPharmacyBatches(),
-      hisApi.getAppointments()
+      hisApi.getAppointments(),
+      hisApi.getDoctors(),
+      hisApi.getAncillary(),
+      hisApi.getFinance(),
+      hisApi.getPharmacyState()
     ]);
 
-    if(!state) return;
+    if(!state||epoch!==workspaceEpoch) return;
     let hasChanges=false;
+    if(financeRes.status==='fulfilled'){
+      for(const key of ['advances','settlements','shifts'])if(Array.isArray(financeRes.value[key]))state.business[key]=financeRes.value[key];
+      hasChanges=true;
+    }
+    if(ancillaryRes.status==='fulfilled'){
+      const incoming=ancillaryRes.value;
+      if(Array.isArray(incoming.labs))state.business.labs=incoming.labs;
+      if(Array.isArray(incoming.vitals))state.business.vitals=incoming.vitals;
+      if(Array.isArray(incoming.rounds))state.business.rounds=incoming.rounds;
+      if(Array.isArray(incoming.admissions))state.admissions=incoming.admissions;
+      if(Array.isArray(incoming.staff)){
+        state.business.staff=incoming.staff;
+        for(const [role,specialty]of [['nurse','DIEU_DUONG'],['technician','KY_THUAT_VIEN'],['cashier','THU_NGAN'],['pharmacist','DUOC_SI']]){
+          const available=incoming.staff.filter(s=>s.specialty===specialty);
+          const linked=available.find(s=>s.id===actorRoles[role].staffId)||available.find(s=>s.name===actorRoles[role].person)||(available.length===1?available[0]:null);
+          if(linked&&!currentIdentity()){actorRoles[role].staffId=linked.id;actorRoles[role].person=linked.name;}
+        }
+      }
+      hasChanges=true;
+    }
+    if(doctorRes.status==='fulfilled'&&Array.isArray(doctorRes.value)){
+      const doctors=doctorRes.value;
+      const linked=doctors.find(d=>d.id===actorRoles.doctor.staffId)||doctors.find(d=>d.name===actorRoles.doctor.person)||(doctors.length===1?doctors[0]:null);
+      if(linked&&!currentIdentity()){actorRoles.doctor.staffId=linked.id;actorRoles.doctor.person=linked.name;hasChanges=true;}
+    }
 
     // 1. Patients from SQL Server
     if(pRes.status==='fulfilled'&&Array.isArray(pRes.value)){
@@ -117,7 +143,7 @@ export async function syncWithSqlServer(){
         insurance:p.insurance,
         address:p.address,
         dept:'Nội tổng quát',
-        doctor:'BS. Trần Minh Anh',
+        doctor:'Chưa phân công',
         time:'08:00',
         status:'Chờ khám',
         color:colors[idx%colors.length],
@@ -138,27 +164,34 @@ export async function syncWithSqlServer(){
         date:q.date,
         time:q.time,
         department:q.department,
-        doctor:q.doctor||'BS. Trần Minh Anh',
+        doctor:q.doctor||'Chưa phân công',
+        doctorStaffId:q.doctorStaffId,
         status:q.status,
         queueNumber:q.queueNumber,
         room:q.room,
         roomCode:q.roomCode,
         reason:q.reason,
-        note:null,
-        createdAt:q.date+'T'+q.time
+        note:q.note||null,
+        locked:!!q.locked,
+        revision:q.revision||0,
+        createdAt:q.createdAt||q.date+'T'+q.time
       }));
 
       state.visits=sqlVisits;
+      state.notes={};
       for(const v of sqlVisits){
         const p=state.patients.find(x=>x.id===v.patientId);
         if(p){
           p.dept=v.department;
+          p.doctor=v.doctor;
           p.status=v.status;
           p.time=v.time;
         }
       }
       hasChanges=true;
     }
+
+    for(const patient of state.patients)syncLatestPatient(state,patient.id);
 
     // 3. Beds from SQL Server
     if(bRes.status==='fulfilled'&&Array.isArray(bRes.value)&&bRes.value.length){
@@ -222,22 +255,34 @@ export async function syncWithSqlServer(){
     }
 
     // 7. Appointments from SQL Server
-    if(aRes.status==='fulfilled'&&Array.isArray(aRes.value)&&aRes.value.length){
+    if(aRes.status==='fulfilled'&&Array.isArray(aRes.value)){
       state.appointments=aRes.value.map(a=>({
         id:a.id,
         name:a.name,
         birth:a.birth,
         gender:a.gender,
         phone:a.phone,
-        dept:a.dept,
+        patientId:a.patientId,
+        dept:a.dept||a.department,
         date:a.date?(a.date+'T'+(a.time||'08:00')):(a.day+'T'+a.time),
-        status:a.status||'Đã xác nhận',
+        status:({DA_DAT:'Đã xác nhận',DA_CHECK_IN:'Đã tiếp đón',DA_HUY:'Đã hủy'}[a.status]||a.status||'Đã xác nhận'),
+        cancelReason:a.cancelReason,
         reason:a.reason||''
       }));
       hasChanges=true;
     }
 
+    if(pharmacyRes.status==='fulfilled'){
+      const incoming=pharmacyRes.value;
+      for(const key of ['prescriptions','warehouses','movements','counts'])if(Array.isArray(incoming[key]))state.business[key]=incoming[key];
+      for(const key of ['inventory','ledger','stock'])if(Array.isArray(incoming[key]))state[key]=incoming[key];
+      hasChanges=true;
+    }
     if(hasChanges){
+      if(ancillaryRes.status==='fulfilled'){
+        for(const key of ['services','warehouses'])if(Array.isArray(ancillaryRes.value[key]))state.business[key]=ancillaryRes.value[key];
+        if(Array.isArray(ancillaryRes.value.inventory))state.inventory=ancillaryRes.value.inventory;
+      }
       state.updatedAt=new Date().toISOString();
       subscribers.forEach(fn=>fn());
     }
@@ -344,69 +389,27 @@ export function episodeOptions(data,patientId){
 
 export function syncLatestPatient(d,patientId){
   const p=d.patients.find(x=>x.id===patientId);
-  const latest=d.visits.filter(v=>v.patientId===patientId).sort((a,b)=>(b.date+'T'+b.time+b.createdAt).localeCompare(a.date+'T'+a.time+a.createdAt))[0];
+  const latest=d.visits.filter(v=>v.patientId===patientId).sort((a,b)=>(b.date+'T'+b.time+b.createdAt).localeCompare(a.date+'T'+a.time+a.createdAt)||(Number(b.queueNumber)||0)-(Number(a.queueNumber)||0))[0];
   if(p&&latest){
     Object.assign(p,{dept:latest.department,doctor:latest.doctor,time:latest.time,status:latest.status});
-    if(latest.note) d.notes[patientId]=latest.note;
+    if(latest.note&&latest.locked) d.notes[patientId]=latest.note;else delete d.notes[patientId];
   }
 }
 
-export function createVisit(values){
-  let created;
-  transact(d=>{
-    const p=d.patients.find(x=>x.id===values.patientId);
-    if(!p) throw new Error('Không tìm thấy bệnh nhân.');
-    created={...values,id:id('LK'),kind:'Ngoại trú',status:'Chờ khám',note:null,createdAt:new Date().toISOString()};
-    d.visits.unshift(created);
-    syncLatestPatient(d,p.id);
-  });
-
-  // Call SQL Server API in background
-  hisApi.createVisit({
-    patientId:values.patientId,
-    dept:values.department||values.dept||'Nội tổng quát',
-    reason:values.reason||'Khám bệnh'
-  }).then(res=>{
-    if(res&&res.visitId){
-      created.id=res.visitId;
-      created.queueNumber=res.queueNumber;
-      syncWithSqlServer();
-    }
-  }).catch(err=>console.warn('SQL visit create background notice:', err));
-
-  return created;
+export async function createVisit(values){
+  if(!getWorkspace().patients.some(p=>p.id===values.patientId))throw new Error('Không tìm thấy bệnh nhân.');
+  const result=await hisApi.createVisit({patientId:values.patientId,dept:values.department||values.dept||'Nội tổng quát',reason:values.reason||'Khám bệnh'});
+  await syncWithSqlServer();
+  return getWorkspace().visits.find(v=>v.id===result.visitId)||result;
 }
 
-export function saveVisitNote(visitId,note){
-  transact(d=>{
-    const visit=d.visits.find(v=>v.id===visitId);
-    if(!visit) throw new Error('Không tìm thấy lượt khám.');
-    if(visit.status==='Đã hủy') throw new Error('Lượt khám đã hủy không thể ghi phiếu khám.');
-    if(visit.locked) throw new Error('Phiếu đã khóa. Mở đính chính tại bàn khám trước khi sửa.');
-    if(visit.note) visit.noteRevisions=[...(visit.noteRevisions||[]),visit.note];
-    visit.note={...note,savedAt:new Date().toISOString()};
-    visit.revision=(visit.revision||0)+1;
-    visit.status=note.outcome==='Chờ kết quả CLS'?'Chờ kết quả':'Hoàn tất';
-    const latest=d.visits.filter(v=>v.patientId===visit.patientId).sort((a,b)=>(b.date+'T'+b.time).localeCompare(a.date+'T'+a.time))[0];
-    if(latest?.id===visit.id){
-      d.notes[visit.patientId]=visit.note;
-      const p=d.patients.find(p=>p.id===visit.patientId);
-      if(p) p.status=visit.status;
-    }
-  });
-
-  // Call SQL Server API
-  hisApi.saveExamNote({
-    visitId,
-    symptoms:note.symptoms||'',
-    history:note.history||'',
-    examination:note.examination||'',
-    diagnosis:note.diagnosis||'',
-    icd:note.icd||'',
-    plan:note.plan||'',
-    advice:note.advice||'',
-    outcome:note.outcome||'Điều trị ngoại trú'
-  }).catch(err=>console.warn('SQL save exam note error:', err));
+export async function saveVisitNote(visitId,note){
+  const current=getWorkspace().visits.find(v=>v.id===visitId);
+  if(!current)throw new Error('Không tìm thấy lượt khám.');
+  if(current.locked||current.status==='Đã hủy')throw new Error('Phiếu khám đã khóa hoặc đã hủy.');
+  const saved=await hisApi.saveExamNote({visitId,note:{...current.note,...note},revision:current.revision||0,doctorStaffId:current.doctorStaffId,lock:true});
+  transact(d=>{const index=d.visits.findIndex(v=>v.id===saved.id);if(index>=0)d.visits[index]={...d.visits[index],...saved};syncLatestPatient(d,current.patientId);});
+  return saved;
 }
 
 export function audit(d,event,actor='Phiên làm việc'){
@@ -430,7 +433,7 @@ export function planFEFO(inventory,requests,warehouseId,asOf=today){
   for(const request of requests){
     let remaining=Number(request.quantity);
     if(!Number.isInteger(remaining)||remaining<1) throw new Error('Số lượng xuất phải là số nguyên dương.');
-    const available=pool.filter(l=>l.medicineId===request.medicine&&l.warehouseId===warehouseId&&l.expiry>=asOf&&l.qty>0).sort((a,b)=>a.expiry.localeCompare(b.expiry)||a.receivedAt.localeCompare(b.receivedAt)||a.id.localeCompare(b.id));
+    const available=pool.filter(l=>l.medicineId===request.medicine&&l.warehouseId===warehouseId&&!l.locked&&l.expiry>=asOf&&l.qty>0).sort((a,b)=>a.expiry.localeCompare(b.expiry)||(a.receivedAt||'').localeCompare(b.receivedAt||'')||a.id.localeCompare(b.id));
     for(const lot of available){
       const quantity=Math.min(remaining,lot.qty);
       if(quantity){

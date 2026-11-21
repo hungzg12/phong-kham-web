@@ -1,94 +1,50 @@
-# MediCare — Frontend quản lý bệnh viện
+# MediCare — Quản lý phòng khám
 
-Giao diện tiếng Việt xây dựng theo tài liệu Lab 9 bằng React 18, Vite và Lucide. Dự án độc lập với frontend phòng gym.
+Dự án hiện tại dùng **React 18 / Vite, Node.js, Windows PowerShell và SQL Server**.
+Các tài liệu Next.js/PostgreSQL cũ trong repository không mô tả entry đang chạy.
 
-## Chạy dự án
+## Chạy dự án trên Windows
 
-```powershell
-cd hospital-frontend
-npm install
-npm run dev
-```
+1. Cài Node.js và SQL Server; tạo database bằng `database/QuanLyBenhVien_SQLServer.sql` nếu chưa có. Không chạy reset hay seed lên database đang làm việc.
+2. Chạy `npm ci`, sao chép `.env.example` thành `.env.local` và cấu hình kết nối SQL Server.
+3. Khởi tạo quản trị lần đầu theo [docs/ADMIN.md](docs/ADMIN.md); mật khẩu do người vận hành đặt, không có mật khẩu mặc định.
+4. Chạy `npm run dev -- --port 5176`, mở http://127.0.0.1:5176/#management.
 
-Mở URL localhost do Vite hiển thị. Đóng gói: `npm run build`. Kiểm tra bản đóng gói: `npm run preview`.
+Đăng nhập bằng tài khoản được cấp. Vai trò, nhân viên và bệnh nhân được xác định từ phiên SQL; sửa sessionStorage hoặc chọn menu không cấp quyền API. Cả 8 vai trò dùng khung giao diện nghiệp vụ chung. Quản trị có biểu mẫu cấu hình tại `#administration`.
 
-## Chức năng
+`npm run build` tạo bundle. `npm start` chạy máy chủ **chỉ dành cho quản trị** tại cổng5180; chưa bật API nghiệp vụ trên máy chủ production này. `vite preview` không chạy middleware SQL của Vite dev.
 
-- Tổng quan: số lượt khám, số đợt nội trú, giường trống, công suất, thuần thu tiền mặt, biểu đồ 7 ngày và phân bổ chuyên khoa đều tính từ dữ liệu đã lưu; có bộ lọc ngày.
-- Tiếp đón: tạo và sửa bệnh nhân, kiểm tra dữ liệu bắt buộc, điều chuyển chuyên khoa, hủy lượt có lý do.
-- Khám: ghi triệu chứng, chẩn đoán/ICD-10, chỉ định CLS, hướng xử trí và cập nhật trạng thái.
-- Nội trú: phân giường, ngăn phân hai giường cho cùng bệnh nhân, giải phóng giường và xác nhận khử khuẩn.
-- Dược: tồn riêng theo kho, mặt hàng và lô; nhập lô, điều chuyển, lọc hạn dùng, xuất CSV và nhật ký số dư. FEFO bỏ qua lô hết hạn/thiếu hạn dùng, ưu tiên lô hết hạn sớm, có thể chia một lần cấp phát qua nhiều lô. Giao diện hiển thị phân bổ dự kiến trước khi xác nhận.
-- Lịch hẹn: danh sách / lịch tuần, tìm kiếm, đặt, đổi, hủy có lý do và check-in sang danh sách chờ khám.
-- Cận lâm sàng: phiếu sinh hiệu, BMI, chỉ định dịch vụ, chặn trùng trong ngày, tiếp nhận, nhập kết quả, cảnh báo nguy kịch, duyệt và phát hành mẫu.
-- Đơn thuốc: nhiều dòng thuốc, liều, đường dùng, tần suất, số ngày, xác nhận mẫu và cấp phát trừ tồn kho; chặn thiếu hàng hoặc lô hết hạn.
-- Chuyển tuyến: cơ sở tiếp nhận, chẩn đoán, lý do, bác sĩ và phương tiện vận chuyển.
-- Chăm sóc: diễn biến, y lệnh, xác nhận điều dưỡng và 5 đúng; y lệnh thuốc có trừ tồn kho. Biên bản hội chẩn và tổng kết ra viện giải phóng giường.
-- Kho: danh mục kho, phiếu nhập/xuất/hoàn trả, duyệt ghi sổ, kiểm kê tồn thực tế, phê duyệt điều chỉnh và chặn số liệu tồn đã thay đổi.
-- Viện phí: tạm ứng, hoàn tiền, bảng chi phí nhiều dòng, nhập BHYT, cấn trừ, thu thêm/hoàn/xác nhận đủ tiền, biên nhận mẫu và in biểu mẫu.
-- Ca trực: tiền đầu ca, tiền thực đếm, thuần thu/hoàn, giải trình chênh lệch và đóng ca; chứng từ đã chốt được loại khỏi ca sau.
-- Báo cáo: lọc khoảng ngày, tổng thu/hoàn, xuất CSV và nhật ký thao tác.
-- Bệnh án: hồ sơ ngoại/nội trú, lưu trữ mẫu, đề nghị đính chính, phê duyệt/từ chối theo hạn và cấp/thu hồi ủy quyền.
-- Quản trị: nhân viên, khoa/phòng, công suất, dịch vụ và đơn giá, tài khoản, vai trò và ma trận quyền mẫu.
-- Thiết bị: danh mục, báo hỏng, khóa sử dụng, bảo trì và nghiệm thu để mở lại thiết bị.
-- Cổng người bệnh: hồ sơ, kết quả được phát hành, đơn được xác nhận, lịch hẹn và viện phí của hồ sơ được chọn.
-- Đăng nhập / đăng xuất mẫu: chọn vai trò và vào ngay, không cần tài khoản hoặc mật khẩu.
-- Thông tin cá nhân: bấm ảnh đại diện ở thanh đầu trang → Thông tin cá nhân; xem/sửa tên hiển thị, ngày sinh, giới tính, email, điện thoại, địa chỉ, giới thiệu và ảnh đại diện. Mỗi vai trò có hồ sơ riêng. Tên hiển thị không đổi định danh chuyên môn trên bệnh án. Thông tin liên hệ của nhân viên/người bệnh đồng bộ với hồ sơ liên quan; vai trò, mã hồ sơ và chức danh chỉ đọc.
-- Ảnh cá nhân: JPG/PNG/WEBP tối đa 2 MB, xử lý thành ảnh vuông 256px trước khi lưu cục bộ. Có xem trước, bỏ thay đổi và xác nhận khi hủy chỉnh sửa; không tải ảnh lên máy chủ.
-- Giao diện thích ứng cho máy tính và điện thoại.
-- Lịch sử khám: tạo nhiều lượt ngoại trú và nhiều đợt nội trú cho cùng bệnh nhân, phiếu khám theo từng lượt, giữ các lần sửa phiếu, lịch sử sử dụng giường và tra cứu chứng từ theo mã lượt/đợt.
-- Chứng từ chuyên môn, tạm ứng và quyết toán liên kết với lượt/đợt được chọn. Một người bệnh có thể có các bảng quyết toán riêng cho các lần khám khác nhau; không dùng chung số tiền tạm ứng giữa các hồ sơ.
-- Trải nghiệm: có trạng thái đọc dữ liệu ban đầu/tải module, màn hình lỗi với nút thử lại, thông báo lỗi lưu trữ và xác nhận nhập/điều chuyển kho, hủy lượt, kiểm kê và ra viện. Không tạo thời gian chờ giả.
+## Bản QA có đủ 8 tài khoản
 
-## Phạm vi
+Chạy `node scripts/qa-workspace-session.mjs` để tạo **database QA riêng**, hồ sơ giả QA_TEST và 8 mật khẩu khác nhau. Bản QA chạy tại http://127.0.0.1:52796/#management.
 
-Dữ liệu nghiệp vụ hiện lưu chung trong `localStorage['medicare-workspace-v3']`. Các khóa cũ được đọc một lần để chuyển đổi, giữ nguyên bản cũ và không tiếp tục ghi vào chúng. Chuyển đổi tạo một lượt khám từ thông tin hiện có của từng bệnh nhân, một đợt nội trú từ mỗi bệnh nhân đang có giường, và đưa số tồn cũ vào kho tổng `KHO001`; không tự chia tồn sang kho khác hoặc tạo thêm các lần khám trong quá khứ. Bản ghi chuyển đổi có cờ `migrated` và ngày quy chiếu 11/11/2026.
+- Tài khoản và mật khẩu được xuất vào `.data/medicare-8-passwords.csv` (định dạng nhập trình quản lý mật khẩu).
+- Màn hình đăng nhập QA hiển thị danh sách này và cho bấm để điền. Chức năng chỉ nằm trong runner QA loopback52796, không nằm trong máy chủ production hoặc Vite5176.
+- Muốn mở lại cùng database/tài khoản, chạy `node scripts/run-saved-accounts.mjs`. Không chạy lại script tạo QA nếu muốn giữ mật khẩu hiện có.
+- `.data/`, `.env.local`, mật khẩu và log QA không được đưa lên Git. Bản clone mới cần tự tạo tài khoản/mật khẩu QA của mình.
 
-Các màn hình dùng chung một kho trạng thái trong `src/workspace.js`. Mỗi thao tác cấp phát/ghi sổ/điều chỉnh ghi cả số dư, trạng thái chứng từ và nhật ký trong cùng một lần lưu localStorage. Khi lưu thất bại, trạng thái đang hiển thị không bị cập nhật dở dang. Thay đổi từ tab cùng origin được nhận qua sự kiện `storage`; đây không phải cơ chế khóa giao dịch cho nhiều người dùng.
+## Phần đã nối SQL
 
-Để khôi phục mẫu, cần xóa cả khóa `medicare-workspace-v3` và các khóa nghiệp vụ cũ `medicare-patients-v1`, `medicare-stock-v1`, `medicare-beds-v2`, `medicare-notes-v1`, `medicare-appointments-v1`, `medicare-business-v2`, `medicare-paid-v1`. Việc này xóa dữ liệu trình diễn, không nên thực hiện khi cần giữ bài demo. Dữ liệu JSON lỗi không được tự xóa hoặc ghi đè; màn hình khôi phục có nút tải bản gốc và thử đọc lại.
+- Lịch hẹn, đổi/hủy lịch và check-in; tiếp đón và phân công khám theo ca.
+- Lưu/khóa phiếu khám, kiểm tra phiên bản, giới hạn hồ sơ bác sĩ theo phân công.
+- Sinh hiệu điều dưỡng, thực hiện y lệnh và tiêu hao kho; tiếp nhận/nhập/phát hành CLS.
+- Đơn thuốc, xác nhận và cấp FEFO; nhập/điều chuyển/kiểm kê kho, quy đổi đơn vị và hoàn thuốc theo dòng cấp gốc.
+- Ca thu ngân, tạm ứng/hoàn tiền, quyết toán theo lượt/đợt và đối soát; chống xử lý trùng.
+- Cổng bệnh nhân theo mã hồ sơ liên kết trong tài khoản, không theo số điện thoại hoặc BN0001 cố định.
+- Quản trị tài khoản/danh mục, quyền API, cookie phiên, CSRF và thu hồi phiên.
 
-Ban đầu ứng dụng mở sẵn dashboard quản trị. Nút **Chuyển vai trò trải nghiệm** trên thanh đầu trang cho phép chọn tác nhân; nút **Đăng xuất** ở cuối thanh bên mở màn hình đăng nhập có 7 lựa chọn vai trò. Vai trò và phiên demo được giữ trong sessionStorage khi tải lại trang.
+Xem [hướng dẫn quyền và liên kết tài khoản](docs/WORKSPACE-ACCESS.md), [quản trị](docs/ADMIN.md) và [kiểm chứng](VERIFICATION.md).
 
-### Các tác nhân
+## Kiểm thử
 
-Không cần tài khoản hoặc mật khẩu. Chọn một trong 7 vai trò rồi bấm **Đăng nhập**. Các tên đăng nhập bên dưới chỉ là mã tham chiếu tác nhân mẫu, không cần nhập.
+`node --test --test-concurrency=1 tests/*.test.mjs`
 
-| Tác nhân | Tên đăng nhập | Không gian và thao tác |
-| --- | --- | --- |
-| Quản trị viên | `admin` | Toàn bộ phân hệ, cấu hình, danh mục, nhân viên, tài khoản và quyền |
-| Tiếp tân | `tieptan` | Quầy tiếp đón, danh sách bệnh nhân, đăng ký/điều chuyển/hủy lượt, lịch hẹn và check-in; không mở phiếu khám chuyên môn |
-| Bác sĩ | `bacsi` | Bàn khám, hàng chờ được phân công, CLS, kê/xác nhận đơn, y lệnh, hội chẩn, ra viện và bệnh án; không cấp phát thuốc hay sửa tồn kho |
-| Điều dưỡng | `dieuduong` | Bàn chăm sóc, phiếu sinh hiệu, phân giường, khử khuẩn và thực hiện y lệnh với 5 đúng; không lập y lệnh hoặc duyệt ra viện |
-| Dược sĩ | `duocsi` | Đơn đã xác nhận, cấp phát thuốc, danh mục thuốc, tồn kho, nhập/xuất và kiểm kê; không kê hoặc xác nhận đơn thay bác sĩ |
-| Thu ngân | `thungan` | Quầy thu ngân, quyết toán, tạm ứng/hoàn tiền, đối soát ca và báo cáo; không mở phân hệ khám hoặc bệnh án |
-| Bệnh nhân | `benhnhan` | Trang sức khỏe của Nguyễn Thị Mai (`BN0001`), chỉ xem kết quả/đơn thuốc đã phát hành của mình, đặt/hủy lịch và xem viện phí; không có bộ chọn bệnh nhân |
+Các test SQL tạo database riêng `MediCareQA_Admin_*`, giữ lại bằng chứng; không ghi vào database làm việc. Máy chạy test phải có SQL Server và quyền tạo database. `MEDICARE_TEST_SQL_BASE` chỉ cấu hình server/kết nối, không chứa Database.
 
-Các trang chủ có thống kê theo công việc và lối tắt đến tab tương ứng. Phân hệ chuyên môn ẩn các nút tạo/sửa/xử lý ngoài phạm vi tác nhân và kiểm tra vai trò tại hàm xử lý trong frontend. Nhật ký ghi tên tác nhân thực hiện mẫu. Vai trò UI khai báo trong `src/roles.js`; trang chủ và bộ chọn trong `src/Actors.jsx`.
+Các script Playwright cũ trong package.json là tài liệu/harness lịch sử; không coi chúng là bằng chứng cho luồng đăng nhập hiện tại nếu chưa cập nhật và chạy lại.
 
-Đây là mô phỏng phân quyền giao diện, không phải bảo mật dữ liệu: bộ chọn vai trò được mở công khai để chấm/trình diễn đồ án; các khóa sessionStorage và localStorage có thể sửa từ DevTools. Tài khoản quản trị trong danh mục là dữ liệu mẫu và chưa liên kết với các tài khoản trải nghiệm. Cần backend để xác thực, phân quyền và giới hạn dữ liệu thực.
+## Giới hạn đã biết
 
-Ngày quy chiếu của bộ dữ liệu mẫu là 11/11/2026; dashboard cho phép chọn ngày khác để thống kê. Dashboard không cộng thêm số lượt hoặc doanh thu cố định. Báo cáo tiền mặt chỉ lấy giao dịch đã xác nhận có chứng từ trong phân hệ tài chính; các đánh dấu `paid` đơn giản của phiên bản đầu được giữ trong dữ liệu chuyển đổi nhưng không giả lập thành chứng từ thu tiền. Công suất giường và số ca nội trú đang mở phản ánh trạng thái hiện tại, không phải ảnh chụp lịch sử theo ngày chọn.
+Chưa hoàn thiện toàn bộ ứng dụng: một số thao tác phụ ở bàn nội trú, chuyển tuyến và hẹn tái khám từ bàn bác sĩ vẫn ở frontend. Không coi thông báo của các nhánh đó là đã lưu SQL. Chưa có tích hợp thanh toán ngân hàng, giám định BHYT, tương tác thuốc, chữ ký số hoặc kết nối LIS/PACS thực tế.
 
-Các nút xác nhận, phát hành và lưu trữ chỉ chuyển trạng thái mẫu, không tạo chữ ký số hoặc mã băm toàn vẹn. Cấp phát có kiểm tra tồn/hạn dùng và FEFO, chưa có kiểm tra tương tác hoặc chỉ định điều trị thực tế.
-
-## Kiểm tra giao diện
-
-Sau khi khởi chạy `npm run dev -- --port 5175`, mở terminal thứ hai:
-
-```powershell
-npm run test:e2e
-npm run test:actors
-npm run test:frontend
-npm run test:profile
-```
-
-Kiểm thử dùng Playwright với Microsoft Edge đã cài trên Windows, chạy trong phiên trình duyệt riêng để không ảnh hưởng dữ liệu đang trình diễn. Có thể đặt `MEDICARE_URL` để đổi URL. Script đầu mở từng màn hình/tab/biểu mẫu và kiểm tra luồng CLS, cấp phát, tồn kho, hoàn tiền, đóng ca, y lệnh, kiểm kê, lịch hẹn, bảo trì, phân quyền mẫu, đăng nhập và khung nhìn 390px. Script tác nhân kiểm tra đăng nhập 7 vai trò, menu, giới hạn nút thao tác, giữ phiên, giao diện điện thoại và luồng bác sĩ kê đơn → dược sĩ cấp phát → bệnh nhân xem đơn cá nhân. Script frontend kiểm tra chuyển dữ liệu cũ, số liệu dashboard, nhiều lượt khám/quyết toán, FEFO qua nhiều lô, thiếu tồn theo kho, điều chuyển, nhiều đợt nhập viện, xác nhận trước thay đổi, lỗi dung lượng lưu trữ, lỗi dữ liệu và trạng thái tải module. Ảnh kiểm tra được lưu trong thư mục `qa/` đã bỏ qua trong Git.
-
-Đây là bản frontend để trình diễn đồ án, chưa có backend, xác thực người dùng, phân quyền thực, thanh toán VietQR/webhook, tính BHYT thực tế, cơ sở dữ liệu tương tác thuốc, ký số, LIS/PACS hoặc lưu bệnh án an toàn. Dữ liệu demo không hỗ trợ giao dịch đồng thời trên nhiều cửa sổ. Chỉ sử dụng dữ liệu giả. Font Be Vietnam Pro được tải từ Google Fonts và có sans-serif dự phòng khi ngoại tuyến.
-
-## Chạy bản kết nối SQL Server
-
-Trên Windows, chạy lần lượt `database/QuanLyBenhVien_SQLServer.sql` và `scripts/sql-booking-seed.sql` trong SSMS. Khi chạy file seed, chọn database `QuanLyBenhVien`. Mặc định ứng dụng dùng Windows Authentication với instance `.\SQLEXPRESS`.
-
-Chạy `npm ci` rồi `npm run dev -- --port 5175`. Mở http://127.0.0.1:5175/. Trang đặt lịch ghi vào SQL Server. Mục **Vào hệ thống → Lịch hẹn** có danh sách đọc trực tiếp từ SQL Server. Các nghiệp vụ khác dùng dữ liệu demo. API SQL chạy trong Vite dev trên máy Windows.
+Bản kiểm tra gần nhất đạt91 test tự động và build; kiểm thử click/reload toàn bộ giao diện hiện tại chưa hoàn tất. Chưa nghiệm thu vận hành với dữ liệu y tế thật.

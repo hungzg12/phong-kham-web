@@ -1,8 +1,16 @@
-import React,{useState} from 'react';
+import React,{useEffect,useState} from 'react';
 import {Plus,ShieldCheck,ArrowRight,HeartPulse} from 'lucide-react';
 import './auth.css';
 import {actorRoles,actorIds} from './roles';
-export default function Auth({onLogin,initialRole='admin'}){
+export default function Auth({onLogin,initialRole='admin',externalError=''}){
+ const [error,setError]=useState(''),[saving,setSaving]=useState(false);
+ const [username,setUsername]=useState(''),[password,setPassword]=useState(''),[qaAccounts,setQaAccounts]=useState([]);
+ useEffect(()=>{
+  if(location.hostname!=='127.0.0.1'||location.port!=='52796')return;
+  let active=true;
+  fetch('/__qa/login-accounts',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(data=>{if(active&&Array.isArray(data?.accounts))setQaAccounts(data.accounts)}).catch(()=>{});
+  return()=>{active=false};
+ },[]);
  const [role,setRole]=useState(initialRole);
  const actor=actorRoles[role];
  return <div className="auth-page">
@@ -12,12 +20,17 @@ export default function Auth({onLogin,initialRole='admin'}){
    <small>Đồ án phân tích thiết kế hệ thống quản lý bệnh viện · Lab 9</small>
   </section>
   <section className="auth-main"><div className="auth-form">
-   <span className="auth-tag">MEDICARE WORKSPACE</span><h2>Chào mừng trở lại</h2><p>Chọn vai trò rồi đăng nhập ngay, không cần tài khoản hay mật khẩu.</p>
-   <p className="auth-role-label">Bạn muốn vào với vai trò nào?</p>
-   <div className="auth-role-tabs">{actorIds.map(id=><button type="button" key={id} aria-pressed={id===role} className={id===role?'selected':''} onClick={()=>setRole(id)}>{actorRoles[id].name}</button>)}</div>
-   <div className="demo-account"><b>{actor.name}</b><p style={{fontFamily:'inherit'}}>{actor.person}</p><small>{actor.description}</small></div>
-   <button className="primary full" style={{marginTop:22}} onClick={()=>onLogin(role)}>Đăng nhập <ArrowRight size={17}/></button>
-   <div className="auth-footer"><ShieldCheck size={15}/>Phiên trải nghiệm · Dữ liệu mẫu trên trình duyệt</div>
+   <span className="auth-tag">MEDICARE WORKSPACE</span><h2>Chào mừng trở lại</h2><p>Đăng nhập bằng tài khoản do quản trị viên cấp. Vai trò được xác định từ tài khoản.</p>
+   <form onSubmit={async e=>{e.preventDefault();if(saving)return;const values=Object.fromEntries(new FormData(e.currentTarget));setSaving(true);setError('');try{await onLogin(values)}catch(e){setError(e.message)}finally{setSaving(false)}}}>
+   <label>Tên đăng nhập<input name="username" autoComplete="username" required maxLength={50} value={username} onChange={e=>setUsername(e.target.value)}/></label>
+   <label>Mật khẩu<input name="password" type="password" autoComplete="current-password" required maxLength={128} value={password} onChange={e=>setPassword(e.target.value)}/></label>
+   {(error||externalError)&&<p role="alert" className="form-error">{error||externalError}</p>}
+   <button className="primary full" disabled={saving} style={{marginTop:22}}>{saving?'Đang đăng nhập…':'Đăng nhập'} <ArrowRight size={17}/></button></form>
+   <div className="auth-footer"><ShieldCheck size={15}/>Phiên đăng nhập được kiểm tra tại máy chủ</div>
+   {!!qaAccounts.length&&<QaAccountList accounts={qaAccounts} disabled={saving} onSelect={a=>{setUsername(a.username);setPassword(a.password);setError('')}}/>}
   </div></section>
  </div>;
+}
+export function QaAccountList({accounts,onSelect,disabled=false}){
+ return <section className="qa-login-accounts" aria-label="Tài khoản tám tác nhân QA"><h3>Tài khoản từng tác nhân</h3><p>Bản QA · Chọn tác nhân để điền tên đăng nhập và mật khẩu.</p>{accounts.map(a=><button type="button" key={a.username} disabled={disabled} onClick={()=>onSelect(a)}><strong>{a.label}</strong><span>{a.username}</span><code>{a.password}</code><small>Điền vào biểu mẫu →</small></button>)}</section>;
 }

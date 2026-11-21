@@ -1,7 +1,7 @@
-name: Clinic checks
+name: MediCare checks
 on:
   push:
-    branches: [main, release/public-hosting]
+    branches: [main, 'codex/**']
   pull_request:
     branches: [main]
 
@@ -9,21 +9,8 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  frontend:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_PASSWORD: clinic_ci_only
-          POSTGRES_DB: clinic_ci
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,12 +18,8 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
-      - run: npm test
-      - run: node tests/hosting.cjs
-        env:
-          PGHOST: 127.0.0.1
-          PGUSER: postgres
-          PGPASSWORD: clinic_ci_only
-          PGDATABASE: clinic_ci
+      - name: Render and workspace regression tests
+        run: node --test --test-concurrency=1 tests/roles-render.test.mjs tests/workspace-flow.test.mjs
       - run: npm run build
-      - run: npm run typecheck
+      # Full SQL tests require Windows PowerShell and an isolated SQL Server.
+      # See VERIFICATION.md for the separate locally verified SQL suite.

@@ -10,7 +10,11 @@
     "test:e2e": "node scripts/smoke.mjs",
     "test:actors": "node scripts/actors.mjs",
     "test:frontend": "node scripts/frontend-completion.mjs",
-    "test:profile": "node scripts/profile.mjs"
+    "test:profile": "node scripts/profile.mjs",
+    "start": "node server/start.mjs",
+    "admin:init": "node scripts/admin-init.mjs",
+    "test:admin": "node --test --test-concurrency=1 tests/admin.test.mjs",
+    "test:admin-ui": "node scripts/admin-ui.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

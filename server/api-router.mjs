@@ -1,3 +1,10 @@
+import {protectWorkspaceRequest} from './workspace-access.mjs';
+import {pharmacyState,pharmacyAction} from './pharmacy.mjs';
+import {receivePatient,updatePatient,listVisits,changeVisit,saveExam,searchIcd,listDoctors} from './clinic-flow.mjs';
+import {ancillaryState,saveVitals,createLab,labAction,performCare,listBeds,bedAction} from './ancillary.mjs';
+import {financeState,financeAction} from './finance.mjs';
+import {portalState,portalAppointment} from './patient-portal.mjs';
+import { listAppointments, saveAppointment, cancelAppointment, checkInAppointment } from './appointments.mjs';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
@@ -35,7 +42,8 @@ export function runSqlScript(relativeFile, data) {
   });
 }
 
-export function createApiMiddleware() {
+export function createApiMiddleware({trustedTest=false}={}) {
+  if(trustedTest&&!/Database=MediCareQA_Admin_[a-f0-9]{16}(?:;|$)/i.test(process.env.MEDICARE_SQL_CONNECTION||''))throw new Error('Test bypass requires an isolated MediCareQA database');
   return async (req, res, next) => {
     const url = req.url.split('?')[0];
     if (!url.startsWith('/api/')) return next();
@@ -46,6 +54,27 @@ export function createApiMiddleware() {
     };
 
     try {
+      const access=trustedTest?{}:await protectWorkspaceRequest(req);
+      if(Object.hasOwn(access,'answer'))return respond(200,access.answer);
+      if(!trustedTest&&url==='/api/patients'&&req.method==='POST')return respond(410,{error:'Dùng tiếp đón để tạo bệnh nhân và lượt khám cùng giao dịch.'});
+      if(url==='/api/pharmacy/state'&&req.method==='GET')return respond(200,await pharmacyState());
+      if(url==='/api/pharmacy/action'&&req.method==='POST'){
+        let body='';for await(const part of req){body+=part;if(body.length>60000)return respond(413,{error:'Dữ liệu quá dài.'});}
+        return respond(200,await pharmacyAction(JSON.parse(body)));
+      }
+      if(['/api/prescriptions','/api/prescriptions/dispense','/api/pharmacy/import','/api/pharmacy/product','/api/pharmacy/transfer'].includes(url)&&req.method==='POST')return respond(410,{error:'Sử dụng API dược hiện tại /api/pharmacy/action để kiểm tra vai trò, nhân viên và lưu đúng database.'});
+      if(url==='/api/finance'&&req.method==='GET')return respond(200,await financeState());
+      if(url==='/api/portal'&&req.method==='GET')return respond(200,await portalState());
+      if(['/api/finance/action','/api/portal/appointments'].includes(url)&&req.method==='POST'){
+        let body='';for await(const part of req){body+=part;if(body.length>60000)return respond(413,{error:'Dữ liệu quá dài.'});}
+        const data=JSON.parse(body);return respond(200,await (url==='/api/finance/action'?financeAction(data):portalAppointment(data,access.identity?.patientId)));
+      }
+      if(url==='/api/ancillary'&&req.method==='GET')return respond(200,await ancillaryState());
+      if(['/api/nursing/vitals','/api/nursing/perform','/api/nursing/bed','/api/labs/action','/api/labs/orders'].includes(url)&&req.method==='POST'){
+        let body='';for await(const part of req){body+=part;if(body.length>60000)return respond(413,{error:'Dữ liệu quá dài.'});}
+        const data=JSON.parse(body);
+        return respond(200,await (url==='/api/nursing/vitals'?saveVitals:url==='/api/nursing/perform'?performCare:url==='/api/nursing/bed'?bedAction:url==='/api/labs/orders'?createLab:labAction)(data));
+      }
       // 1. Health check
       if (url === '/api/health') {
         return respond(200, { service: 'medicare-his', status: 'ok', database: 'QuanLyBenhVien' });
@@ -96,51 +125,26 @@ export function createApiMiddleware() {
         return respond(200, JSON.parse(result));
       }
 
-      // 4. Appointments list & booking
+      // Persist the existing appointment UI operations through the configured SQL connection.
       if (url === '/api/appointments') {
-        if (req.method === 'GET') {
-          const list = await runSqlScript('scripts/sql-booking-list.ps1');
-          return respond(200, JSON.parse(list));
-        }
-        if (req.method === 'POST') {
+        if (req.method === 'GET') return respond(200, await listAppointments());
+        if (['POST','PUT','PATCH'].includes(req.method)) {
           let body = '';
-          for await (const part of req) {
-            body += part;
-            if (body.length > 8000) return respond(413, { error: 'Thông tin quá dài.' });
-          }
-          const data = JSON.parse(body);
-          const name = typeof data.name === 'string' ? data.name.trim() : '';
-          const deptCode = departments.get(data.dept);
-          const isDate = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
-            Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
-
-          const failed = [];
-          if (!name || name.length > 100) failed.push('name');
-          if (!deptCode) failed.push('deptCode (' + data.dept + ')');
-          if (!/^[0-9]{10,11}$/.test(data.phone)) failed.push('phone (' + data.phone + ')');
-          if (!isDate(data.birth)) failed.push('birth (' + data.birth + ')');
-          if (!isDate(data.day)) failed.push('day (' + data.day + ')');
-          if (!/^(0[89]|10|1[3-6]):(00|30)$/.test(data.time)) failed.push('time (' + data.time + ')');
-          if (!['Nam', 'Nữ', 'Khác'].includes(data.gender)) failed.push('gender (' + data.gender + ')');
-
-          if (failed.length > 0) {
-            console.error('Validation failed for:', failed.join(', '));
-            return respond(400, { error: 'Vui lòng kiểm tra thông tin lịch hẹn: ' + failed.join(', ') });
-          }
-          const id = 'LH-' + randomUUID().replaceAll('-', '').slice(0, 16).toUpperCase();
-          const saved = await runSqlScript('scripts/sql-booking.ps1', { ...data, id, name, deptCode });
-          if (saved === 'duplicate') return respond(409, { error: 'Bạn đã có lịch hẹn vào giờ này.' });
-          if (saved !== id) throw new Error('Unexpected SQL result');
-          return respond(201, { id });
+          for await (const part of req) { body += part; if (body.length > 8000) return respond(413,{error:'Thông tin quá dài.'}); }
+          let data; try { data=JSON.parse(body); } catch { return respond(400,{error:'Dữ liệu JSON không hợp lệ.'}); }
+          if (!data || typeof data!=='object' || Array.isArray(data)) return respond(400,{error:'Thông tin lịch hẹn không hợp lệ.'});
+          if (req.method==='PUT' && (typeof data.id!=='string' || !data.id.trim())) return respond(400,{error:'Thiếu mã lịch hẹn cần cập nhật.'});
+          if (req.method === 'PATCH') return respond(200,await cancelAppointment(data.id,data.reason));
+          return respond(req.method==='POST'?201:200,await saveAppointment(data,req.method==='PUT'?data.id:null));
         }
+        return respond(405,{error:'Phương thức không được hỗ trợ.'});
       }
 
       // 5. ICD-10 Search
       if (url === '/api/icd10' && req.method === 'GET') {
         const fullUrl = new URL(req.url, 'http://127.0.0.1');
         const q = fullUrl.searchParams.get('q') || '';
-        const list = await runSqlScript('scripts/sql-icd10-search.ps1', { q });
-        return respond(200, JSON.parse(list));
+        return respond(200, await searchIcd(q));
       }
 
       // 6. ICD-10 Excel Template Download
@@ -193,24 +197,31 @@ export function createApiMiddleware() {
         let body = '';
         for await (const part of req) { body += part; }
         const data = JSON.parse(body);
-        const result = await runSqlScript('scripts/sql-patients-visits.ps1', { action: 'create_visit', ...data });
-        return respond(201, JSON.parse(result));
+        if (data.appointmentId) return respond(200, await checkInAppointment(data));
+        return respond(201, await receivePatient(data));
       }
 
       // 11. Live Waiting Queue (GET /api/queue)
       if (url === '/api/queue' && req.method === 'GET') {
-        const fullUrl = new URL(req.url, 'http://127.0.0.1');
-        const dept = fullUrl.searchParams.get('dept') || '';
-        const list = await runSqlScript('scripts/sql-patients-visits.ps1', { action: 'list_queue', dept });
-        return respond(200, JSON.parse(list));
+        const params=new URL(req.url,'http://localhost').searchParams;
+        return respond(200,await listVisits({history:params.get('history')==='1'}));
+      }
+      if (url === '/api/patients' && req.method === 'PUT') {
+        let body='';for await(const part of req)body+=part;
+        return respond(200,await updatePatient(JSON.parse(body)));
+      }
+      if (url === '/api/visits' && req.method === 'PATCH') {
+        let body='';for await(const part of req)body+=part;
+        return respond(200,await changeVisit(JSON.parse(body)));
       }
 
       // 12. Clinical Visit Detail (GET /api/clinical/visit?id=...)
+      if (url === '/api/clinical/doctors' && req.method === 'GET') return respond(200,await listDoctors());
       if (url === '/api/clinical/visit' && req.method === 'GET') {
-        const fullUrl = new URL(req.url, 'http://127.0.0.1');
-        const visitId = fullUrl.searchParams.get('id') || '';
-        const data = await runSqlScript('scripts/sql-clinical-desk.ps1', { action: 'get_visit_detail', visitId });
-        return respond(200, JSON.parse(data));
+        const id=new URL(req.url,'http://localhost').searchParams.get('id');
+        if(!id)return respond(400,{error:'Thiếu mã lượt khám.'});
+        const row=(await listVisits({history:true,id}))[0];
+        return row?respond(200,row):respond(404,{error:'Không tìm thấy lượt khám.'});
       }
 
       // 13. Save Vitals (POST /api/clinical/vitals)
@@ -224,11 +235,8 @@ export function createApiMiddleware() {
 
       // 14. Save Clinical Examination Note (POST /api/clinical/exam)
       if (url === '/api/clinical/exam' && req.method === 'POST') {
-        let body = '';
-        for await (const part of req) { body += part; }
-        const data = JSON.parse(body);
-        const result = await runSqlScript('scripts/sql-clinical-desk.ps1', { action: 'save_exam_note', ...data });
-        return respond(200, JSON.parse(result));
+        let body='';for await(const part of req){body+=part;if(body.length>60000)return respond(413,{error:'Phiếu khám quá dài.'});}
+        return respond(200,await saveExam(JSON.parse(body)));
       }
 
       // 15. Lock EMR Record (POST /api/clinical/lock)
@@ -334,8 +342,7 @@ export function createApiMiddleware() {
 
       // 27. Inpatient Beds Live Status (GET /api/inpatient/beds)
       if (url === '/api/inpatient/beds' && req.method === 'GET') {
-        const list = await runSqlScript('scripts/sql-inpatient.ps1', { action: 'list_beds' });
-        return respond(200, JSON.parse(list));
+        return respond(200, await listBeds());
       }
 
       // 28. Admit Inpatient & Assign Bed (POST /api/inpatient/admit)
@@ -358,6 +365,8 @@ export function createApiMiddleware() {
 
       next();
     } catch (err) {
+      if (err instanceof SyntaxError) return respond(400,{error:'Dữ liệu JSON không hợp lệ.'});
+      if (err.status) return respond(err.status, {error:err.message});
       console.error('API Error:', err.message);
       respond(503, { error: 'Lỗi xử lý yêu cầu CSDL SQL Server.', details: err.message });
     }

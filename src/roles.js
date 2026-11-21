@@ -13,8 +13,8 @@ export function allowedTabs(role,page,fallback){return actorRoles[role]?.tabs?.[
 export function canCreate(role,tab){
  if(role==='admin')return true;
  if(role==='doctor')return ['labs','prescriptions','referrals','rounds','consultations','discharges','archives','corrections'].includes(tab);
- if(role==='technician')return ['labs'].includes(tab);
- if(role==='nurse')return ['vitals','rounds'].includes(tab);
+ if(role==='technician')return false;
+ if(role==='nurse')return tab==='vitals';
  if(role==='pharmacist')return ['warehouses','movements','counts'].includes(tab);
  if(role==='cashier')return ['settlements','advances','shifts'].includes(tab);
  return false;

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CalendarDays, List, Plus, Search, Check, X, ChevronLeft, ChevronRight, Clock3 } from 'lucide-react';
 import { clinics, today } from './business-data';
 import './calendar.css';
-import { createVisit } from './workspace';
+import { syncWithSqlServer } from './workspace';
 
 export default function Appointments({ appointments, setAppointments, patients, setPatients, notify, request = 0 }) {
   const [view, setView] = useState('list');
@@ -12,42 +12,41 @@ export default function Appointments({ appointments, setAppointments, patients, 
   const [week, setWeek] = useState(0);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   // Sync live appointments from SQL Server database
   const syncFromSql = async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/appointments');
+      if (!res.ok) throw new Error('Không tải được lịch hẹn.');
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          setAppointments(prev => {
-            const map = new Map(prev.map(a => [String(a.id), a]));
-            for (const row of data) {
+        if (Array.isArray(data)) {
+          setAppointments(data.map(row => {
               const id = String(row.id);
-              const existing = map.get(id);
               const date = row.day && row.time ? `${row.day}T${row.time}` : (row.date || today + 'T08:30');
               const status = row.status === 'DA_DAT' || row.status === 'Đã đặt' ? 'Đã xác nhận' :
                              row.status === 'DA_CHECK_IN' ? 'Đã tiếp đón' :
                              row.status === 'DA_HUY' ? 'Đã hủy' : (row.status || 'Đã xác nhận');
-              map.set(id, {
+              return {
                 id,
-                name: row.name || existing?.name || 'Khách đặt lịch',
-                phone: row.phone || existing?.phone || '',
-                birth: row.birth || existing?.birth || '1990-01-01',
-                gender: row.gender || existing?.gender || 'Nam',
-                dept: row.department || row.dept || existing?.dept || 'Nội tổng quát',
-                room: row.room || existing?.room || '',
+                patientId: row.patientId,
+                name: row.name || 'Khách đặt lịch',
+                phone: row.phone || '',
+                birth: row.birth || '',
+                gender: row.gender || 'Nam',
+                dept: row.department || row.dept || '',
+                room: row.room || '',
                 date,
-                status: existing?.status || status
-              });
-            }
-            return Array.from(map.values());
-          });
+                status,
+                cancelReason: row.cancelReason
+              };
+          }));
         }
       }
     } catch {
-      // Offline fallback
+      setError('Không tải được lịch hẹn. Kiểm tra kết nối và tải lại trang.');
     } finally {
       setLoading(false);
     }
@@ -84,111 +83,55 @@ export default function Appointments({ appointments, setAppointments, patients, 
     setModal(value);
   };
 
+  async function persist(method, body) {
+    const response = await fetch('/api/appointments', {method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Không lưu được lịch hẹn.');
+    if (!result.id) throw new Error('Máy chủ chưa xác nhận lịch hẹn đã lưu.');
+    const record = {...result,dept:result.dept || result.department,date:result.day+'T'+result.time};
+    setAppointments(list => [record,...list.filter(a=>a.id!==record.id)]);
+    return record;
+  }
+
   async function save(e) {
     e.preventDefault();
-    setError('');
-    const data = Object.fromEntries(new FormData(e.target));
-
-    if (appointments.some(a => a.id !== modal?.id && a.status !== 'Đã hủy' && a.phone === data.phone && a.date === data.date)) {
-      setError('Bệnh nhân đã có lịch hẹn vào thời điểm này.');
-      return;
-    }
-
-    if (modal?.id) {
-      setAppointments(list => list.map(a => a.id === modal.id ? { ...a, ...data } : a));
-      setModal(null);
-      notify('Đã cập nhật lịch hẹn');
-      return;
-    }
-
-    // Try persisting to SQL Server
+    if(saving) return;
+    const data=Object.fromEntries(new FormData(e.target));
+    const editing=modal?.id;
+    setError('');setSaving(true);
     try {
-      const day = data.date.slice(0, 10);
-      const time = data.date.slice(11);
-      const res = await fetch('/api/appointments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
-        body: JSON.stringify({
-          name: data.name.trim(),
-          phone: data.phone.trim(),
-          birth: data.birth,
-          gender: data.gender || 'Nam',
-          dept: data.dept,
-          day,
-          time
-        })
-      });
-      const result = await res.json();
-      const newId = res.ok && result.id ? result.id : ('LH-' + Date.now().toString(36).toUpperCase());
-      const newAppt = {
-        ...data,
-        id: newId,
-        status: 'Đã xác nhận'
-      };
-      setAppointments(list => [newAppt, ...list]);
+      await persist(editing?'PUT':'POST', {...data,id:editing,name:data.name.trim(),phone:data.phone.trim(),day:data.date.slice(0,10),time:data.date.slice(11)});
       setModal(null);
-      notify('Đã đặt lịch hẹn khám thành công');
-      syncFromSql();
-    } catch {
-      const newAppt = {
-        ...data,
-        id: 'LH-' + Date.now().toString(36).toUpperCase(),
-        status: 'Đã xác nhận'
-      };
-      setAppointments(list => [newAppt, ...list]);
-      setModal(null);
-      notify('Đã đặt lịch hẹn khám');
-    }
+      notify(editing?'Đã cập nhật lịch hẹn':'Đã đặt lịch hẹn khám thành công');
+    } catch(error) { setError(error.message); }
+    finally { setSaving(false); }
+  }
+
+  async function cancel(e) {
+    e.preventDefault();
+    if(saving) return;
+    const reason=new FormData(e.target).get('reason');
+    setError('');setSaving(true);
+    try {
+      await persist('PATCH',{id:modal.id,reason});
+      setModal(null);notify('Đã hủy lịch hẹn');
+    } catch(error) { setError(error.message); }
+    finally { setSaving(false); }
   }
 
   async function checkIn(a) {
+    if(saving) return;
+    setError('');setSaving(true);
     try {
-      let patientId = a.patientId || (a.id?.startsWith('BN') ? a.id : null);
-      if (!patientId) {
-        // Find existing patient by phone first to prevent duplicate BN records
-        const existing = patients.find(p => p.phone && p.phone === a.phone);
-        if (existing) {
-          patientId = existing.id;
-        } else {
-          const resP = await fetch('/api/patients', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: a.name,
-              phone: a.phone,
-              birth: a.birth || '1990-01-01',
-              gender: a.gender || 'Nam',
-              insurance: a.insurance || ''
-            })
-          });
-          const dataP = await resP.json();
-          patientId = dataP.id;
-        }
-      }
-
-      const resV = await fetch('/api/visits', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          patientId,
-          dept: a.dept,
-          reason: 'Khám theo lịch hẹn ' + a.id,
-          appointmentId: a.id
-        })
-      });
-      if (!resV.ok) {
-        const errJson = await resV.json().catch(() => ({}));
-        throw new Error(errJson.error || 'Không thể cấp số thứ tự vào buồng khám.');
-      }
-      const dataV = await resV.json();
-
-      setAppointments(list => list.map(x => x.id === a.id ? { ...x, status: 'Đã tiếp đón' } : x));
+      const response=await fetch('/api/visits',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({appointmentId:a.id,patientId:a.patientId})});
+      const result=await response.json();
+      if(!response.ok)throw new Error(result.error || 'Không thể tiếp đón người bệnh.');
+      await syncFromSql();
+      await syncWithSqlServer();
       setModal(null);
-      notify(`Đã tiếp đón thành công! STT ${dataV.queueNumber} tại ${dataV.roomName}`);
-    } catch (err) {
-      setError('Lỗi tiếp đón: ' + (err.message || 'Không kết nối được SQL Server'));
-      notify('Lỗi tiếp đón: ' + (err.message || 'Không thể hoàn tất tiếp đón'));
-    }
+      notify('Đã tiếp đón thành công! STT '+result.queueNumber+' tại '+result.roomName);
+    } catch(error) {setError('Lỗi tiếp đón: '+error.message);}
+    finally {setSaving(false);}
   }
 
   const statusClass = s => (s === 'Đã hủy' ? 'danger' : s === 'Đã tiếp đón' ? 'teal' : 'amber');
@@ -379,6 +322,8 @@ export default function Appointments({ appointments, setAppointments, patients, 
         )}
       </section>
 
+      {error && !modal && <p className="form-error" role="alert">{error}</p>}
+
       {modal && (
         <div className="modal-backdrop" onClick={() => setModal(null)}>
           <section className="modal" role="dialog" aria-modal="true" aria-label="Lịch hẹn" onClick={e => e.stopPropagation()}>
@@ -400,7 +345,8 @@ export default function Appointments({ appointments, setAppointments, patients, 
                     <div className="inline-notice">
                       Kiểm tra lại danh tính người bệnh trước khi chuyển vào danh sách chờ khám. Hồ sơ mới sẽ dùng ngày sinh và giới tính đã khai báo khi đặt lịch.
                     </div>
-                    <button className="primary full" onClick={() => checkIn(modal)}>
+                    {error && <p className="form-error" role="alert">{error}</p>}
+                    <button className="primary full" disabled={saving} onClick={() => checkIn(modal)}>
                       <Check size={16} />Xác nhận người bệnh đã đến
                     </button>
                   </>
@@ -411,16 +357,11 @@ export default function Appointments({ appointments, setAppointments, patients, 
                 <h2>Hủy lịch hẹn</h2>
                 <p>{modal.name} · {modal.date ? modal.date.replace('T', ' · ') : ''}</p>
                 <form
-                  onSubmit={e => {
-                    e.preventDefault();
-                    const reason = new FormData(e.target).get('reason');
-                    setAppointments(list => list.map(a => (a.id === modal.id ? { ...a, status: 'Đã hủy', cancelReason: reason } : a)));
-                    setModal(null);
-                    notify('Đã hủy lịch hẹn');
-                  }}
+                  onSubmit={cancel}
                 >
-                  <label>Lý do hủy<textarea name="reason" required /></label>
-                  <button className="primary full">Xác nhận hủy lịch</button>
+                  <label>Lý do hủy<textarea name="reason" required maxLength={500} /></label>
+                  {error && <p className="form-error" role="alert">{error}</p>}
+                  <button className="primary full" disabled={saving}>Xác nhận hủy lịch</button>
                 </form>
               </>
             ) : (
@@ -448,7 +389,7 @@ export default function Appointments({ appointments, setAppointments, patients, 
                   </label>
                   <label>Ngày giờ khám<input type="datetime-local" name="date" min={today + 'T00:00'} required defaultValue={modal.date || today + 'T08:30'} /></label>
                   {error && <p className="form-error" role="alert">{error}</p>}
-                  <button className="primary full">{modal.id ? 'Lưu lịch hẹn' : 'Xác nhận đặt lịch'}</button>
+                  <button className="primary full" disabled={saving}>{modal.id ? 'Lưu lịch hẹn' : 'Xác nhận đặt lịch'}</button>
                 </form>
               </>
             )}

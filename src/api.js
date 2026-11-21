@@ -1,3 +1,4 @@
+import {csrfHeaders,currentIdentity} from './session.js';
 /**
  * API Service Layer for MediCare HIS
  * Direct integration with Microsoft SQL Server (QuanLyBenhVien, 66 tables)
@@ -7,19 +8,23 @@
 const jsonHeaders = { 'Content-Type': 'application/json; charset=utf-8' };
 
 async function req(url, options = {}) {
-  const res = await fetch(url, options);
+  const res = await fetch(url, {...options,headers:{...csrfHeaders(),...options.headers}});
   if (!res.ok) {
     let errMessage = `HTTP ${res.status}: ${res.statusText}`;
     try {
       const err = await res.json();
       errMessage = err.error || err.details || errMessage;
     } catch {}
-    throw new Error(errMessage);
+    if(res.status===401&&currentIdentity()&&typeof window!=='undefined')window.dispatchEvent(new Event('medicare-session-expired'));
+    throw Object.assign(new Error(errMessage),{status:res.status});
   }
   return res.json();
 }
 
 export const hisApi = {
+  login:data=>req('/api/auth/login',{method:'POST',headers:jsonHeaders,body:JSON.stringify(data)}),
+  logout:()=>req('/api/auth/logout',{method:'POST',headers:jsonHeaders,body:'{}'}),
+  workspaceSession:()=>req('/api/workspace/session'),
   // 1. Health check
   health: () => req('/api/health'),
 
@@ -35,10 +40,25 @@ export const hisApi = {
     headers: jsonHeaders,
     body: JSON.stringify(data),
   }),
-  getQueue: (dept = '') => req(`/api/queue${dept ? `?dept=${encodeURIComponent(dept)}` : ''}`),
+  getQueue: (dept = '', history = false) => req(`/api/queue?dept=${encodeURIComponent(dept)}${history?'&history=1':''}`),
+  updatePatient: (data) => req('/api/patients', {method:'PUT',headers:jsonHeaders,body:JSON.stringify(data)}),
+  changeVisit: (data) => req('/api/visits', {method:'PATCH',headers:jsonHeaders,body:JSON.stringify(data)}),
 
   // 3. Clinical Examination & Vitals
   getVisitDetail: (visitId) => req(`/api/clinical/visit?id=${encodeURIComponent(visitId)}`),
+  getDoctors: () => req('/api/clinical/doctors'),
+  getAncillary: () => req('/api/ancillary'),
+  getPharmacyState: ()=>req('/api/pharmacy/state'),
+  pharmacyAction: data=>req('/api/pharmacy/action',{method:'POST',headers:jsonHeaders,body:JSON.stringify(data)}),
+  getFinance: () => req('/api/finance'),
+  financeAction: data=>req('/api/finance/action',{method:'POST',headers:jsonHeaders,body:JSON.stringify(data)}),
+  getPortal: () => req('/api/portal'),
+  portalAppointment: data=>req('/api/portal/appointments',{method:'POST',headers:jsonHeaders,body:JSON.stringify(data)}),
+  saveNursingVitals: data=>req('/api/nursing/vitals',{method:'POST',headers:jsonHeaders,body:JSON.stringify(data)}),
+  performCare: data=>req('/api/nursing/perform',{method:'POST',headers:jsonHeaders,body:JSON.stringify(data)}),
+  bedAction: data=>req('/api/nursing/bed',{method:'POST',headers:jsonHeaders,body:JSON.stringify(data)}),
+  createLabOrders: data=>req('/api/labs/orders',{method:'POST',headers:jsonHeaders,body:JSON.stringify(data)}),
+  labAction: data=>req('/api/labs/action',{method:'POST',headers:jsonHeaders,body:JSON.stringify(data)}),
   saveVitals: (data) => req('/api/clinical/vitals', {
     method: 'POST',
     headers: jsonHeaders,

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Search, Download, Package, Pill, AlertCircle, X, Check, ArrowRight, RefreshCw, Building2 } from 'lucide-react';
-import { useWorkspace, getWorkspace, transact, addLot, planFEFO, id, audit } from './workspace';
+import { useWorkspace, getWorkspace, syncWithSqlServer, planFEFO } from './workspace';
 import { today } from './business-data';
 import { actorRoles } from './roles';
 import { AllocationPreview } from './AllocationPreview';
@@ -19,28 +19,15 @@ export default function Inventory({ role = 'admin', notify }) {
   const [tab, setTab] = useState('lots');
   const [modal, setModal] = useState(null);
   const [draft, setDraft] = useState(null);
+  const operation=useRef(null);
+  const [saving,setSaving]=useState(false);
   const [error, setError] = useState('');
 
   // Live SQL Server pharmacy batches
   const [sqlBatches, setSqlBatches] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchSqlBatches = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/pharmacy/batches');
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          setSqlBatches(data);
-        }
-      }
-    } catch {
-      // Offline fallback to workspace
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchSqlBatches = async () => {setLoading(true);try{await syncWithSqlServer();}finally{setLoading(false)}};
 
   useEffect(() => {
     fetchSqlBatches();
@@ -49,29 +36,8 @@ export default function Inventory({ role = 'admin', notify }) {
   const actor = actorRoles[role];
   const warehouses = db.warehouses.filter(w => w.status === 'Đang hoạt động');
 
-  // Normalize lots: merge live SQL Server batches with any newly added workspace lots so data never desyncs
-  const activeLots = [
-    ...sqlBatches.map(b => ({
-      id: b.maLoHang + '_' + (b.tenKho || '') + '_' + b.soLoNhaSanXuat,
-      medicineId: b.maHang || b.maLoHang,
-      name: b.tenHang,
-      activeIngredient: b.hoatChat,
-      manufacturer: b.hangSanXuat,
-      country: b.nuocSanXuat,
-      warehouseName: b.tenKho || 'Kho Dược',
-      warehouseId: b.tenKho,
-      shelfLocation: b.viTriDayKe,
-      lot: b.soLoNhaSanXuat,
-      expiry: b.hanSuDung,
-      daysLeft: b.soNgayConHan,
-      qty: b.soLuongTon ?? 0,
-      availQty: b.soLuongKhaDung ?? 0,
-      unit: b.donViCoSo || 'Viên',
-      unitPrice: b.donGiaNhap || 0,
-      isLocked: !!b.trangThaiKhoa,
-      statusLabel: b.trangThaiHanDung
-    })),
-    ...inventory.filter(l => !sqlBatches.some(b => b.soLoNhaSanXuat === l.lot && (b.maHang === l.medicineId || b.maLoHang === l.medicineId))).map(l => {
+  // SQL snapshot is authoritative; never merge a stale second stock source.
+  const activeLots = inventory.map(l => {
       const s = stock.find(item => item.id === l.medicineId);
       const w = db.warehouses.find(item => item.id === l.warehouseId);
       const expiryDate = new Date(l.expiry);
@@ -81,28 +47,23 @@ export default function Inventory({ role = 'admin', notify }) {
         id: l.id,
         medicineId: l.medicineId,
         name: s?.name || l.medicineId,
-        activeIngredient: '',
-        manufacturer: 'Việt Nam',
-        country: '',
+        activeIngredient: l.activeIngredient||'',
+        manufacturer: l.manufacturer||'',
+        country: l.country||'',
         warehouseName: w?.name || l.warehouseId,
         warehouseId: l.warehouseId,
-        shelfLocation: '',
+        shelfLocation: l.shelfLocation||'',
         lot: l.lot,
         expiry: l.expiry,
         daysLeft: isNaN(diffDays) ? undefined : diffDays,
-        qty: l.qty,
+        qty: l.physicalQty ?? l.qty,
         availQty: l.qty,
         unit: s?.unit || 'Đơn vị',
-        unitPrice: 0,
-        isLocked: l.expiry < today,
+        unitPrice: l.unitPrice||0,
+        isLocked: !!l.locked || l.expiry < today,
         statusLabel: l.expiry < today ? 'ĐÃ HẾT HẠN' : diffDays <= 90 ? 'CẬN DATE' : 'CÒN HẠN SỬ DỤNG'
       };
-    })
-  ];
-
-  // Unique list of warehouses and manufacturers for filtering
-  const availableWarehouses = Array.from(new Set(activeLots.map(l => l.warehouseName).filter(Boolean)));
-  const availableManufacturers = Array.from(new Set(activeLots.map(l => l.manufacturer).filter(Boolean)));
+    });
 
   const filteredLots = activeLots.filter(l => {
     const matchWarehouse = warehouse === 'all' || l.warehouseName === warehouse || l.warehouseId === warehouse;
@@ -130,6 +91,7 @@ export default function Inventory({ role = 'admin', notify }) {
   const expiredOrWarningLots = selectedLots.filter(l => (l.daysLeft !== undefined ? l.daysLeft <= 90 : l.expiry < today) || l.isLocked);
 
   function open(type) {
+    operation.current=null;
     setModal(type);
     setDraft(null);
     setError('');
@@ -153,65 +115,14 @@ export default function Inventory({ role = 'admin', notify }) {
   }
 
   async function confirm() {
-    try {
-      if (modal === 'lot') {
-        await hisApi.importPharmacyLot({
-          medicineId: draft.medicine,
-          warehouseId: draft.warehouse || 'KHO_NGOAI_TRU',
-          lot: draft.lot,
-          expiry: draft.expiry,
-          qty: Number(draft.qty),
-          unitPrice: 1500,
-          manufacturer: 'Việt Nam'
-        });
-      } else if (modal === 'product') {
-        await hisApi.createPharmacyProduct({
-          id: draft.id,
-          name: draft.name,
-          type: draft.type,
-          unit: draft.unit,
-          price: 10000
-        });
-      } else if (modal === 'transfer') {
-        await hisApi.transferPharmacyStock({
-          medicineId: draft.medicine,
-          sourceWarehouse: draft.source,
-          targetWarehouse: draft.destination,
-          quantity: Number(draft.quantity)
-        });
-      }
-
-      transact(d => {
-        const event = id(modal === 'transfer' ? 'DC' : 'NK');
-        if (modal === 'transfer') {
-          const allocations = planFEFO(d.inventory, [{ medicine: draft.medicine, quantity: Number(draft.quantity) }], draft.source);
-          for (const a of allocations) {
-            const matchLot = d.inventory.find(l => l.id === a.lotId);
-            if (matchLot) matchLot.qty -= a.quantity;
-            d.ledger.unshift({ id: id('NK'), date: today, time: new Date().toISOString(), medicineId: a.medicineId, warehouseId: a.warehouseId, lot: a.lot, delta: -a.quantity, event });
-            addLot(d, { medicineId: a.medicineId, warehouseId: draft.destination, lot: a.lot, expiry: a.expiry, qty: a.quantity }, event);
-          }
-        } else {
-          let medicine = draft.medicine;
-          if (modal === 'product') {
-            if (!d.stock.some(s => s.id === draft.id)) {
-              medicine = draft.id;
-              d.stock.push({ id: medicine, name: draft.name, type: draft.type, unit: draft.unit, qty: 0 });
-            }
-          }
-          if (Number(draft.qty) > 0) {
-            addLot(d, { medicineId: medicine, warehouseId: draft.warehouse, lot: draft.lot, expiry: draft.expiry, qty: Number(draft.qty) }, event);
-          }
-        }
-        audit(d, (modal === 'transfer' ? 'Điều chuyển kho ' : 'Nhập lô ') + event, actor.person);
-      });
-
-      setModal(null);
-      notify(modal === 'transfer' ? 'Đã điều chuyển kho thành công (SQL Server)' : modal === 'product' ? 'Đã thêm mặt hàng mới (SQL Server)' : 'Đã nhập lô vào kho thành công (SQL Server)');
-      await fetchSqlBatches();
-    } catch (err) {
-      setError(err.message || 'Lỗi xử lý giao dịch kho SQL Server.');
-    }
+    if(saving)return;setSaving(true);setError('');
+    if(!operation.current)operation.current=crypto.randomUUID();
+    try{
+      const values=modal==='transfer'?{kind:'Điều chuyển',medicine:draft.medicine,warehouse:draft.source,destination:draft.destination,quantity:Number(draft.quantity),price:0,reason:draft.reason}:{kind:'Nhập kho',medicine:draft.medicine,warehouse:draft.warehouse,lot:draft.lot,expiry:draft.expiry,quantity:Number(draft.qty),price:Number(draft.price),reason:draft.reason};
+      const result=await hisApi.pharmacyAction({...values,...(modal==='product'?{productId:draft.id,name:draft.name,unit:draft.unit,productType:draft.type,ingredient:draft.ingredient,strength:draft.strength,route:draft.route,form:draft.form}:{}),action:modal==='product'?'createProduct':'saveMovement',role,staffId:actor.staffId,requestId:operation.current});
+      await hisApi.pharmacyAction({action:'approveMovement',id:result.id,role,staffId:actor.staffId,requestId:operation.current+'-approve'});
+      await syncWithSqlServer();setModal(null);notify('Đã ghi sổ giao dịch kho trong SQL Server');
+    }catch(err){setError(err.message||'Không lưu được giao dịch kho.');await syncWithSqlServer();}finally{setSaving(false)}
   }
 
   function exportLots() {
@@ -240,8 +151,10 @@ export default function Inventory({ role = 'admin', notify }) {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  const availableWarehouses=[...new Set(activeLots.map(l=>l.warehouseId))];
+  const availableManufacturers=[...new Set(activeLots.map(l=>l.manufacturer).filter(Boolean))];
   const warehouseOptions = availableWarehouses.length > 0
-    ? availableWarehouses.map(name => <option key={name} value={name}>{name}</option>)
+    ? availableWarehouses.map(name => <option key={name} value={name}>{db.warehouses.find(w=>w.id===name)?.name||name}</option>)
     : warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>);
 
   return (
@@ -500,8 +413,8 @@ export default function Inventory({ role = 'admin', notify }) {
                   <AllocationPreview requests={[{ medicine: draft.medicine, quantity: Number(draft.quantity) }]} warehouse={draft.source} />
                 )}
                 <div className="dialog-actions">
-                  <button className="secondary" onClick={() => setDraft(null)}>Sửa lại thông tin</button>
-                  <button className="primary" onClick={confirm}><Check size={16} />Xác nhận ghi nhận kho</button>
+                  <button className="secondary" disabled={saving} onClick={() => {operation.current=null;setDraft(null)}}>Sửa lại thông tin</button>
+                  <button className="primary" disabled={saving} onClick={confirm}><Check size={16} />Xác nhận ghi nhận kho</button>
                 </div>
               </>
             ) : (
@@ -509,10 +422,12 @@ export default function Inventory({ role = 'admin', notify }) {
                 {modal === 'product' ? (
                   <>
                     <label>Mã mặt hàng<input name="id" required pattern="[A-Za-z0-9_-]+" placeholder="TH005 hoặc VT002" /></label>
-                    <label>Tên mặt hàng<input name="name" required /></label>
+                    <label>Tên mặt hàng<input name="name" required maxLength={150}/></label>
+                    <p>Với thuốc, điền đủ thông tin chuyên môn bên dưới.</p>
+                    <div className="form-grid"><label>Hoạt chất<input name="ingredient" maxLength={100}/></label><label>Hàm lượng<input name="strength" maxLength={100}/></label><label>Đường dùng<input name="route" maxLength={100}/></label><label>Dạng bào chế<input name="form" maxLength={100}/></label></div>
                     <div className="form-grid">
                       <label>Nhóm hàng<select name="type"><option>Thuốc</option><option>Vật tư y tế</option></select></label>
-                      <label>Đơn vị tính<input name="unit" required /></label>
+                      <label>Đơn vị tính<input name="unit" required maxLength={30}/></label>
                     </div>
                   </>
                 ) : (
@@ -555,6 +470,7 @@ export default function Inventory({ role = 'admin', notify }) {
                     <label>Số lượng nhập<input name="qty" type="number" min="1" step="1" required /></label>
                   </>
                 )}
+                <label>Đơn giá nhập (₫)<input name="price" type="number" min="0" step="1" defaultValue="0" required/></label><label>Lý do<input name="reason" required maxLength={500}/></label>
                 <button className="primary full">Kiểm tra giao dịch <ArrowRight size={16} /></button>
               </form>
             )}

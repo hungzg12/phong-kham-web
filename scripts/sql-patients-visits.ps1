@@ -4,9 +4,12 @@
 
 $servers = @('.\MSSQLVESE', '.\SQLEXPRESS', 'localhost', '127.0.0.1')
 $db = $null
-foreach ($srv in $servers) {
+$connections = if ($env:MEDICARE_SQL_CONNECTION) { @($env:MEDICARE_SQL_CONNECTION) } else {
+    @($servers | ForEach-Object { "Server=$_;Database=QuanLyBenhVien;Integrated Security=True;TrustServerCertificate=True;Connect Timeout=2" })
+}
+foreach ($connection in $connections) {
     try {
-        $candidate = [System.Data.SqlClient.SqlConnection]::new("Server=$srv;Database=QuanLyBenhVien;Integrated Security=True;TrustServerCertificate=True;Connect Timeout=2")
+        $candidate = [System.Data.SqlClient.SqlConnection]::new($connection)
         $candidate.Open()
         $db = $candidate
         break
@@ -307,6 +310,7 @@ SELECT l.maLuotKham AS id,
        ISNULL(b.soDienThoai, '') AS phone,
        ISNULL(b.soBHYT, '') AS insurance,
        k.tenKhoa AS department,
+       ISNULL(assigned.hoTen, N'Chưa phân công') AS doctor,
        r.tenBuong AS room,
        r.maBuong AS roomCode,
        l.soThuTu AS queueNumber,
@@ -326,6 +330,14 @@ FROM dbo.LuotKham l
 JOIN dbo.BenhNhan b ON b.maBenhNhan = l.maBenhNhan
 JOIN dbo.BuongKham r ON r.maBuong = l.maBuong
 JOIN dbo.Khoa k ON k.maKhoa = r.maKhoa
+OUTER APPLY (
+ SELECT TOP 1 n.hoTen FROM dbo.PhanCongKham pc
+ JOIN dbo.NhanVien n ON n.maNhanVien=pc.maBacSi
+ WHERE pc.maBuong=l.maBuong AND pc.ngayKham=l.ngayKham
+ AND pc.caKham=CASE WHEN DATEPART(HOUR,l.thoiDiemCapSo)<12 THEN 'SANG' ELSE 'CHIEU' END
+ AND pc.trangThai IN ('DA_PHAN_CONG','DANG_TRUC')
+ ORDER BY pc.maPhanCong
+) assigned
 WHERE l.ngayKham = CAST(@today AS DATE)
 ORDER BY l.soThuTu ASC
 FOR JSON PATH;
