@@ -6,7 +6,19 @@ function Invoke-AdminSql($payload) {
     $db = $null
     try {
         $connection = $payload.connection
-        if (!$connection) { $connection = 'Server=.\SQLEXPRESS;Database=QuanLyBenhVien;Integrated Security=True;TrustServerCertificate=True;Connect Timeout=5' }
+        if (!$connection) {
+            $servers = @('.\MSSQLVESE', '.\SQLEXPRESS', 'localhost', '127.0.0.1')
+            foreach ($srv in $servers) {
+                try {
+                    $testConn = [System.Data.SqlClient.SqlConnection]::new("Server=$srv;Database=QuanLyBenhVien;Integrated Security=True;TrustServerCertificate=True;Connect Timeout=2")
+                    $testConn.Open()
+                    $testConn.Close()
+                    $connection = "Server=$srv;Database=QuanLyBenhVien;Integrated Security=True;TrustServerCertificate=True;Connect Timeout=5"
+                    break
+                } catch { }
+            }
+            if (!$connection) { $connection = 'Server=.\MSSQLVESE;Database=QuanLyBenhVien;Integrated Security=True;TrustServerCertificate=True;Connect Timeout=5' }
+        }
         $db = [System.Data.SqlClient.SqlConnection]::new($connection)
         $db.Open()
         $cmd = $db.CreateCommand()

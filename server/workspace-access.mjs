@@ -28,25 +28,25 @@ export async function workspaceIdentity(req){
  return {role:actor,userId:user.id,person:staff.name,staffId:staff.id,csrf:session.csrf};
 }
 const readRoles={
- '/api/patients':['receptionist','doctor','nurse','technician','pharmacist','cashier','patient'],
- '/api/queue':['receptionist','doctor','nurse','patient'],
- '/api/ancillary':['receptionist','doctor','nurse','technician','pharmacist','cashier'],
- '/api/pharmacy/state':['doctor','nurse','pharmacist'],
- '/api/finance':['cashier'],
+ '/api/patients':['admin','receptionist','doctor','nurse','technician','pharmacist','cashier','patient'],
+ '/api/queue':['admin','receptionist','doctor','nurse','patient'],
+ '/api/ancillary':['admin','receptionist','doctor','nurse','technician','pharmacist','cashier'],
+ '/api/pharmacy/state':['admin','doctor','nurse','pharmacist'],
+ '/api/finance':['admin','cashier'],
  '/api/portal':['patient'],
- '/api/appointments':['receptionist','patient'],
- '/api/inpatient/beds':['doctor','nurse'],
- '/api/clinical/visit':['doctor','nurse'],
- '/api/clinical/doctors':['receptionist','doctor','nurse'],
- '/api/icd10':['doctor'], '/api/icd10/template':['doctor'],
- '/api/medicines':['doctor','pharmacist'], '/api/services':['doctor','technician','cashier'],
- '/api/pharmacy/batches':['pharmacist'], '/api/clinical/prescriptions':['doctor','pharmacist'],
+ '/api/appointments':['admin','receptionist','patient'],
+ '/api/inpatient/beds':['admin','doctor','nurse'],
+ '/api/clinical/visit':['admin','doctor','nurse'],
+ '/api/clinical/doctors':['admin','receptionist','doctor','nurse'],
+ '/api/icd10':['admin','doctor'], '/api/icd10/template':['admin','doctor'],
+ '/api/medicines':['admin','doctor','pharmacist'], '/api/services':['admin','doctor','technician','cashier'],
+ '/api/pharmacy/batches':['admin','pharmacist'], '/api/clinical/prescriptions':['admin','doctor','pharmacist'],
 };
 const writeRoles={
- '/api/appointments':['receptionist'], '/api/patients':['receptionist'], '/api/visits':['receptionist'],
+ '/api/appointments':['admin','receptionist'], '/api/patients':['admin','receptionist'], '/api/visits':['admin','receptionist'],
  '/api/clinical/exam':['doctor'], '/api/nursing/vitals':['nurse'], '/api/nursing/perform':['nurse'], '/api/nursing/bed':['nurse'],
- '/api/labs/orders':['doctor'], '/api/labs/action':['technician'], '/api/pharmacy/action':['doctor','pharmacist'],
- '/api/finance/action':['cashier'], '/api/portal/appointments':['patient'],
+ '/api/labs/orders':['doctor'], '/api/labs/action':['technician'], '/api/pharmacy/action':['admin','doctor','pharmacist'],
+ '/api/finance/action':['admin','cashier'], '/api/portal/appointments':['patient'],
 };
 
 // A closed list: unknown and legacy endpoints never bypass the session boundary.
