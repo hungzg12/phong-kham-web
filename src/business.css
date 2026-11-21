@@ -49,6 +49,224 @@
   margin-top: 4px;
 }
 
+.his-reception-container, .his-exam-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.his-form-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.his-form-section {
+  background: #ffffff;
+  border: 1px solid #d8e5dc;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 1px 2px rgba(16, 107, 96, 0.04);
+}
+
+.his-lookup-section {
+  background: #f8fbf9;
+  border-color: #cde0d3;
+}
+
+.his-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #125648;
+  border-bottom: 1px solid #edf4ef;
+  padding-bottom: 8px;
+  margin-bottom: 2px;
+}
+
+.his-section-header svg {
+  color: #106b60;
+  flex-shrink: 0;
+}
+
+.his-grid-1 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.his-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.his-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.his-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.his-col-2 {
+  grid-column: span 2;
+}
+
+.his-col-3 {
+  grid-column: span 3;
+}
+
+.his-label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #27473b;
+}
+
+.his-flex-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.his-separator {
+  color: #89a394;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.his-age-badge {
+  display: inline-block;
+  background: #e6f4ea;
+  color: #137333;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+.his-benefit-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: #f7faf8;
+  border: 1px solid #d2e4d8;
+  border-radius: 6px;
+  min-height: 38px;
+}
+
+.his-benefit-tag small {
+  color: #6a8878;
+  font-size: 11px;
+}
+
+.his-bmi-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: #f7faf8;
+  border: 1px solid #d2e4d8;
+  border-radius: 6px;
+  min-height: 38px;
+}
+
+.his-bmi-tag strong {
+  font-size: 13px;
+  color: #106b60;
+}
+
+.his-room-dock {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  background: #f0f7f3;
+  border: 1px solid #cce3d4;
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
+.his-room-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.his-room-icon {
+  color: #106b60;
+  flex-shrink: 0;
+}
+
+.his-room-info strong {
+  display: block;
+  font-size: 12.5px;
+  color: #144f41;
+}
+
+.his-room-info span {
+  font-size: 11.5px;
+  color: #4f7362;
+}
+
+.his-queue-badge {
+  display: flex;
+  align-items: center;
+}
+
+.his-bottom-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #e2ebe4;
+}
+
+.his-submit-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 24px !important;
+  font-size: 13px !important;
+  font-weight: 650 !important;
+  border-radius: 6px !important;
+  background: #106b60 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(16, 107, 96, 0.25);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.his-submit-button:hover:not(:disabled) {
+  background: #0d594f !important;
+}
+
+.his-empty-state {
+  text-align: center;
+  padding: 30px 20px;
+  color: #6d887a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
 .his-card {
   border: 1px solid #dbe6de;
   border-radius: 8px;

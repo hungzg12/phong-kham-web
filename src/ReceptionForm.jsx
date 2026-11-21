@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { hisApi } from './api';
 import { clinics, today } from './business-data';
 import { syncWithSqlServer, useWorkspace } from './workspace';
-import { HeartPulse, Search, AlertTriangle, IdCard, Shield, Stethoscope, Check } from 'lucide-react';
+import { HeartPulse, Search, AlertTriangle, IdCard, Shield, Stethoscope, Check, X, UserCheck } from 'lucide-react';
 
-const ETHNICITIES = ['Kinh', 'Tày', 'Thái', 'Mường', 'H\'Mông', 'Dao', 'Khmer', 'Nùng', 'Hoa', 'Khác'];
 const CLINIC_ROOMS = [
   { code: 'PK-NOI', name: 'Phòng khám 101 - Nội tổng quát', dept: 'Nội tổng quát', doctor: 'BS.CKI Trần Minh Anh' },
   { code: 'PK-TIM', name: 'Phòng khám 102 - Tim mạch can thiệp', dept: 'Tim mạch', doctor: 'ThS.BS Nguyễn Văn An' },
@@ -21,7 +20,7 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  // Form State
+  // Form State - strictly mapped 1:1 to dbo.BenhNhan and dbo.LuotKham
   const person = mode === 'register' ? patients.find(p => p.id === selected) : patient;
   const [fullName, setFullName] = useState(person?.name || '');
   const [birthDate, setBirthDate] = useState(person?.birth || '1990-01-01');
@@ -31,18 +30,11 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
   const [insuranceCard, setInsuranceCard] = useState(person?.insurance || '');
   const [patientType, setPatientType] = useState(person?.insurance ? 'BHYT' : 'VIEN_PHI');
   const [insuranceRate, setInsuranceRate] = useState(80);
-  const [insuranceHospital, setInsuranceHospital] = useState('79-014 - BVĐK MediCare');
-  const [insuranceValidFrom, setInsuranceValidFrom] = useState('2024-01-01');
-  const [insuranceValidTo, setInsuranceValidTo] = useState('2028-12-31');
-  const [referralType, setReferralType] = useState('Đúng tuyến');
-  const [ethnicity, setEthnicity] = useState('Kinh');
   const [address, setAddress] = useState(person?.address || 'TP. Hồ Chí Minh');
-  const [relativeContact, setRelativeContact] = useState('');
-  const [priorityType, setPriorityType] = useState('Bình thường');
+  const [patientHistory, setPatientHistory] = useState(person?.history || '');
+  const [allergyNote, setAllergyNote] = useState(person?.allergy || '');
   const [selectedRoom, setSelectedRoom] = useState('PK-NOI');
-  const [intakeReason, setIntakeReason] = useState('Khám kiểm tra sức khỏe ban đầu');
-  const [allergyNote, setAllergyNote] = useState(person?.allergy || 'Chưa ghi nhận dị ứng thuốc');
-  const [shiftSession, setShiftSession] = useState('Sáng (07:00 - 11:30)');
+  const [intakeReason, setIntakeReason] = useState('Khám kiểm tra sức khỏe tổng quát');
 
   // Sync state when selected patient changes
   useEffect(() => {
@@ -55,7 +47,8 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
       setInsuranceCard(person.insurance || '');
       setPatientType(person.insurance ? 'BHYT' : 'VIEN_PHI');
       setAddress(person.address || 'TP. Hồ Chí Minh');
-      setAllergyNote(person.allergy || 'Chưa ghi nhận dị ứng thuốc');
+      setPatientHistory(person.history || '');
+      setAllergyNote(person.allergy || '');
       if (person.insurance) {
         autoDetectInsuranceRate(person.insurance);
       }
@@ -68,7 +61,8 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
       setInsuranceCard('');
       setPatientType('BHYT');
       setAddress('TP. Hồ Chí Minh');
-      setAllergyNote('Chưa ghi nhận dị ứng thuốc');
+      setPatientHistory('');
+      setAllergyNote('');
     }
   }, [selected, person]);
 
@@ -78,7 +72,7 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
     const birthYear = new Date(birthDate).getFullYear();
     const currentYear = new Date().getFullYear();
     const age = currentYear - birthYear;
-    return isNaN(age) ? '' : `${age} tuổi`;
+    return isNaN(age) || age < 0 ? '' : `${age} tuổi`;
   };
 
   // Auto-detect insurance rate from the 3rd character of the 15-digit BHYT card code
@@ -87,7 +81,6 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
     const rateChar = cardCode.charAt(2);
     if (rateChar === '1' || rateChar === '2') {
       setInsuranceRate(100);
-      setPriorityType('Ưu tiên BHYT 100%');
     } else if (rateChar === '3') {
       setInsuranceRate(95);
     } else {
@@ -109,6 +102,25 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
     e.preventDefault();
     if (saving) return;
     setError('');
+
+    // Validation
+    if (!fullName.trim()) {
+      setError('Vui lòng nhập họ và tên bệnh nhân.');
+      return;
+    }
+    if (!phone.trim() || !/^[0-9]{10,11}$/.test(phone.trim())) {
+      setError('Số điện thoại liên lạc phải gồm 10 hoặc 11 chữ số.');
+      return;
+    }
+    if (cccd.trim() && !/^[0-9]{12}$/.test(cccd.trim())) {
+      setError('Số định danh cá nhân / CCCD phải đúng 12 chữ số.');
+      return;
+    }
+    if (patientType === 'BHYT' && (!insuranceCard.trim() || insuranceCard.trim().length < 10)) {
+      setError('Vui lòng nhập mã thẻ BHYT hợp lệ (tối thiểu 10 ký tự, chuẩn 15 ký tự).');
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -127,10 +139,11 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
           cccd: cccd.trim(),
           insurance: patientType === 'BHYT' ? insuranceCard.trim() : '',
           address: address.trim(),
-          allergy: allergyNote.trim()
+          allergy: allergyNote.trim(),
+          history: patientHistory.trim()
         };
         result = await hisApi.updatePatient(payload);
-        message = 'Đã lưu thông tin hành chính bệnh nhân';
+        message = `Đã cập nhật thông tin hành chính bệnh nhân ${fullName.trim().toUpperCase()}`;
       } else {
         // Register new visit
         const chosenRoom = CLINIC_ROOMS.find(r => r.code === selectedRoom) || CLINIC_ROOMS[0];
@@ -147,8 +160,9 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
           roomCode: chosenRoom.code,
           roomName: chosenRoom.name,
           doctor: chosenRoom.doctor,
-          reason: `${intakeReason} (Ưu tiên: ${priorityType}, Tuyến: ${referralType})`,
-          allergy: allergyNote.trim()
+          reason: intakeReason.trim(),
+          allergy: allergyNote.trim(),
+          history: patientHistory.trim()
         };
 
         result = await hisApi.createVisit(payload);
@@ -158,14 +172,17 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
       await syncWithSqlServer();
       onDone(message, result);
     } catch (err) {
-      setError(err.message || 'Lỗi khi tiếp đón bệnh nhân');
+      setError(err.message || 'Lỗi khi lưu dữ liệu tiếp đón.');
     } finally {
       setSaving(false);
     }
   }
 
+  const chosenRoom = CLINIC_ROOMS.find(r => r.code === selectedRoom) || CLINIC_ROOMS[0];
+
   return (
     <div className="his-reception-container">
+      {/* HEADER BANNER */}
       <div className="his-form-header">
         <div className="his-header-title">
           <HeartPulse size={24} className="his-header-icon" />
@@ -180,26 +197,27 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
             <p className="his-header-sub">
               {mode === 'register'
                 ? 'Quy trình tiếp nhận bệnh nhân, kiểm tra quyền lợi BHYT và phân buồng khám theo chuẩn Viettel HIS'
-                : `${person?.name || ''} · Mã BN: ${person?.id || ''}`}
+                : `Bệnh nhân: ${person?.name || ''} · Mã BN: ${person?.id || ''}`}
             </p>
           </div>
         </div>
-        {mode === 'register' && (
-          <div className="his-mode-badge">
-            <span className="badge teal">Tiếp đón Ngoại Trú (KCB 2026)</span>
-          </div>
-        )}
+        <div className="his-mode-badge">
+          <span className="badge teal">
+            {mode === 'register' ? 'Tiếp đón Ngoại Trú (KCB 2026)' : mode === 'edit' ? 'Hồ sơ hành chính' : 'Điều phối buồng'}
+          </span>
+        </div>
       </div>
 
+      {/* QUICK PATIENT LOOKUP (REGISTER MODE) */}
       {mode === 'register' && (
-        <div className="his-card his-search-card">
-          <div className="his-card-header">
+        <div className="his-form-section his-lookup-section">
+          <div className="his-section-header">
             <Search size={16} />
-            <span>Tra cứu hồ sơ bệnh nhân cũ hoặc tạo mới</span>
+            <span>Tra cứu hồ sơ người bệnh</span>
           </div>
-          <div className="his-card-body">
-            <label className="his-field-label">
-              Chọn hồ sơ bệnh nhân từ danh sách
+          <div className="his-field-group">
+            <label className="his-label">
+              Chọn người bệnh đã có hồ sơ hoặc đăng ký mới:
               <select
                 aria-label="Chọn hồ sơ tiếp đón"
                 value={selected}
@@ -207,10 +225,10 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
                 disabled={saving}
                 className="his-select"
               >
-                <option value="">+ Tạo hồ sơ bệnh nhân mới</option>
+                <option value="">+ Tạo hồ sơ người bệnh mới (Đăng ký lần đầu)</option>
                 {patients.map(p => (
                   <option key={p.id} value={p.id}>
-                    {p.name} · {p.id} · {p.birth || ''} · SĐT: {p.phone || 'Chưa có'} {p.insurance ? `· BHYT: ${p.insurance}` : ''}
+                    {p.name} · Mã: {p.id} · {p.gender}, {p.birth || ''} · SĐT: {p.phone || 'Chưa có'} {p.insurance ? `· BHYT: ${p.insurance}` : ''}
                   </option>
                 ))}
               </select>
@@ -219,355 +237,275 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
         </div>
       )}
 
-      <form key={selected || 'new'} onSubmit={submit} className="his-form-body">
+      <form key={selected || 'new'} onSubmit={submit} className="his-form-content">
         {mode === 'route' ? (
-          <div className="his-card">
-            <div className="his-card-header">
+          <div className="his-form-section">
+            <div className="his-section-header">
               <AlertTriangle size={16} />
               <span>Thông tin lượt khám cần điều chuyển / hủy</span>
             </div>
-            <div className="his-card-body">
-              <label className="his-field-label">
+            <div className="his-grid-2">
+              <label className="his-label his-col-2">
                 Lượt khám đang mở *
                 <select name="visitId" required className="his-select">
                   {ownVisits.map(v => (
                     <option key={v.id} value={v.id}>
-                      {v.id} · {v.date} {v.time} · Chuyên khoa: {v.department} · {v.status}
+                      {v.id} · {v.date} {v.time} · Chuyên khoa: {v.department} · Trạng thái: {v.status}
                     </option>
                   ))}
                 </select>
               </label>
-              <div className="form-row">
-                <label className="his-field-label">
-                  Thao tác thực hiện *
-                  <select name="action" className="his-select">
-                    <option value="transfer">Điều chuyển sang chuyên khoa khác</option>
-                    <option value="cancel">Hủy lượt khám của bệnh nhân</option>
-                  </select>
-                </label>
-                <label className="his-field-label">
-                  Chuyên khoa tiếp nhận mới
-                  <select name="dept" defaultValue={person?.dept} className="his-select">
-                    {clinics.map(d => <option key={d}>{d}</option>)}
-                  </select>
-                </label>
-              </div>
-              <label className="his-field-label">
-                Lý do điều chuyển hoặc hủy *
-                <textarea name="reason" required maxLength={500} placeholder="Nhập chi tiết lý do chuyên môn..." className="his-textarea" />
+
+              <label className="his-label">
+                Thao tác thực hiện *
+                <select name="action" className="his-select">
+                  <option value="transfer">Điều chuyển sang chuyên khoa khác</option>
+                  <option value="cancel">Hủy lượt khám của bệnh nhân</option>
+                </select>
               </label>
-              {!ownVisits.length && (
-                <p role="alert" className="form-error">Người bệnh không có lượt khám nào đang mở để điều chuyển hoặc hủy.</p>
-              )}
+
+              <label className="his-label">
+                Chuyên khoa tiếp nhận mới
+                <select name="dept" defaultValue={person?.dept} className="his-select">
+                  {clinics.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </label>
+
+              <label className="his-label his-col-2">
+                Lý do điều chuyển hoặc hủy *
+                <textarea
+                  name="reason"
+                  required
+                  maxLength={255}
+                  placeholder="Nhập chi tiết lý do chuyên môn điều chuyển buồng hoặc hủy tiếp đón..."
+                  className="his-textarea"
+                />
+              </label>
             </div>
+            {!ownVisits.length && (
+              <p role="alert" className="form-error">Người bệnh không có lượt khám nào đang mở để điều chuyển hoặc hủy.</p>
+            )}
           </div>
         ) : (
           <>
-            {/* PHẦN 1: THÔNG TIN HÀNH CHÍNH & ĐỊNH DANH */}
-            <div className="his-card">
-              <div className="his-card-header">
+            {/* PHẦN 1: THÔNG TIN HÀNH CHÍNH (dbo.BenhNhan) */}
+            <div className="his-form-section">
+              <div className="his-section-header">
                 <IdCard size={16} />
-                <span>1. Thông tin hành chính & Định danh cá nhân (Chuẩn Bộ Y tế)</span>
+                <span>1. Thông tin hành chính người bệnh (Lưu bảng dbo.BenhNhan)</span>
               </div>
-              <div className="his-card-body">
-                <div className="form-row form-row-3">
-                  <label className="his-field-label">
-                    Họ và tên bệnh nhân (IN HOA) *
-                    <input
-                      name="name"
-                      required
-                      maxLength={100}
-                      value={fullName}
-                      onChange={e => setFullName(e.target.value.toUpperCase())}
-                      placeholder="NGUYỄN VĂN A"
-                      className="his-input"
-                    />
-                  </label>
-                  <label className="his-field-label">
-                    Ngày tháng năm sinh * {calculatedAge() && <span className="his-tag-age">{calculatedAge()}</span>}
-                    <input
-                      name="birth"
-                      type="date"
-                      required
-                      max={today}
-                      value={birthDate}
-                      onChange={e => setBirthDate(e.target.value)}
-                      className="his-input"
-                    />
-                  </label>
-                  <label className="his-field-label">
-                    Giới tính *
-                    <select
-                      name="gender"
-                      value={gender}
-                      onChange={e => setGender(e.target.value)}
-                      className="his-select"
-                    >
-                      <option value="Nam">Nam</option>
-                      <option value="Nữ">Nữ</option>
-                      <option value="Khác">Khác</option>
-                    </select>
-                  </label>
-                </div>
 
-                <div className="form-row form-row-3">
-                  <label className="his-field-label">
-                    Số CCCD / VNeID (12 số) *
-                    <input
-                      name="cccd"
-                      maxLength={12}
-                      pattern="[0-9]{12}"
-                      value={cccd}
-                      onChange={e => setCccd(e.target.value.replace(/[^0-9]/g, ''))}
-                      placeholder="079201000123"
-                      className="his-input"
-                    />
-                  </label>
-                  <label className="his-field-label">
-                    Số điện thoại liên lạc *
-                    <input
-                      name="phone"
-                      type="tel"
-                      required
-                      maxLength={11}
-                      value={phone}
-                      onChange={e => setPhone(e.target.value.replace(/[^0-9]/g, ''))}
-                      placeholder="0901234567"
-                      className="his-input"
-                    />
-                  </label>
-                  <label className="his-field-label">
-                    Dân tộc
-                    <select
-                      name="ethnicity"
-                      value={ethnicity}
-                      onChange={e => setEthnicity(e.target.value)}
-                      className="his-select"
-                    >
-                      {ETHNICITIES.map(eth => <option key={eth} value={eth}>{eth}</option>)}
-                    </select>
-                  </label>
-                </div>
+              <div className="his-grid-3">
+                <label className="his-label">
+                  Họ và tên bệnh nhân (IN HOA) *
+                  <input
+                    name="name"
+                    required
+                    maxLength={100}
+                    value={fullName}
+                    onChange={e => setFullName(e.target.value.toUpperCase())}
+                    placeholder="NGUYỄN VĂN A"
+                    className="his-input"
+                  />
+                </label>
 
-                <div className="form-row">
-                  <label className="his-field-label">
-                    Địa chỉ cư trú thường trú / tạm trú *
-                    <input
-                      name="address"
-                      required
-                      maxLength={255}
-                      value={address}
-                      onChange={e => setAddress(e.target.value)}
-                      placeholder="Số nhà, Đường, Phường/Xã, Quận/Huyện, Tỉnh/Thành phố"
-                      className="his-input"
-                    />
-                  </label>
-                  <label className="his-field-label">
-                    Người liên hệ khẩn cấp & SĐT người nhà
-                    <input
-                      name="relativeContact"
-                      maxLength={150}
-                      value={relativeContact}
-                      onChange={e => setRelativeContact(e.target.value)}
-                      placeholder="Họ tên người thân (Mối quan hệ) - SĐT"
-                      className="his-input"
-                    />
-                  </label>
-                </div>
+                <label className="his-label">
+                  Ngày tháng năm sinh * {calculatedAge() && <span className="his-age-badge">{calculatedAge()}</span>}
+                  <input
+                    name="birth"
+                    type="date"
+                    required
+                    max={today}
+                    value={birthDate}
+                    onChange={e => setBirthDate(e.target.value)}
+                    className="his-input"
+                  />
+                </label>
+
+                <label className="his-label">
+                  Giới tính *
+                  <select
+                    name="gender"
+                    value={gender}
+                    onChange={e => setGender(e.target.value)}
+                    className="his-select"
+                  >
+                    <option value="Nam">Nam</option>
+                    <option value="Nữ">Nữ</option>
+                    <option value="Khác">Khác</option>
+                  </select>
+                </label>
+
+                <label className="his-label">
+                  Số CCCD / VNeID (12 số)
+                  <input
+                    name="cccd"
+                    maxLength={12}
+                    value={cccd}
+                    onChange={e => setCccd(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="079201000123"
+                    className="his-input"
+                  />
+                </label>
+
+                <label className="his-label">
+                  Số điện thoại liên lạc *
+                  <input
+                    name="phone"
+                    type="tel"
+                    required
+                    maxLength={11}
+                    value={phone}
+                    onChange={e => setPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="0901234567"
+                    className="his-input"
+                  />
+                </label>
+
+                <label className="his-label">
+                  Địa chỉ thường trú / Tạm trú *
+                  <input
+                    name="address"
+                    required
+                    maxLength={255}
+                    value={address}
+                    onChange={e => setAddress(e.target.value)}
+                    placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/TP"
+                    className="his-input"
+                  />
+                </label>
+
+                <label className="his-label his-col-2">
+                  Tiền sử bệnh lý bản thân (dbo.BenhNhan.tienSuBenh)
+                  <input
+                    name="history"
+                    maxLength={500}
+                    value={patientHistory}
+                    onChange={e => setPatientHistory(e.target.value)}
+                    placeholder="Tăng huyết áp, đái tháo đường, hen suyễn, bệnh lý mạn tính..."
+                    className="his-input"
+                  />
+                </label>
+
+                <label className="his-label">
+                  Dị ứng thuốc & dị nguyên (dbo.BenhNhan.diUngThuoc)
+                  <input
+                    name="allergy"
+                    maxLength={255}
+                    value={allergyNote}
+                    onChange={e => setAllergyNote(e.target.value)}
+                    placeholder="Penicillin, NSAIDs, Paracetamol..."
+                    className="his-input"
+                  />
+                </label>
               </div>
             </div>
 
-            {/* PHẦN 2: THÔNG TIN BẢO HIỂM Y TẾ & QUYỀN LỢI */}
-            <div className="his-card">
-              <div className="his-card-header">
+            {/* PHẦN 2: ĐỐI TƯỢNG KHÁM & BHYT (dbo.BenhNhan.soBHYT) */}
+            <div className="his-form-section">
+              <div className="his-section-header">
                 <Shield size={16} />
-                <span>2. Đối tượng khám & Quyền lợi Bảo hiểm Y tế (BHYT)</span>
+                <span>2. Chế độ khám & Quyền lợi Bảo hiểm Y tế (BHYT)</span>
               </div>
-              <div className="his-card-body">
-                <div className="form-row form-row-3">
-                  <label className="his-field-label">
-                    Loại đối tượng khám *
-                    <select
-                      value={patientType}
-                      onChange={e => setPatientType(e.target.value)}
-                      className="his-select his-highlight-select"
-                    >
-                      <option value="BHYT">BHYT - Khám chữa bệnh Bảo hiểm</option>
-                      <option value="VIEN_PHI">Viện phí - Dịch vụ / Thu phí</option>
-                    </select>
-                  </label>
 
-                  {patientType === 'BHYT' && (
-                    <>
-                      <label className="his-field-label">
-                        Số thẻ BHYT (15 ký tự chuẩn QĐ 1666) *
-                        <input
-                          name="insurance"
-                          maxLength={15}
-                          value={insuranceCard}
-                          onChange={e => handleInsuranceChange(e.target.value)}
-                          placeholder="GD4790123456789"
-                          className="his-input his-insurance-input"
-                        />
-                      </label>
+              <div className="his-grid-3">
+                <label className="his-label">
+                  Loại đối tượng khám *
+                  <select
+                    value={patientType}
+                    onChange={e => setPatientType(e.target.value)}
+                    className="his-select"
+                  >
+                    <option value="BHYT">BHYT - Khám chữa bệnh Bảo hiểm</option>
+                    <option value="VIEN_PHI">Viện phí - Dịch vụ / Thu phí</option>
+                  </select>
+                </label>
 
-                      <label className="his-field-label">
-                        Mức hưởng BHYT
-                        <div className="his-rate-box">
-                          <span className={`badge ${insuranceRate === 100 ? 'teal' : insuranceRate === 95 ? 'blue' : 'amber'}`}>
-                            Quỹ BHYT chi trả {insuranceRate}%
-                          </span>
-                          <small>Cùng chi trả: {100 - insuranceRate}%</small>
-                        </div>
-                      </label>
-                    </>
-                  )}
-                </div>
-
-                {patientType === 'BHYT' && (
-                  <div className="form-row form-row-3">
-                    <label className="his-field-label">
-                      Nơi ĐKKCB ban đầu
+                {patientType === 'BHYT' ? (
+                  <>
+                    <label className="his-label">
+                      Số thẻ BHYT (15 ký tự chuẩn Bộ Y tế) *
                       <input
-                        value={insuranceHospital}
-                        onChange={e => setInsuranceHospital(e.target.value)}
-                        className="his-input"
+                        name="insurance"
+                        maxLength={15}
+                        required
+                        value={insuranceCard}
+                        onChange={e => handleInsuranceChange(e.target.value)}
+                        placeholder="GD4790123456789"
+                        className="his-input his-insurance-input"
                       />
                     </label>
-                    <label className="his-field-label">
-                      Hạn thẻ từ ngày - Đến ngày
-                      <div className="form-row">
-                        <input
-                          type="date"
-                          value={insuranceValidFrom}
-                          onChange={e => setInsuranceValidFrom(e.target.value)}
-                          className="his-input"
-                        />
-                        <input
-                          type="date"
-                          value={insuranceValidTo}
-                          onChange={e => setInsuranceValidTo(e.target.value)}
-                          className="his-input"
-                        />
+
+                    <div className="his-label">
+                      Mức hưởng quyền lợi BHYT
+                      <div className="his-benefit-tag">
+                        <span className={`badge ${insuranceRate === 100 ? 'teal' : insuranceRate === 95 ? 'blue' : 'amber'}`}>
+                          Quỹ BHYT chi trả {insuranceRate}%
+                        </span>
+                        <small>Cùng chi trả: {100 - insuranceRate}%</small>
                       </div>
-                    </label>
-                    <label className="his-field-label">
-                      Tuyến KCB
-                      <select
-                        value={referralType}
-                        onChange={e => setReferralType(e.target.value)}
-                        className="his-select"
-                      >
-                        <option value="Đúng tuyến">Đúng tuyến KCB</option>
-                        <option value="Có giấy chuyển tuyến">Có giấy chuyển tuyến</option>
-                        <option value="Trái tuyến">Trái tuyến</option>
-                        <option value="Cấp cứu">Cấp cứu (Hưởng đúng tuyến)</option>
-                      </select>
-                    </label>
+                    </div>
+                  </>
+                ) : (
+                  <div className="his-label his-col-2">
+                    Hình thức thanh toán
+                    <div className="his-benefit-tag">
+                      <span className="badge gray">Khám dịch vụ tự chi trả 100%</span>
+                      <small>Thanh toán viện phí tại quầy thu ngân</small>
+                    </div>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* PHẦN 3: PHÂN LOẠI TIẾP ĐÓN & DIỆN ƯU TIÊN */}
-            <div className="his-card">
-              <div className="his-card-header">
-                <AlertTriangle size={16} />
-                <span>3. Phân loại tiếp đón & Diện ưu tiên (Triage)</span>
-              </div>
-              <div className="his-card-body">
-                <div className="form-row form-row-3">
-                  <label className="his-field-label">
-                    Diện ưu tiên khám
+            {/* PHẦN 3: BUỒNG KHÁM & LÝ DO KHÁM (dbo.LuotKham) */}
+            {mode === 'register' && (
+              <div className="his-form-section">
+                <div className="his-section-header">
+                  <Stethoscope size={16} />
+                  <span>3. Phân luồng tiếp đón & Buồng khám (Lưu bảng dbo.LuotKham)</span>
+                </div>
+
+                <div className="his-grid-2">
+                  <label className="his-label">
+                    Buồng khám chuyên khoa *
                     <select
-                      value={priorityType}
-                      onChange={e => setPriorityType(e.target.value)}
+                      value={selectedRoom}
+                      onChange={e => setSelectedRoom(e.target.value)}
                       className="his-select"
                     >
-                      <option value="Bình thường">Bình thường (Xếp hàng chuẩn)</option>
-                      <option value="Trẻ em < 6 tuổi">Trẻ em dưới 6 tuổi (Ưu tiên)</option>
-                      <option value="Người già >= 75 tuổi">Người cao tuổi ≥ 75 tuổi (Ưu tiên)</option>
-                      <option value="Phụ nữ mang thai">Phụ nữ mang thai (Ưu tiên)</option>
-                      <option value="Người khuyết tật nặng">Người khuyết tật nặng (Ưu tiên)</option>
-                      <option value="Cấp cứu ưu tiên 1">Cấp cứu loại 1 (Chuyển ngay)</option>
+                      {CLINIC_ROOMS.map(room => (
+                        <option key={room.code} value={room.code}>
+                          {room.name} — {room.doctor}
+                        </option>
+                      ))}
                     </select>
                   </label>
 
-                  <label className="his-field-label">
-                    Ca tiếp nhận
-                    <select
-                      value={shiftSession}
-                      onChange={e => setShiftSession(e.target.value)}
-                      className="his-select"
-                    >
-                      <option>Sáng (07:00 - 11:30)</option>
-                      <option>Chiều (13:00 - 17:00)</option>
-                      <option>Ngoài giờ / Trực đêm</option>
-                    </select>
-                  </label>
-
-                  <label className="his-field-label">
-                    Tiền sử dị ứng ban đầu
+                  <label className="his-label">
+                    Lý do vào viện / Triệu chứng ban đầu * (dbo.LuotKham.lyDoKham)
                     <input
-                      value={allergyNote}
-                      onChange={e => setAllergyNote(e.target.value)}
-                      placeholder="Dị ứng kháng sinh, paracetamol..."
+                      value={intakeReason}
+                      onChange={e => setIntakeReason(e.target.value)}
+                      placeholder="Đau đầu, ho kéo dài, đau ngực, kiểm tra sức khỏe..."
                       className="his-input"
+                      required
+                      maxLength={255}
                     />
                   </label>
                 </div>
-              </div>
-            </div>
 
-            {/* PHẦN 4: CHỈ ĐỊNH BUỒNG KHÁM CHUYÊN KHOA */}
-            {mode === 'register' && (
-              <div className="his-card">
-                <div className="his-card-header">
-                  <Stethoscope size={16} />
-                  <span>4. Phân luồng buồng khám chuyên khoa & Bác sĩ tiếp nhận</span>
-                </div>
-                <div className="his-card-body">
-                  <div className="form-row">
-                    <label className="his-field-label">
-                      Chọn Buồng khám chuyên khoa *
-                      <select
-                        value={selectedRoom}
-                        onChange={e => setSelectedRoom(e.target.value)}
-                        className="his-select his-room-select"
-                      >
-                        {CLINIC_ROOMS.map(room => (
-                          <option key={room.code} value={room.code}>
-                            {room.name} ({room.doctor})
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label className="his-field-label">
-                      Lý do vào khám / Triệu chứng ban đầu *
-                      <input
-                        value={intakeReason}
-                        onChange={e => setIntakeReason(e.target.value)}
-                        placeholder="Đau ngực, ho kéo dài, sốt, tái khám theo hẹn..."
-                        className="his-input"
-                        required
-                      />
-                    </label>
+                {/* BUỒNG KHÁM PREVIEW CHUẨN VIETTEL HIS */}
+                <div className="his-room-dock">
+                  <div className="his-room-info">
+                    <UserCheck size={18} className="his-room-icon" />
+                    <div>
+                      <strong>{chosenRoom.name}</strong>
+                      <span>Bác sĩ trực khám: <b>{chosenRoom.doctor}</b></span>
+                    </div>
                   </div>
-
-                  <div className="his-room-preview">
-                    {(() => {
-                      const room = CLINIC_ROOMS.find(r => r.code === selectedRoom) || CLINIC_ROOMS[0];
-                      return (
-                        <div className="his-preview-box">
-                          <div>
-                            <strong>{room.name}</strong>
-                            <span>Bác sĩ phụ trách: {room.doctor}</span>
-                          </div>
-                          <span className="badge teal">STT dự kiến tự động cấp theo lượt</span>
-                        </div>
-                      );
-                    })()}
+                  <div className="his-queue-badge">
+                    <span className="badge teal">Cấp số thứ tự (STT) tự động qua BoDemSoThuTuKham</span>
                   </div>
                 </div>
               </div>
@@ -577,14 +515,15 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
 
         {error && <p className="form-error" role="alert">{error}</p>}
 
-        <div className="his-action-toolbar">
+        {/* BOTTOM ACTION BAR */}
+        <div className="his-bottom-actions">
           <button
             type="submit"
-            className="primary his-submit-btn"
+            className="primary his-submit-button"
             disabled={saving || (mode === 'route' && !ownVisits.length)}
           >
             {saving ? (
-              'Đang xử lý...'
+              'Đang xử lý giao dịch SQL Server...'
             ) : mode === 'register' ? (
               <>
                 <Check size={18} /> Đăng ký khám & Cấp số thứ tự (STT)

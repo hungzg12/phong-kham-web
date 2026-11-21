@@ -56,24 +56,30 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
   const [selected,setSelected]=useState(visitId||available[0]?.id||'');
   const current=available.find(v=>v.id===selected);
   const [error,setError]=useState('');
+  const [saving,setSaving]=useState(false);
 
-  // Vitals State
-  const [pulse, setPulse] = useState(current?.note?.pulse || 78);
-  const [systolic, setSystolic] = useState(current?.note?.systolic || 120);
-  const [diastolic, setDiastolic] = useState(current?.note?.diastolic || 80);
-  const [temp, setTemp] = useState(current?.note?.temp || 36.8);
-  const [spo2, setSpo2] = useState(current?.note?.spo2 || 98);
-  const [respiratory, setRespiratory] = useState(current?.note?.respiratory || 18);
-  const [weight, setWeight] = useState(current?.note?.weight || 62);
-  const [height, setHeight] = useState(current?.note?.height || 165);
+  // Vitals State - initialized from current note vitals or defaults
+  const vitalsObj = current?.note?.vitals || {};
+  const [pulse, setPulse] = useState(vitalsObj.pulse ?? current?.note?.pulse ?? 78);
+  const [systolic, setSystolic] = useState(
+    vitalsObj.pressure ? Number(vitalsObj.pressure.split('/')[0]) : (current?.note?.systolic ?? 120)
+  );
+  const [diastolic, setDiastolic] = useState(
+    vitalsObj.pressure ? Number(vitalsObj.pressure.split('/')[1]) : (current?.note?.diastolic ?? 80)
+  );
+  const [temp, setTemp] = useState(vitalsObj.temperature ?? current?.note?.temp ?? 36.8);
+  const [spo2, setSpo2] = useState(vitalsObj.spo2 ?? current?.note?.spo2 ?? 98);
+  const [respiratory, setRespiratory] = useState(vitalsObj.respiration ?? current?.note?.respiratory ?? 18);
+  const [weight, setWeight] = useState(vitalsObj.weight ?? current?.note?.weight ?? 62);
+  const [height, setHeight] = useState(vitalsObj.height ?? current?.note?.height ?? 165);
 
-  // Clinical Exam State
+  // Clinical Exam State - 1:1 mapped to dbo.HoSoKham
   const [symptoms, setSymptoms] = useState(current?.note?.symptoms || 'Bệnh nhân cảm thấy mệt mỏi, đau đầu nhẹ, ho khan từng cơn');
-  const [historyNotes, setHistoryNotes] = useState(current?.note?.historyNotes || 'Tiền sử tăng huyết áp 3 năm, điều trị liên tục. Không dị ứng thuốc.');
-  const [physicalExam, setPhysicalExam] = useState(current?.note?.physicalExam || 'Tri giác tỉnh, tiếp xúc tốt. Da niêm hồng. Tim đều, T1 T2 rõ. Phổi không rale. Bụng mềm, gan lách không to.');
-  const [primaryIcd, setPrimaryIcd] = useState(current?.note?.primaryIcd || 'I10');
-  const [secondaryIcd, setSecondaryIcd] = useState(current?.note?.secondaryIcd || 'J00');
-  const [diagnosis, setDiagnosis] = useState(current?.note?.diagnosis || 'Tăng huyết áp vô căn (I10) / Viêm mũi họng cấp tính (J00)');
+  const [historyNotes, setHistoryNotes] = useState(current?.note?.history || current?.note?.historyNotes || 'Tiền sử tăng huyết áp 3 năm, điều trị liên tục. Không dị ứng thuốc.');
+  const [physicalExam, setPhysicalExam] = useState(current?.note?.examination || current?.note?.physicalExam || 'Tri giác tỉnh, tiếp xúc tốt. Da niêm hồng. Tim đều, T1 T2 rõ. Phổi không rale. Bụng mềm.');
+  const [primaryIcd, setPrimaryIcd] = useState(current?.note?.icd || current?.note?.primaryIcd || 'I10');
+  const [secondaryIcd, setSecondaryIcd] = useState(current?.note?.comorbidities || current?.note?.secondaryIcd || '');
+  const [diagnosis, setDiagnosis] = useState(current?.note?.diagnosis || 'Tăng huyết áp vô căn (I10)');
   const [orders, setOrders] = useState(current?.note?.orders || 'Công thức máu (CBC), Điện giải đồ, Đo điện tim (ECG 12 cần)');
   const [outcome, setOutcome] = useState(current?.note?.outcome || 'Điều trị ngoại trú');
   const [advice, setAdvice] = useState(current?.note?.advice || 'Uống thuốc đúng giờ, ăn nhạt, kiêng mỡ động vật. Đo huyết áp mỗi sáng. Tái khám sau 7 ngày.');
@@ -86,55 +92,91 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
   function handleIcdSelect(code, name, isPrimary = true) {
     if (isPrimary) {
       setPrimaryIcd(code);
-      setDiagnosis(`${name} (${code}) ${secondaryIcd ? ` / ${secondaryIcd}` : ''}`);
+      setDiagnosis(`${name} (${code})${secondaryIcd ? ` / Kèm theo: ${secondaryIcd}` : ''}`);
     } else {
       setSecondaryIcd(code);
-      setDiagnosis(`${primaryIcd} / ${name} (${code})`);
+      setDiagnosis(`${diagnosis.split(' / ')[0]} / Kèm theo: ${name} (${code})`);
     }
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (saving) return;
+    setError('');
+
+    if (!symptoms.trim()) {
+      setError('Vui lòng nhập lý do khám & triệu chứng bệnh sử.');
+      return;
+    }
+    if (!diagnosis.trim()) {
+      setError('Vui lòng nhập chẩn đoán xác định.');
+      return;
+    }
+
+    setSaving(true);
     try {
       const examData = {
-        pulse, systolic, diastolic, temp, spo2, respiratory, weight, height, bmi,
-        symptoms, historyNotes, physicalExam,
-        primaryIcd, secondaryIcd, diagnosis,
-        orders, outcome, advice, revisitDays
+        symptoms: symptoms.trim(),
+        history: historyNotes.trim(),
+        examination: physicalExam.trim(),
+        diagnosis: diagnosis.trim(),
+        icd: primaryIcd.trim(),
+        comorbidities: secondaryIcd.trim(),
+        plan: `Hướng xử trí: ${outcome}. Đơn thuốc / chỉ định: ${orders || 'Theo dõi'}. Hẹn tái khám: ${revisitDays} ngày.`,
+        orders: orders.trim(),
+        advice: advice.trim(),
+        outcome: outcome,
+        revisitDays: Number(revisitDays),
+        vitals: {
+          pulse: Number(pulse) || null,
+          temperature: Number(temp) || null,
+          pressure: `${systolic}/${diastolic}`,
+          respiration: Number(respiratory) || null,
+          spo2: Number(spo2) || null,
+          height: Number(height) || null,
+          weight: Number(weight) || null
+        }
       };
       await saveVisitNote(selected, examData);
-      notify('Đã lưu phiếu khám bệnh lâm sàng chuyên khoa cho ' + selected);
+      await syncWithSqlServer();
+      notify(`Đã lưu và ghi nhận phiếu khám bệnh thành công cho ${patient.name} (${selected})`);
       onClose();
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Lỗi khi lưu phiếu khám.');
+    } finally {
+      setSaving(false);
     }
   }
 
   return (
-    <div className="his-exam-modal-content">
+    <div className="his-reception-container">
+      {/* HEADER BANNER */}
       <div className="his-form-header">
         <div className="his-header-title">
           <Stethoscope size={24} className="his-header-icon" />
           <div>
-            <h2>Phiếu khám bệnh lâm sàng & Chẩn đoán ICD-10 (Viettel HIS)</h2>
+            <h2>Phiếu khám bệnh lâm sàng chuyên khoa & Chẩn đoán ICD-10</h2>
             <p className="his-header-sub">
-              Bệnh nhân: <b>{patient.name}</b> · {patient.id} · {patient.gender} · {patient.birth}
+              Người bệnh: <b>{patient.name}</b> · Mã BN: <b>{patient.id}</b> · {patient.gender}, {patient.birth} · BHYT: {patient.insurance || 'Không có'}
             </p>
           </div>
+        </div>
+        <div className="his-mode-badge">
+          <span className="badge teal">Khám Bệnh Ngoại Trú (HIS Viettel)</span>
         </div>
       </div>
 
       {available.length ? (
-        <form onSubmit={handleSubmit} className="his-form-body">
-          {/* LƯỢT KHÁM */}
-          <div className="his-card">
-            <div className="his-card-header">
+        <form onSubmit={handleSubmit} className="his-form-content">
+          {/* LƯỢT KHÁM ACTIVE SELECTION */}
+          <div className="his-form-section his-lookup-section">
+            <div className="his-section-header">
               <Activity size={16} />
-              <span>Lượt khám đang xử lý</span>
+              <span>Lượt tiếp đón đang điều trị</span>
             </div>
-            <div className="his-card-body">
-              <label className="his-field-label">
-                Chọn lượt khám cần cập nhật kết quả:
+            <div className="his-field-group">
+              <label className="his-label">
+                Lượt khám ghi nhận kết quả:
                 <select
                   aria-label="Lượt khám đang ghi nhận"
                   value={selected}
@@ -143,7 +185,7 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
                 >
                   {available.map(v => (
                     <option key={v.id} value={v.id}>
-                      {v.id} · Ngày: {v.date} {v.time} · Chuyên khoa: {v.department} · {v.status}
+                      {v.id} · Ngày: {v.date} {v.time} · Chuyên khoa: {v.department} · Trạng thái: {v.status}
                     </option>
                   ))}
                 </select>
@@ -151,225 +193,316 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
             </div>
           </div>
 
-          {/* KHU 1: CHỈ SỐ SINH HIỆU & THỂ TRẠNG */}
-          <div className="his-card">
-            <div className="his-card-header">
+          {/* KHU 1: CHỈ SỐ SINH HIỆU (dbo.PhieuSinhHieu) */}
+          <div className="his-form-section">
+            <div className="his-section-header">
               <HeartPulse size={16} />
-              <span>1. Dấu hiệu sinh tồn (Sinh hiệu) & Thể trạng</span>
+              <span>1. Dấu hiệu sinh tồn (Sinh hiệu) & Thể trạng (Lưu bảng dbo.PhieuSinhHieu)</span>
             </div>
-            <div className="his-card-body">
-              <div className="form-row form-row-4">
-                <label className="his-field-label">
-                  Mạch (lần/phút) *
-                  <input type="number" required min="30" max="250" value={pulse} onChange={e => setPulse(Number(e.target.value))} className="his-input" />
-                </label>
-                <label className="his-field-label">
-                  Huyết áp (mmHg) *
-                  <div className="form-row" style={{ gap: 6 }}>
-                    <input type="number" required min="50" max="260" placeholder="Tâm thu" value={systolic} onChange={e => setSystolic(Number(e.target.value))} className="his-input" title="Tâm thu" />
-                    <input type="number" required min="30" max="150" placeholder="Tâm trương" value={diastolic} onChange={e => setDiastolic(Number(e.target.value))} className="his-input" title="Tâm trương" />
-                  </div>
-                </label>
-                <label className="his-field-label">
-                  Nhiệt độ (°C) *
-                  <input type="number" step="0.1" required min="34" max="43" value={temp} onChange={e => setTemp(Number(e.target.value))} className="his-input" />
-                </label>
-                <label className="his-field-label">
-                  SpO2 (%) *
-                  <input type="number" required min="70" max="100" value={spo2} onChange={e => setSpo2(Number(e.target.value))} className="his-input" />
-                </label>
-              </div>
 
-              <div className="form-row form-row-4">
-                <label className="his-field-label">
-                  Nhịp thở (lần/phút)
-                  <input type="number" min="10" max="60" value={respiratory} onChange={e => setRespiratory(Number(e.target.value))} className="his-input" />
-                </label>
-                <label className="his-field-label">
-                  Chiều cao (cm)
-                  <input type="number" step="0.5" min="40" max="220" value={height} onChange={e => setHeight(Number(e.target.value))} className="his-input" />
-                </label>
-                <label className="his-field-label">
-                  Cân nặng (kg)
-                  <input type="number" step="0.5" min="2" max="200" value={weight} onChange={e => setWeight(Number(e.target.value))} className="his-input" />
-                </label>
-                <label className="his-field-label">
-                  Chỉ số BMI
-                  <div className="his-bmi-box">
-                    <strong>{bmi} kg/m²</strong>
-                    <span className={`badge ${bmiClassification === 'Bình thường' ? 'teal' : 'amber'}`}>{bmiClassification}</span>
-                  </div>
-                </label>
+            <div className="his-grid-4">
+              <label className="his-label">
+                Mạch (lần/phút) *
+                <input
+                  type="number"
+                  required
+                  min="30"
+                  max="250"
+                  value={pulse}
+                  onChange={e => setPulse(Number(e.target.value))}
+                  className="his-input"
+                />
+              </label>
+
+              <label className="his-label">
+                Huyết áp (mmHg) *
+                <div className="his-flex-inputs">
+                  <input
+                    type="number"
+                    required
+                    min="50"
+                    max="260"
+                    placeholder="Tâm thu"
+                    value={systolic}
+                    onChange={e => setSystolic(Number(e.target.value))}
+                    className="his-input"
+                    title="Huyết áp tâm thu"
+                  />
+                  <span className="his-separator">/</span>
+                  <input
+                    type="number"
+                    required
+                    min="30"
+                    max="150"
+                    placeholder="Tâm trương"
+                    value={diastolic}
+                    onChange={e => setDiastolic(Number(e.target.value))}
+                    className="his-input"
+                    title="Huyết áp tâm trương"
+                  />
+                </div>
+              </label>
+
+              <label className="his-label">
+                Nhiệt độ (°C) *
+                <input
+                  type="number"
+                  step="0.1"
+                  required
+                  min="34"
+                  max="43"
+                  value={temp}
+                  onChange={e => setTemp(Number(e.target.value))}
+                  className="his-input"
+                />
+              </label>
+
+              <label className="his-label">
+                SpO2 (%) *
+                <input
+                  type="number"
+                  required
+                  min="70"
+                  max="100"
+                  value={spo2}
+                  onChange={e => setSpo2(Number(e.target.value))}
+                  className="his-input"
+                />
+              </label>
+
+              <label className="his-label">
+                Nhịp thở (lần/phút)
+                <input
+                  type="number"
+                  min="10"
+                  max="60"
+                  value={respiratory}
+                  onChange={e => setRespiratory(Number(e.target.value))}
+                  className="his-input"
+                />
+              </label>
+
+              <label className="his-label">
+                Chiều cao (cm)
+                <input
+                  type="number"
+                  step="0.5"
+                  min="40"
+                  max="220"
+                  value={height}
+                  onChange={e => setHeight(Number(e.target.value))}
+                  className="his-input"
+                />
+              </label>
+
+              <label className="his-label">
+                Cân nặng (kg)
+                <input
+                  type="number"
+                  step="0.5"
+                  min="2"
+                  max="200"
+                  value={weight}
+                  onChange={e => setWeight(Number(e.target.value))}
+                  className="his-input"
+                />
+              </label>
+
+              <div className="his-label">
+                Chỉ số thể trạng BMI
+                <div className="his-bmi-tag">
+                  <strong>{bmi} kg/m²</strong>
+                  <span className={`badge ${bmiClassification === 'Bình thường' ? 'teal' : 'amber'}`}>
+                    {bmiClassification}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* KHU 2: BỆNH SỬ & KHÁM LÂM SÀNG */}
-          <div className="his-card">
-            <div className="his-card-header">
+          {/* KHU 2: BỆNH SỬ & KHÁM LÂM SÀNG (dbo.HoSoKham) */}
+          <div className="his-form-section">
+            <div className="his-section-header">
               <FileText size={16} />
-              <span>2. Lý do vào khám, Bệnh sử & Khám cơ quan</span>
+              <span>2. Quá trình bệnh lý, Tiền sử & Khám lâm sàng (Lưu bảng dbo.HoSoKham)</span>
             </div>
-            <div className="his-card-body">
-              <label className="his-field-label">
-                Lý do vào khám & Quá trình bệnh lý (Bệnh sử đợt này) *
-                <textarea required rows={2} value={symptoms} onChange={e => setSymptoms(e.target.value)} className="his-textarea" />
+
+            <div className="his-grid-1">
+              <label className="his-label">
+                Lý do vào khám & Quá trình bệnh lý đợt này (dbo.HoSoKham.benhSu) *
+                <textarea
+                  required
+                  rows={2}
+                  value={symptoms}
+                  onChange={e => setSymptoms(e.target.value)}
+                  className="his-textarea"
+                />
+              </label>
+            </div>
+
+            <div className="his-grid-2">
+              <label className="his-label">
+                Tiền sử bản thân & gia đình (dbo.HoSoKham.tienSuBanThan)
+                <textarea
+                  rows={2}
+                  value={historyNotes}
+                  onChange={e => setHistoryNotes(e.target.value)}
+                  className="his-textarea"
+                />
               </label>
 
-              <div className="form-row">
-                <label className="his-field-label">
-                  Tiền sử bản thân, gia đình & Dị ứng thuốc
-                  <textarea rows={2} value={historyNotes} onChange={e => setHistoryNotes(e.target.value)} className="his-textarea" />
-                </label>
-                <label className="his-field-label">
-                  Khám lâm sàng toàn thân & các bộ phận cơ quan
-                  <textarea rows={2} value={physicalExam} onChange={e => setPhysicalExam(e.target.value)} className="his-textarea" />
-                </label>
-              </div>
+              <label className="his-label">
+                Khám toàn thân & các cơ quan bộ phận (dbo.HoSoKham.khamToanThan)
+                <textarea
+                  rows={2}
+                  value={physicalExam}
+                  onChange={e => setPhysicalExam(e.target.value)}
+                  className="his-textarea"
+                />
+              </label>
             </div>
           </div>
 
           {/* KHU 3: CHẨN ĐOÁN & TRA CỨU ICD-10 */}
-          <div className="his-card">
-            <div className="his-card-header">
+          <div className="his-form-section">
+            <div className="his-section-header">
               <Shield size={16} />
-              <span>3. Chẩn đoán xác định & Mã hóa danh mục ICD-10 Bộ Y tế</span>
+              <span>3. Chẩn đoán xác định & Mã hóa danh mục ICD-10 (Bộ Y tế)</span>
             </div>
-            <div className="his-card-body">
-              <div className="his-quick-icd">
-                <span>Mã ICD-10 phổ biến:</span>
-                <div className="his-icd-tags">
-                  {COMMON_ICD10.slice(0, 6).map(icd => (
-                    <button
-                      type="button"
-                      key={icd.code}
-                      className="his-icd-chip"
-                      onClick={() => handleIcdSelect(icd.code, icd.name, true)}
-                    >
-                      <b>{icd.code}</b> {icd.name}
-                    </button>
+
+            <div className="his-quick-icd">
+              <span>Mã ICD-10 gợi ý nhanh:</span>
+              <div className="his-icd-tags">
+                {COMMON_ICD10.slice(0, 6).map(icd => (
+                  <button
+                    type="button"
+                    key={icd.code}
+                    className="his-icd-chip"
+                    onClick={() => handleIcdSelect(icd.code, icd.name, true)}
+                  >
+                    <b>{icd.code}</b> {icd.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="his-grid-3">
+              <label className="his-label">
+                Mã bệnh chính ICD-10 (dbo.HoSoKham.maICDXacDinh) *
+                <select
+                  value={primaryIcd}
+                  onChange={e => {
+                    const item = COMMON_ICD10.find(x => x.code === e.target.value);
+                    handleIcdSelect(e.target.value, item ? item.name : '', true);
+                  }}
+                  className="his-select"
+                >
+                  {COMMON_ICD10.map(x => (
+                    <option key={x.code} value={x.code}>{x.code} - {x.name}</option>
                   ))}
-                </div>
-              </div>
+                </select>
+              </label>
 
-              <div className="form-row form-row-3">
-                <label className="his-field-label">
-                  Mã bệnh chính (ICD-10) *
-                  <select
-                    value={primaryIcd}
-                    onChange={e => {
-                      const item = COMMON_ICD10.find(x => x.code === e.target.value);
-                      handleIcdSelect(e.target.value, item ? item.name : '', true);
-                    }}
-                    className="his-select"
-                  >
-                    {COMMON_ICD10.map(x => (
-                      <option key={x.code} value={x.code}>{x.code} - {x.name}</option>
-                    ))}
-                  </select>
-                </label>
+              <label className="his-label">
+                Mã bệnh kèm theo (ICD-10 phụ)
+                <select
+                  value={secondaryIcd}
+                  onChange={e => {
+                    const item = COMMON_ICD10.find(x => x.code === e.target.value);
+                    handleIcdSelect(e.target.value, item ? item.name : '', false);
+                  }}
+                  className="his-select"
+                >
+                  <option value="">-- Không có bệnh kèm theo --</option>
+                  {COMMON_ICD10.map(x => (
+                    <option key={x.code} value={x.code}>{x.code} - {x.name}</option>
+                  ))}
+                </select>
+              </label>
 
-                <label className="his-field-label">
-                  Mã bệnh kèm theo (ICD-10 phụ)
-                  <select
-                    value={secondaryIcd}
-                    onChange={e => {
-                      const item = COMMON_ICD10.find(x => x.code === e.target.value);
-                      handleIcdSelect(e.target.value, item ? item.name : '', false);
-                    }}
-                    className="his-select"
-                  >
-                    <option value="">-- Không có bệnh kèm theo --</option>
-                    {COMMON_ICD10.map(x => (
-                      <option key={x.code} value={x.code}>{x.code} - {x.name}</option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="his-field-label">
-                  Chẩn đoán mô tả đầy đủ *
-                  <input
-                    required
-                    value={diagnosis}
-                    onChange={e => setDiagnosis(e.target.value)}
-                    className="his-input"
-                  />
-                </label>
-              </div>
+              <label className="his-label">
+                Chẩn đoán mô tả đầy đủ (dbo.HoSoKham.chanDoanXacDinh) *
+                <input
+                  required
+                  value={diagnosis}
+                  onChange={e => setDiagnosis(e.target.value)}
+                  className="his-input"
+                />
+              </label>
             </div>
           </div>
 
-          {/* KHU 4: CHỈ ĐỊNH CLS, XỬ TRÍ & HƯỚNG DẪN */}
-          <div className="his-card">
-            <div className="his-card-header">
+          {/* KHU 4: CHỈ ĐỊNH CLS, HƯỚNG XỬ TRÍ & LỜI DẶN */}
+          <div className="his-form-section">
+            <div className="his-section-header">
               <AlertTriangle size={16} />
-              <span>4. Chỉ định cận lâm sàng, Hướng xử trí & Lời dặn</span>
+              <span>4. Chỉ định cận lâm sàng, Hướng xử trí & Lời dặn bác sĩ</span>
             </div>
-            <div className="his-card-body">
-              <div className="form-row">
-                <label className="his-field-label">
-                  Chỉ định Cận lâm sàng (CLS) đề xuất
-                  <input value={orders} onChange={e => setOrders(e.target.value)} placeholder="Xét nghiệm máu, X-quang, Siêu âm..." className="his-input" />
-                </label>
-                <label className="his-field-label">
-                  Hướng xử trí kết luận *
-                  <select value={outcome} onChange={e => setOutcome(e.target.value)} className="his-select">
-                    <option value="Điều trị ngoại trú">Kê đơn cho về điều trị ngoại trú</option>
-                    <option value="Chờ kết quả CLS">Lưu chờ kết quả xét nghiệm / CĐHA</option>
-                    <option value="Chỉ định nhập viện">Chỉ định nhập viện điều trị nội trú</option>
-                    <option value="Chuyển tuyến">Lập phiếu chuyển viện tuyến trên</option>
-                    <option value="Hẹn tái khám">Hẹn ngày tái khám chuyên khoa</option>
-                  </select>
-                </label>
-              </div>
 
-              <div className="form-row">
-                <label className="his-field-label">
-                  Lời dặn dò chế độ điều trị, sinh hoạt & dinh dưỡng
-                  <textarea rows={2} value={advice} onChange={e => setAdvice(e.target.value)} className="his-textarea" />
-                </label>
-                <label className="his-field-label">
-                  Số ngày hẹn tái khám
-                  <input type="number" min="1" max="90" value={revisitDays} onChange={e => setRevisitDays(Number(e.target.value))} className="his-input" />
-                </label>
-              </div>
+            <div className="his-grid-2">
+              <label className="his-label">
+                Chỉ định Cận lâm sàng (CLS) đề xuất
+                <input
+                  value={orders}
+                  onChange={e => setOrders(e.target.value)}
+                  placeholder="Xét nghiệm máu, X-quang tim phổi, Siêu âm bụng tổng quát..."
+                  className="his-input"
+                />
+              </label>
+
+              <label className="his-label">
+                Hướng xử trí kết luận *
+                <select value={outcome} onChange={e => setOutcome(e.target.value)} className="his-select">
+                  <option value="Điều trị ngoại trú">Kê đơn cho về điều trị ngoại trú</option>
+                  <option value="Chờ kết quả CLS">Lưu chờ kết quả xét nghiệm / CĐHA</option>
+                  <option value="Chỉ định nhập viện">Chỉ định nhập viện điều trị nội trú</option>
+                  <option value="Chuyển tuyến">Lập phiếu chuyển viện tuyến trên</option>
+                  <option value="Hẹn tái khám">Hẹn ngày tái khám chuyên khoa</option>
+                </select>
+              </label>
+
+              <label className="his-label">
+                Lời dặn dò chế độ điều trị & dinh dưỡng (dbo.HoSoKham.loiDanBacSi)
+                <textarea
+                  rows={2}
+                  value={advice}
+                  onChange={e => setAdvice(e.target.value)}
+                  placeholder="Uống thuốc đúng giờ, ăn nhạt, kiêng mỡ động vật..."
+                  className="his-textarea"
+                />
+              </label>
+
+              <label className="his-label">
+                Số ngày hẹn tái khám chuyên khoa
+                <input
+                  type="number"
+                  min="1"
+                  max="90"
+                  value={revisitDays}
+                  onChange={e => setRevisitDays(Number(e.target.value))}
+                  className="his-input"
+                />
+              </label>
             </div>
           </div>
 
           {error && <p role="alert" className="form-error">{error}</p>}
 
-          <div className="his-action-toolbar">
-            <button
-              className="secondary"
-              type="button"
-              onClick={async () => {
-                try {
-                  const saved = await hisApi.saveExamNote({
-                    visitId: selected,
-                    note: current.note || {},
-                    revision: current.revision || 0,
-                    doctorStaffId: current.doctorStaffId
-                  });
-                  transact(d => {
-                    const index = d.visits.findIndex(v => v.id === selected);
-                    if (index >= 0) d.visits[index] = { ...d.visits[index], ...saved };
-                    syncLatestPatient(d, patient.id);
-                  });
-                  notify('Đã đánh dấu trạng thái đang khám');
-                } catch (e) {
-                  setError(e.message);
-                }
-              }}
-            >
-              Đánh dấu đang khám
+          {/* ACTION BUTTONS */}
+          <div className="his-bottom-actions">
+            <button className="secondary" type="button" onClick={onClose}>
+              Đóng
             </button>
-            <button className="primary his-submit-btn" type="submit">
-              <Check size={18} /> Lưu phiếu khám lâm sàng
+            <button className="primary his-submit-button" type="submit" disabled={saving}>
+              {saving ? 'Đang lưu CSDL...' : <><Check size={18} /> Lưu phiếu khám & Cập nhật CSDL (SQL Server)</>}
             </button>
           </div>
         </form>
       ) : (
-        <div className="business-empty">Chưa có lượt khám phù hợp. Tiếp tân cần tạo lượt khám trước.</div>
+        <div className="his-empty-state">
+          <p>Người bệnh không có lượt khám nào đang hoạt động để ghi nhận.</p>
+          <button className="secondary" onClick={onClose}>Đóng cửa sổ</button>
+        </div>
       )}
     </div>
   );

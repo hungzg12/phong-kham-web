@@ -25,8 +25,8 @@ async function transaction(body,parameters){
 }
 
 function demographics(data){
- for(const [key,max]of Object.entries({name:100,phone:20,cccd:12,insurance:15,address:255}))if(data[key]!=null&&(typeof data[key]!=='string'||data[key].length>max))fail(400,'Thông tin hành chính vượt giới hạn.');
- const values={name:text(data.name,100),phone:text(data.phone,20),birth:data.birth,gender:data.gender,cccd:text(data.cccd,12),insurance:text(data.insurance,15),address:text(data.address,255)};
+ for(const [key,max]of Object.entries({name:100,phone:20,cccd:12,insurance:15,address:255,allergy:500,history:1000}))if(data[key]!=null&&(typeof data[key]!=='string'||data[key].length>max))fail(400,'Thông tin hành chính vượt giới hạn.');
+ const values={name:text(data.name,100),phone:text(data.phone,20),birth:data.birth,gender:data.gender,cccd:text(data.cccd,12),insurance:text(data.insurance,15),address:text(data.address,255),allergy:text(data.allergy,500),history:text(data.history,1000)};
  if(!values.name||!dayValid(values.birth)||!/^[0-9]{10,11}$/.test(values.phone)||!['Nam','Nữ','Khác'].includes(values.gender)||(data.cccd&&!/^[0-9]{12}$/.test(data.cccd)))fail(400,'Kiểm tra họ tên, ngày sinh, số điện thoại và số định danh.');
  if(values.birth>new Date().toISOString().slice(0,10))fail(400,'Ngày sinh không được ở tương lai.');
  return values;
@@ -35,7 +35,7 @@ function demographics(data){
 export async function receivePatient(data){
  if(!data||!codes[data.dept])fail(400,'Chọn chuyên khoa hợp lệ.');
  const patientId=text(data.patientId,20)||null;
- const values=patientId?{name:'',phone:'',birth:null,gender:'Nam',cccd:'',insurance:'',address:''}:demographics(data);
+ const values=patientId?{name:'',phone:'',birth:null,gender:'Nam',cccd:'',insurance:'',address:'',allergy:text(data.allergy,500),history:text(data.history,1000)}:demographics(data);
  return transaction(`
  DECLARE @patient varchar(20)=@patientId,@room varchar(20),@number int,@day date=CONVERT(date,SYSDATETIME());
  SELECT TOP 1 @room=maBuong FROM dbo.BuongKham WHERE maKhoa=@dept AND dangHoatDong=1 ORDER BY maBuong;
@@ -49,8 +49,8 @@ export async function receivePatient(data){
  IF @patient IS NULL
  BEGIN
   SET @patient=@newPatient;
-  INSERT dbo.BenhNhan(maBenhNhan,hoTen,ngaySinh,gioiTinh,soDienThoai,soDinhDanh,soBHYT,diaChi)
-  VALUES(@patient,@name,CONVERT(date,@birth),@gender,@phone,NULLIF(@cccd,''),NULLIF(@insurance,''),NULLIF(@address,''));
+  INSERT dbo.BenhNhan(maBenhNhan,hoTen,ngaySinh,gioiTinh,soDienThoai,soDinhDanh,soBHYT,diaChi,diUngThuoc,tienSuBenh,trangThaiDiUng)
+  VALUES(@patient,@name,CONVERT(date,@birth),@gender,@phone,NULLIF(@cccd,''),NULLIF(@insurance,''),NULLIF(@address,''),NULLIF(@allergy,''),NULLIF(@history,''),CASE WHEN @allergy<>'' THEN 'CO_DI_UNG' ELSE 'CHUA_KHAI_THAC' END);
  END
  MERGE dbo.BoDemSoThuTuKham WITH(HOLDLOCK) AS target USING(SELECT @room AS maBuong,@day AS ngayCapSo) AS source
  ON target.maBuong=source.maBuong AND target.ngayCapSo=source.ngayCapSo
@@ -68,7 +68,7 @@ export async function updatePatient(data){
  return transaction(`
  IF NOT EXISTS(SELECT 1 FROM dbo.BenhNhan WHERE maBenhNhan=@id) THROW 51000,'FLOW_MISSING',1;
  IF @cccd<>'' AND EXISTS(SELECT 1 FROM dbo.BenhNhan WHERE soDinhDanh=@cccd AND maBenhNhan<>@id) THROW 51000,'FLOW_IDENTITY',1;
- UPDATE dbo.BenhNhan SET hoTen=@name,ngaySinh=CONVERT(date,@birth),gioiTinh=@gender,soDienThoai=@phone,soDinhDanh=NULLIF(@cccd,''),soBHYT=NULLIF(@insurance,''),diaChi=@address WHERE maBenhNhan=@id;
+ UPDATE dbo.BenhNhan SET hoTen=@name,ngaySinh=CONVERT(date,@birth),gioiTinh=@gender,soDienThoai=@phone,soDinhDanh=NULLIF(@cccd,''),soBHYT=NULLIF(@insurance,''),diaChi=@address,diUngThuoc=NULLIF(@allergy,''),tienSuBenh=NULLIF(@history,''),trangThaiDiUng=CASE WHEN @allergy<>'' THEN 'CO_DI_UNG' ELSE trangThaiDiUng END WHERE maBenhNhan=@id;
  SET @result=(SELECT @id AS id FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
  `,{...values,id:data.id});
 }
@@ -158,7 +158,11 @@ export async function saveExam(data){
  SELECT @room=maBuong,@day=ngayKham,@hour=DATEPART(HOUR,thoiDiemCapSo) FROM dbo.LuotKham WHERE maLuotKham=@id;
  IF @room IS NULL THROW 51000,'FLOW_MISSING',1;
  SELECT TOP 1 @doctor=maBacSi FROM dbo.PhanCongKham WHERE maBuong=@room AND ngayKham=@day AND caKham=CASE WHEN @hour<12 THEN 'SANG' ELSE 'CHIEU' END AND trangThai IN('DA_PHAN_CONG','DANG_TRUC','HOAN_TAT') ORDER BY maPhanCong;
- IF @doctor IS NULL OR (@doctorId IS NOT NULL AND @doctorId<>@doctor) THROW 51000,'FLOW_DOCTOR',1;
+ IF @doctor IS NULL AND @doctorId IS NOT NULL AND EXISTS(SELECT 1 FROM dbo.NhanVien WHERE maNhanVien=@doctorId AND chuyenMon='BAC_SI' AND dangLamViec=1)
+  SET @doctor=@doctorId;
+ IF @doctor IS NULL
+  SELECT TOP 1 @doctor=n.maNhanVien FROM dbo.NhanVien n JOIN dbo.Khoa k ON k.maKhoa=n.maKhoa JOIN dbo.BuongKham b ON b.maKhoa=k.maKhoa WHERE b.maBuong=@room AND n.chuyenMon='BAC_SI' AND n.dangLamViec=1 ORDER BY n.maNhanVien;
+ IF @doctor IS NULL THROW 51000,'FLOW_DOCTOR',1;
  SELECT @current=ISNULL(MAX(maNhatKy),0) FROM dbo.NhatKyThayDoi WHERE loaiDoiTuong='HoSoKham' AND maDoiTuong=@id AND ISJSON(duLieuSau)=1;
  IF @current<>CONVERT(bigint,@revision) THROW 51000,'FLOW_STALE',1;
  IF EXISTS(SELECT 1 FROM dbo.LuotKham WHERE maLuotKham=@id AND trangThai='DA_HUY') THROW 51000,'FLOW_LOCKED',1;
