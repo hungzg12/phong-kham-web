@@ -32,7 +32,7 @@ Bản production quản trị có entry riêng, không tải mã màn hình lâm
 - API ghi yêu cầu JSON, kiểm tra Origin và mã CSRF. API quản trị kiểm tra quyền ở server. Bộ chọn vai trò demo không tạo phiên quản trị.
 - Vai trò `admin` giữ đầy đủ quyền quản trị; hệ thống ngăn khóa/hạ quyền quản trị viên hoạt động cuối cùng. Chỉ admin được quản lý tài khoản admin và gán vai trò. Quyền chỉnh sửa tài khoản được ủy quyền không cho phép đặt lại mật khẩu admin.
 - Tên quyền: `resource:view/create/edit/deactivate/export`. Nhật ký và dashboard chỉ có quyền đọc/xuất. Không có quyền xem hồ sơ chuyên môn trong bộ quyền quản trị.
-- Vai trò được tạo sẵn: quản trị viên, tiếp tân, bác sĩ, điều dưỡng, dược sĩ, thu ngân, bệnh nhân. Các vai trò ngoài admin mặc định chưa có quyền quản trị. Đây là ma trận quản trị; không thay cho phân quyền chuyên môn của toàn hệ thống.
+- Vai trò được tạo sẵn: quản trị viên, tiếp tân, bác sĩ, điều dưỡng, kỹ thuật viên CLS, dược sĩ, thu ngân, bệnh nhân. Các vai trò ngoài admin mặc định chưa có quyền quản trị. Đây là ma trận quản trị; không thay cho phân quyền chuyên môn của toàn hệ thống.
 - Nhân viên liên kết phải đang hoạt động, một nhân viên chỉ liên kết một tài khoản. Khóa tài khoản liên quan trước khi ngừng nhân viên. Khi ủy quyền tạo/sửa danh mục, cấp quyền xem danh mục liên kết để biểu mẫu tải được lựa chọn.
 - Đăng nhập sai bị giới hạn theo IP/tên đăng nhập trong tiến trình. Trước triển khai nhiều máy chủ cần giới hạn ở reverse proxy hoặc kho chia sẻ.
 
