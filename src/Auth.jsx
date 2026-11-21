@@ -2,15 +2,34 @@ import React,{useEffect,useState} from 'react';
 import {Plus,ShieldCheck,ArrowRight,HeartPulse} from 'lucide-react';
 import './auth.css';
 import {actorRoles,actorIds} from './roles';
+
 export default function Auth({onLogin,initialRole='admin',externalError=''}){
  const [error,setError]=useState(''),[saving,setSaving]=useState(false);
  const [username,setUsername]=useState(''),[password,setPassword]=useState(''),[qaAccounts,setQaAccounts]=useState([]);
+
  useEffect(()=>{
-  if(location.hostname!=='127.0.0.1'||location.port!=='52796')return;
+  if(location.hostname!=='127.0.0.1'&&location.hostname!=='localhost')return;
   let active=true;
-  fetch('/__qa/login-accounts',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(data=>{if(active&&Array.isArray(data?.accounts))setQaAccounts(data.accounts)}).catch(()=>{});
+  const defaultAccounts=[
+    { label: 'Quản trị viên (Admin)', username: 'admin', password: 'Admin@12345678' },
+    { label: 'Bác sĩ khám (Doctor)', username: 'doctor_noitongquat', password: 'Doctor@12345678' },
+    { label: 'Điều dưỡng (Nurse)', username: 'nurse_noitongquat', password: 'Nurse@12345678' },
+    { label: 'Dược sĩ (Pharmacist)', username: 'pharmacist_main', password: 'Pharmacist@12345678' }
+  ];
+  fetch('/__qa/login-accounts',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(data=>{
+    if(active){
+      if(Array.isArray(data?.accounts)&&data.accounts.length){
+        setQaAccounts(data.accounts);
+      } else {
+        setQaAccounts(defaultAccounts);
+      }
+    }
+  }).catch(()=>{
+    if(active)setQaAccounts(defaultAccounts);
+  });
   return()=>{active=false};
  },[]);
+
  const [role,setRole]=useState(initialRole);
  const actor=actorRoles[role];
  return <div className="auth-page">
@@ -31,6 +50,7 @@ export default function Auth({onLogin,initialRole='admin',externalError=''}){
   </div></section>
  </div>;
 }
+
 export function QaAccountList({accounts,onSelect,disabled=false}){
  return <section className="qa-login-accounts" aria-label="Tài khoản tám tác nhân QA"><h3>Tài khoản từng tác nhân</h3><p>Bản QA · Chọn tác nhân để điền tên đăng nhập và mật khẩu.</p>{accounts.map(a=><button type="button" key={a.username} disabled={disabled} onClick={()=>onSelect(a)}><strong>{a.label}</strong><span>{a.username}</span><code>{a.password}</code><small>Điền vào biểu mẫu →</small></button>)}</section>;
 }
