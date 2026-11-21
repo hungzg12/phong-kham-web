@@ -133,6 +133,11 @@ export const hisApi = {
     headers: jsonHeaders,
     body: JSON.stringify(data),
   }),
+  cleanBed: (bedId) => req('/api/inpatient/clean', {
+    method: 'POST',
+    headers: jsonHeaders,
+    body: JSON.stringify({ bedId }),
+  }),
 
   // 7. Billing & Financial Settle
   getStatement: (visitId) => req(`/api/billing/statement?visitId=${encodeURIComponent(visitId)}`),

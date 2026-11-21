@@ -1,0 +1,359 @@
+/* Inpatient Bed Map - Viettel HIS Hospital Standard */
+.inpatient-bedmap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.bedmap-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  background: white;
+  padding: 20px 24px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+
+.bedmap-header h2 {
+  margin: 4px 0 6px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.bedmap-header p {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.bedmap-header .eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  color: #0f766e;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.bedmap-header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.dept-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  padding: 6px 14px;
+  border-radius: 8px;
+  color: #0f766e;
+}
+
+.dept-select-wrap select {
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  cursor: pointer;
+  outline: none;
+}
+
+/* KPI Summary Cards */
+.bedmap-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.bed-kpi-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: white;
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+
+.bed-kpi-card .kpi-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.bed-kpi-card.total .kpi-icon { background: #f1f5f9; color: #475569; }
+.bed-kpi-card.occupied .kpi-icon { background: #eff6ff; color: #2563eb; }
+.bed-kpi-card.available .kpi-icon { background: #f0fdf4; color: #16a34a; }
+.bed-kpi-card.cleaning .kpi-icon { background: #fffbeb; color: #d97706; }
+
+.kpi-label {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+
+.kpi-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.kpi-value small {
+  font-size: 12px;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+.text-blue { color: #2563eb !important; }
+.text-teal { color: #0f766e !important; }
+.text-amber { color: #d97706 !important; }
+
+/* Toolbar */
+.bedmap-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.bedmap-filter-tabs {
+  display: flex;
+  gap: 8px;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.bedmap-filter-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.bedmap-filter-tabs button.active {
+  background: white;
+  color: #0f766e;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot-blue { background: #3b82f6; }
+.dot-green { background: #10b981; }
+.dot-amber { background: #f59e0b; }
+
+.bedmap-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  border: 1px solid #cbd5e1;
+  padding: 7px 14px;
+  border-radius: 8px;
+  flex: 1;
+  max-width: 380px;
+}
+
+.bedmap-search input {
+  border: none;
+  outline: none;
+  font-size: 12.5px;
+  width: 100%;
+}
+
+/* Bed Grid & Cards */
+.bedmap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.bed-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+}
+
+.bed-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.05);
+}
+
+.bed-card.occupied {
+  border-left: 4px solid #3b82f6;
+  background: linear-gradient(180deg, #f8fafc 0%, white 100%);
+}
+
+.bed-card.available {
+  border-left: 4px solid #10b981;
+}
+
+.bed-card.cleaning {
+  border-left: 4px solid #f59e0b;
+  background: #fffdf9;
+}
+
+.bed-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.bed-room-tag {
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.bed-status-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+.pill-blue { background: #eff6ff; color: #1d4ed8; }
+.pill-green { background: #f0fdf4; color: #15803d; }
+.pill-amber { background: #fffbeb; color: #b45309; }
+
+.bed-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bed-icon-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bed-card.occupied .bed-icon-badge { background: #eff6ff; color: #2563eb; }
+.bed-card.available .bed-icon-badge { background: #f0fdf4; color: #16a34a; }
+.bed-card.cleaning .bed-icon-badge { background: #fffbeb; color: #d97706; }
+
+.bed-num {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.bed-price {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.bed-patient-info {
+  background: #f8fafc;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #edf2f7;
+}
+
+.patient-name {
+  display: block;
+  font-size: 13px;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.patient-meta {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.bed-cleaning-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #fffbeb;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: #b45309;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.bed-available-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #f0fdf4;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: #15803d;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.bed-card-footer {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.bed-action-hint {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #0f766e;
+}
+
+.bedmap-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 48px;
+  background: white;
+  border-radius: 12px;
+  border: 1px dashed #cbd5e1;
+  color: #94a3b8;
+}
+
+.bedmap-empty h3 {
+  margin: 12px 0 4px;
+  color: #475569;
+}

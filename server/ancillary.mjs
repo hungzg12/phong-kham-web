@@ -143,6 +143,7 @@ export async function createLab(data){
 
 export async function labAction(data){
  if(!data||!['admin','technician'].includes(data.role))fail(403,'Chỉ kỹ thuật viên CLS được xử lý kết quả.');
+ if(data.role==='admin'&&(!data.staffId||data.staffId==='admin'))data.staffId='NV-KTV01';
  if(!['accept','save','publish'].includes(data.action)||!Number.isSafeInteger(data.revision)||!string(data.id,20)||!string(data.staffId,20))fail(400,'Thao tác hoặc phiên bản phiếu không hợp lệ.');
  let snapshot=null;
  if(data.action==='save'){

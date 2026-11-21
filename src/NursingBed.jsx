@@ -1,9 +1,31 @@
-import React,{useState} from 'react';
-import {hisApi} from './api';
-import {useWorkspace,syncWithSqlServer} from './workspace';
-export default function NursingBed({bed,actor,onDone}){
- const [patients]=useWorkspace('patients'),[admissions]=useWorkspace('admissions'),[beds]=useWorkspace('beds');const [error,setError]=useState(''),[saving,setSaving]=useState(false);
- const eligible=admissions.filter(a=>a.status==='Đang điều trị'&&!beds.some(b=>b.admissionId===a.id&&b.patient));
- async function save(patientId){if(saving)return;setSaving(true);setError('');try{await hisApi.bedAction({id:bed.id,role:'nurse',staffId:actor.staffId,action:bed.cleaning?'clean':'assign',patientId});await syncWithSqlServer();onDone(bed.cleaning?'Đã xác nhận vệ sinh giường trong SQL Server':'Đã xếp giường trong SQL Server');}catch(e){setError(e.message);}finally{setSaving(false);}}
- return <><h2>Buồng giường điều dưỡng</h2><p>{bed.roomName} · {bed.bedNumber||bed.id}</p>{bed.patient?<p>Giường đang sử dụng. Kết thúc điều trị cần bác sĩ duyệt ra viện trước khi giải phóng giường.</p>:bed.cleaning?<button className="primary full" disabled={saving} onClick={()=>save()}>Xác nhận đã khử khuẩn</button>:<form onSubmit={e=>{e.preventDefault();save(new FormData(e.currentTarget).get('patient'))}}><label>Người bệnh có đợt nội trú đang mở<select name="patient" required><option value="">Chọn người bệnh</option>{eligible.map(a=><option key={a.id} value={a.patientId}>{patients.find(p=>p.id===a.patientId)?.name||a.patientId} · {a.id}</option>)}</select></label>{!eligible.length&&<p>Chưa có đợt điều trị nội trú đủ điều kiện. Điều dưỡng không tự tạo chỉ định nhập viện.</p>}<button className="primary full" disabled={saving||!eligible.length}>Xác nhận xếp giường</button></form>}{error&&<p className="form-error" role="alert">{error}</p>}</>;
+import React from 'react';
+import InpatientAdmissionModal from './InpatientAdmissionModal';
+import { useWorkspace } from './workspace';
+
+export default function NursingBed({ bed, actor, onDone, navigate, notify }) {
+  const [patients] = useWorkspace('patients');
+  const [beds, setBeds] = useWorkspace('beds');
+
+  return (
+    <InpatientAdmissionModal
+      bed={bed}
+      role="nurse"
+      actor={actor}
+      patients={patients}
+      onClose={onDone}
+      onSuccess={({ bedId, patientId, admissionId, cleaning, status }) => {
+        setBeds(list => list.map(b => b.id === bedId ? {
+          ...b,
+          patient: cleaning ? null : (patientId || b.patient),
+          patientName: cleaning ? null : (patients.find(p => p.id === patientId)?.name || b.patientName),
+          admissionId: cleaning ? null : (admissionId || b.admissionId),
+          cleaning: cleaning ?? false,
+          status: status || (cleaning ? 'Chờ khử khuẩn' : 'Đang sử dụng')
+        } : b));
+        if (onDone) onDone('Đã cập nhật buồng giường trong SQL Server');
+      }}
+      notify={notify || (() => {})}
+      navigate={navigate}
+    />
+  );
 }

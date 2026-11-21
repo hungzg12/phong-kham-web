@@ -11,10 +11,14 @@ export default function Auth({onLogin,initialRole='admin',externalError=''}){
   if(location.hostname!=='127.0.0.1'&&location.hostname!=='localhost')return;
   let active=true;
   const defaultAccounts=[
-    { label: 'Quản trị viên (Admin)', username: 'admin', password: 'Admin@12345678' },
-    { label: 'Bác sĩ khám (Doctor)', username: 'doctor_noitongquat', password: 'Doctor@12345678' },
-    { label: 'Điều dưỡng (Nurse)', username: 'nurse_noitongquat', password: 'Nurse@12345678' },
-    { label: 'Dược sĩ (Pharmacist)', username: 'pharmacist_main', password: 'Pharmacist@12345678' }
+    { label: '1. Quản trị viên (Admin)', username: 'admin', password: 'Admin@12345678' },
+    { label: '2. Tiếp tân (Receptionist)', username: 'tieptan', password: 'Tieptan@12345678' },
+    { label: '3. Bác sĩ khám (Doctor)', username: 'bacsi', password: 'Doctor@12345678' },
+    { label: '4. Điều dưỡng (Nurse)', username: 'dieuduong', password: 'Nurse@12345678' },
+    { label: '5. Kỹ thuật viên (Technician)', username: 'kythuatvien', password: 'Tech@12345678' },
+    { label: '6. Dược sĩ (Pharmacist)', username: 'duocsi', password: 'Pharmacist@12345678' },
+    { label: '7. Thu ngân (Cashier)', username: 'thungan', password: 'Cashier@12345678' },
+    { label: '8. Bệnh nhân (Patient)', username: 'benhnhan', password: 'Patient@12345678' }
   ];
   fetch('/__qa/login-accounts',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(data=>{
     if(active){

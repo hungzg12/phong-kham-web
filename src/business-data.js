@@ -30,14 +30,51 @@ export const definitions={
  incidents:{title:'Báo hỏng & bảo trì',singular:'phiếu báo hỏng',prefix:'BH',description:'Tiếp nhận sự cố, khóa thiết bị và nghiệm thu sau bảo trì.',fields:[field('device','Thiết bị','device',{required:true}),field('reporter','Người báo hỏng','staff',{required:true}),field('severity','Mức độ','select',{options:['Thông thường','Nghiêm trọng','Ngừng sử dụng ngay'],required:true}),reason],columns:['device','reporter','severity','status'],initialStatus:'Chờ tiếp nhận'}
 };
 export const pageGroups={
- clinical:['vitals','labs','prescriptions','referrals'],care:['rounds','consultations','discharges'],warehouse:['warehouses','movements','counts'],finance:['settlements','advances','shifts','reports'],archive:['archives','corrections','authorizations'],admin:['staff','departments','services','accounts','roles'],devices:['equipment','incidents'],portal:['portal']
+ clinical:['labs'],
+ care:['rounds'],
+ warehouse:['warehouses','movements','counts'],
+ finance:['settlements','advances','shifts','reports'],
+ archive:['archives','corrections','authorizations'],
+ admin:['staff','departments','services','accounts','roles'],
+ devices:['equipment','incidents'],
+ portal:['portal']
 };
-export const extraTitles={clinical:'Cận lâm sàng & đơn thuốc',care:'Y lệnh & chăm sóc',warehouse:'Kho & kiểm kê',finance:'Quyết toán & báo cáo',archive:'Bệnh án & ủy quyền',admin:'Quản trị hệ thống',devices:'Thiết bị & bảo trì',portal:'Cổng người bệnh'};
+export const extraTitles={clinical:'Cận lâm sàng & CĐHA',care:'Sơ đồ buồng giường & Y lệnh',warehouse:'Kho & kiểm kê',finance:'Quyết toán & báo cáo',archive:'Bệnh án & ủy quyền',admin:'Quản trị hệ thống',devices:'Thiết bị & bảo trì',portal:'Cổng người bệnh'};
 export const permissionNames=['Tiếp đón bệnh nhân','Khám và chỉ định','Duyệt kết quả CLS','Kê đơn thuốc','Thực hiện y lệnh','Quản lý kho dược','Thu chi viện phí','Xem hồ sơ bệnh án','Duyệt đính chính','Quản trị hệ thống'];
 export const seeds={
  vitals:[],
  labs:[],
- prescriptions:[],
+ prescriptions:[
+  {
+   id:'DT-261121-001',
+   patient:'BN-240101-001',
+   episodeId:'LK-261121-01',
+   doctor:'BS. Trần Minh Anh',
+   diagnosis:'J18.9 - Viêm phổi không đặc hiệu / Sốt cao co giật',
+   advice:'Uống thuốc sau ăn no, uống nhiều nước ấm 2-2.5 lít/ngày. Hẹn tái khám sau 5 ngày hoặc ngay khi có dấu hiệu khó thở.',
+   status:'Chờ cấp phát',
+   createdAt:'2026-11-21T09:30:00',
+   lines:[
+    {medicine:'TH_PARA500',quantity:20,unit:'Viên',dose:'1 viên',route:'Uống',frequency:'2 lần/ngày (Sáng 1, Chiều 1)',days:5},
+    {medicine:'TH_AMOX500',quantity:14,unit:'Viên',dose:'1 viên',route:'Uống',frequency:'2 lần/ngày (Sáng 1, Tối 1)',days:7}
+   ]
+  },
+  {
+   id:'DT-261121-002',
+   patient:'BN-173C85AA04BA49F3',
+   episodeId:'LK-120A6D10AD754274',
+   doctor:'BS. Trần Minh Anh',
+   diagnosis:'E11.9 - Đái tháo đường type 2 không có biến chứng',
+   advice:'Uống đều mỗi sáng trước ăn 30 phút, kiêng đồ ngọt và theo dõi đường huyết định kỳ.',
+   status:'Đã cấp phát',
+   createdAt:'2026-11-21T08:15:00',
+   warehouse:'KHO_NGOAI_TRU',
+   reviewer:'DS. Lê Quốc Huy',
+   lines:[
+    {medicine:'TH_PARA500',quantity:10,unit:'Viên',dose:'1 viên',route:'Uống',frequency:'Khi sốt > 38.5°C',days:5}
+   ]
+  }
+ ],
  referrals:[], rounds:[],consultations:[],discharges:[],
  warehouses:[{id:'KHO_TONG',name:'Kho Dược Tổng Toàn Viện',kind:'Kho tổng',manager:'NV003',location:'Tầng hầm B1 · Khu Dược',status:'Đang hoạt động'},{id:'KHO_NGOAI_TRU',name:'Nhà Thuốc Khám Ngoại Trú',kind:'Kho lẻ',manager:'NV002',location:'Tầng 1 · Cổng chính',status:'Đang hoạt động'},{id:'TU_TRUC_CAP_CUU',name:'Tủ Trực Cấp Cứu 24/7',kind:'Kho khoa',manager:'NV001',location:'Khoa Cấp Cứu',status:'Đang hoạt động'}],movements:[],counts:[],advances:[],shifts:[],
  archives:[],corrections:[],authorizations:[],

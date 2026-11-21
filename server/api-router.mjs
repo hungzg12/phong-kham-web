@@ -1,5 +1,6 @@
 import {protectWorkspaceRequest} from './workspace-access.mjs';
 import {pharmacyState,pharmacyAction} from './pharmacy.mjs';
+import {querySql} from './admin-store.mjs';
 import {receivePatient,updatePatient,listVisits,changeVisit,saveExam,searchIcd,listDoctors} from './clinic-flow.mjs';
 import {ancillaryState,saveVitals,createLab,labAction,performCare,listBeds,bedAction} from './ancillary.mjs';
 import {financeState,financeAction} from './finance.mjs';
@@ -82,20 +83,110 @@ export function createApiMiddleware({trustedTest=false}={}) {
 
       // 2. Pharmacy FEFO Batches
       if (url === '/api/pharmacy/batches' && req.method === 'GET') {
-        const result = await runSqlScript('scripts/sql-pharmacy-batches.ps1');
-        return respond(200, JSON.parse(result));
+        const json = await querySql(`
+          SELECT 
+              lh.maLoHang,
+              lh.soLoNhaSanXuat,
+              h.maHang,
+              h.tenHang,
+              h.loaiHang,
+              ISNULL(t.hoatChat, h.tenHang) AS hoatChat,
+              ISNULL(lh.hangSanXuat, N'Việt Nam') AS hangSanXuat,
+              ISNULL(lh.nuocSanXuat, N'Việt Nam') AS nuocSanXuat,
+              CONVERT(char(10), lh.hanSuDung, 23) AS hanSuDung,
+              DATEDIFF(day, CAST(GETDATE() AS date), lh.hanSuDung) AS soNgayConHan,
+              CASE 
+                  WHEN DATEDIFF(day, CAST(GETDATE() AS date), lh.hanSuDung) < 0 THEN N'ĐÃ HẾT HẠN'
+                  WHEN DATEDIFF(day, CAST(GETDATE() AS date), lh.hanSuDung) <= 30 THEN N'CẬN DATE (<= 30 NGÀY)'
+                  WHEN DATEDIFF(day, CAST(GETDATE() AS date), lh.hanSuDung) <= 90 THEN N'CẬN DATE (<= 90 NGÀY)'
+                  ELSE N'CÒN HẠN SỬ DỤNG'
+              END AS trangThaiHanDung,
+              k.maKho,
+              k.tenKho,
+              ISNULL(ltk.viTriDayKe, N'Kệ nhập') AS viTriDayKe,
+              ltk.soLuongTon,
+              ltk.soLuongKhaDung,
+              h.donViCoSo,
+              lh.donGiaNhap,
+              (ltk.soLuongTon * lh.donGiaNhap) AS thanhTienTon,
+              ltk.trangThaiKhoa
+          FROM dbo.LoTonKho ltk
+          INNER JOIN dbo.LoHang lh ON lh.maLoHang = ltk.maLoHang
+          INNER JOIN dbo.HangHoaYTe h ON h.maHang = lh.maHang
+          INNER JOIN dbo.KhoDuoc k ON k.maKho = ltk.maKho
+          LEFT JOIN dbo.Thuoc t ON t.maHang = h.maHang
+          ORDER BY lh.hanSuDung ASC
+          FOR JSON PATH
+        `);
+        return respond(200, JSON.parse(json || '[]'));
       }
 
       // 2b. Pharmacy Shipments & Batches Overview (GET /api/pharmacy/shipments)
       if (url === '/api/pharmacy/shipments' && req.method === 'GET') {
-        const result = await runSqlScript('scripts/sql-pharmacy-shipments.ps1');
-        return respond(200, JSON.parse(result));
+        const json = await querySql(`
+          SELECT 
+              d.maDotNhap,
+              d.tenDotNhap,
+              ISNULL(d.hangSanXuat, N'Nhiều hãng') AS hangSanXuat,
+              ISNULL(d.nhaCungCap, N'Nhà phân phối dược') AS nhaCungCap,
+              ISNULL(d.soHoaDon, N'HD-CHUA-LUU') AS soHoaDon,
+              CONVERT(char(10), d.ngayNhapKho, 23) AS ngayNhapKho,
+              k.maKho AS maKhoNhap,
+              k.tenKho AS khoNhap,
+              d.nguoiGiaoHang,
+              d.nguoiNhanHang,
+              d.ghiChu,
+              COUNT(DISTINCT lh.maHang) AS soLoaiThuoc,
+              ISNULL(SUM(lh.soLuongNhap), 0) AS tongSoLuongNhap,
+              ISNULL(SUM(lh.soLuongNhap * lh.donGiaNhap), 0) AS tongGiaTriNhap,
+              JSON_QUERY((
+                  SELECT 
+                      lh2.maLoHang,
+                      lh2.soLoNhaSanXuat,
+                      h.maHang,
+                      h.tenHang,
+                      h.donViCoSo,
+                      h.loaiHang,
+                      ISNULL(t.hoatChat, h.tenHang) AS hoatChat,
+                      CONVERT(char(10), lh2.hanSuDung, 23) AS hanSuDung,
+                      DATEDIFF(day, CAST(GETDATE() AS date), lh2.hanSuDung) AS soNgayConHan,
+                      lh2.soLuongNhap,
+                      lh2.donGiaNhap,
+                      (lh2.soLuongNhap * lh2.donGiaNhap) AS thanhTien,
+                      ISNULL(SUM(ltk.soLuongTon), 0) AS tonHienTai,
+                      ISNULL(SUM(ltk.soLuongKhaDung), 0) AS tonKhaDung
+                  FROM dbo.LoHang lh2
+                  INNER JOIN dbo.HangHoaYTe h ON h.maHang = lh2.maHang
+                  LEFT JOIN dbo.Thuoc t ON t.maHang = h.maHang
+                  LEFT JOIN dbo.LoTonKho ltk ON ltk.maLoHang = lh2.maLoHang
+                  WHERE lh2.maDotNhap = d.maDotNhap
+                  GROUP BY lh2.maLoHang, lh2.soLoNhaSanXuat, h.maHang, h.tenHang, h.donViCoSo, h.loaiHang, t.hoatChat, lh2.hanSuDung, lh2.soLuongNhap, lh2.donGiaNhap
+                  FOR JSON PATH
+              )) AS danhSachThuoc
+          FROM dbo.DotNhapHang d
+          INNER JOIN dbo.KhoDuoc k ON k.maKho = d.maKhoNhap
+          LEFT JOIN dbo.LoHang lh ON lh.maDotNhap = d.maDotNhap
+          GROUP BY d.maDotNhap, d.tenDotNhap, d.hangSanXuat, d.nhaCungCap, d.soHoaDon, d.ngayNhapKho, k.maKho, k.tenKho, d.nguoiGiaoHang, d.nguoiNhanHang, d.ghiChu
+          FOR JSON PATH
+        `);
+        return respond(200, JSON.parse(json || '[]'));
       }
 
       // 3. Pharmacy Stats by Manufacturer
       if (url === '/api/pharmacy/stats' && req.method === 'GET') {
-        const result = await runSqlScript('scripts/sql-pharmacy-stats.ps1');
-        return respond(200, JSON.parse(result));
+        const json = await querySql(`
+          SELECT 
+              hangSanXuat,
+              nuocSanXuat,
+              soLoaiThuocCungUng,
+              tongSoLoHang,
+              tongSoLuongTonKho,
+              tongGiaTriTonKho,
+              soLoCanDate
+          FROM dbo.vw_ThongKeThuoc_TheoHangSanXuat
+          FOR JSON PATH
+        `);
+        return respond(200, JSON.parse(json || '[]'));
       }
 
       // 3b. Pharmacy Import Lot (POST /api/pharmacy/import)
@@ -350,8 +441,130 @@ export function createApiMiddleware({trustedTest=false}={}) {
         let body = '';
         for await (const part of req) { body += part; }
         const data = JSON.parse(body);
-        const result = await runSqlScript('scripts/sql-inpatient.ps1', { action: 'admit_inpatient', ...data });
-        return respond(201, JSON.parse(result));
+        const {
+          patientId,
+          bedId,
+          doctor = 'NV-BS01',
+          diagnosis = 'Viêm phổi thùy cấp',
+          icdCode = 'J18.1',
+          reason = 'Tiếp nhận điều trị nội trú',
+          admissionTime,
+          advanceAmount = 0,
+          paymentMethod = 'TIEN_MAT',
+          staffId = 'NV-DD01',
+          note = ''
+        } = data;
+
+        if (!patientId || !bedId) {
+          return respond(400, { error: 'Thiếu mã bệnh nhân hoặc mã buồng giường.' });
+        }
+
+        const advanceNum = Number(advanceAmount) || 0;
+        const pMethod = ['TIEN_MAT', 'CHUYEN_KHOAN', 'VIETQR', 'THE_POS'].includes(paymentMethod) ? paymentMethod : 'TIEN_MAT';
+
+        const sql = `
+          SET QUOTED_IDENTIFIER ON;
+          SET ANSI_NULLS ON;
+          BEGIN TRY
+            BEGIN TRANSACTION;
+
+            -- 1. Check bed status
+            DECLARE @currentStatus VARCHAR(30), @bedRate DECIMAL(18,2), @bedDept VARCHAR(30);
+            SELECT @currentStatus = g.trangThaiHienTai, @bedRate = g.donGiaNgay, @bedDept = b.maKhoa
+            FROM dbo.GiuongBenh g
+            JOIN dbo.BuongBenh b ON b.maBuongBenh = g.maBuongBenh
+            WHERE g.maGiuong = @bedId;
+
+            IF @currentStatus IS NULL
+              THROW 50001, N'Không tìm thấy thông tin buồng giường.', 1;
+
+            IF @currentStatus <> 'TRONG'
+              THROW 50002, N'Giường bệnh hiện không ở trạng thái sẵn sàng tiếp nhận.', 1;
+
+            -- 2. Generate unique IDs
+            DECLARE @now DATETIME2 = SYSDATETIME();
+            DECLARE @datePrefix VARCHAR(10) = FORMAT(@now, 'yyMMdd');
+            DECLARE @randStr VARCHAR(6) = RIGHT(REPLACE(CAST(NEWID() AS VARCHAR(36)), '-', ''), 4);
+            DECLARE @maDot VARCHAR(20) = 'BA-' + @datePrefix + '-' + @randStr;
+            DECLARE @maPG VARCHAR(20) = 'PG-' + @datePrefix + '-' + @randStr;
+            DECLARE @maGD VARCHAR(20) = 'GD-' + @datePrefix + '-' + @randStr;
+
+            -- 3. Insert DotDieuTri
+            INSERT INTO dbo.DotDieuTri (
+                maDotDieuTri, maBenhNhan, maKhoaDieuTri,
+                thoiDiemNhapVien, lyDoNhapVien, chanDoanVaoVien, maICDVaoVien,
+                maBacSiDieuTriChinh, soThuTuToDieuTri, trangThai,
+                tienTamUngHienTai, tongChiPhiHienTai
+            ) VALUES (
+                @maDot, @patientId, @bedDept,
+                ISNULL(@admissionTime, @now), @reason, @diagnosis, @icdCode,
+                @doctor, 1, 'DANG_DIEU_TRI',
+                @advanceNum, 0
+            );
+
+            -- 4. Insert PhanGiuong
+            INSERT INTO dbo.PhanGiuong (
+                maPhanGiuong, maDotDieuTri, maGiuong,
+                tuThoiDiem, donGiaApDung, trangThai,
+                maNhanVienXep, ghiChu
+            ) VALUES (
+                @maPG, @maDot, @bedId,
+                ISNULL(@admissionTime, @now), @bedRate, 'DANG_SU_DUNG',
+                @staffId, @note
+            );
+
+            -- 5. Update GiuongBenh
+            UPDATE dbo.GiuongBenh
+            SET trangThaiHienTai = 'DANG_SU_DUNG'
+            WHERE maGiuong = @bedId;
+
+            -- 6. Insert Advance Payment if > 0
+            IF @advanceNum > 0
+            BEGIN
+                INSERT INTO dbo.GiaoDichThanhToan (
+                    maGiaoDich, maBenhNhan, maDotDieuTri,
+                    loaiGiaoDich, phuongThuc, soTien,
+                    thoiDiemGiaoDich, trangThai, maNhanVienXacNhan, ghiChu
+                ) VALUES (
+                    @maGD, @patientId, @maDot,
+                    'TAM_UNG', @pMethod, @advanceNum,
+                    @now, 'THANH_CONG', @staffId, N'Tạm ứng viện phí khi nhập viện nội trú'
+                );
+            END
+
+            COMMIT TRANSACTION;
+
+            SELECT 
+                @maDot AS admissionId,
+                @maPG AS bedAssignmentId,
+                @maGD AS paymentId,
+                @bedId AS bedId,
+                @patientId AS patientId,
+                N'Đã tiếp nhận nội trú và xếp giường thành công.' AS message
+            FOR JSON PATH, WITHOUT_ARRAY_WRAPPER;
+          END TRY
+          BEGIN CATCH
+            IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+            THROW;
+          END CATCH;
+        `;
+
+        const resultJson = await querySql(sql, {
+          patientId,
+          bedId,
+          doctor,
+          diagnosis,
+          icdCode,
+          reason,
+          admissionTime: admissionTime ? new Date(admissionTime).toISOString().replace('T', ' ').slice(0, 19) : null,
+          advanceNum,
+          pMethod,
+          staffId,
+          note
+        });
+
+        const parsed = JSON.parse(resultJson);
+        return respond(201, { success: true, ...parsed });
       }
 
       // 29. Discharge Inpatient & Release Bed (POST /api/inpatient/discharge)
@@ -359,8 +572,102 @@ export function createApiMiddleware({trustedTest=false}={}) {
         let body = '';
         for await (const part of req) { body += part; }
         const data = JSON.parse(body);
-        const result = await runSqlScript('scripts/sql-inpatient.ps1', { action: 'discharge_inpatient', ...data });
-        return respond(200, JSON.parse(result));
+        const {
+          admissionId,
+          bedId,
+          dischargeDiagnosis = 'Viêm phổi điều trị ổn định',
+          dischargeIcd = 'J18.1',
+          treatmentResult = 'KHOI',
+          advice = 'Uống nhiều nước, tái khám sau 7 ngày'
+        } = data;
+
+        const sql = `
+          SET QUOTED_IDENTIFIER ON;
+          SET ANSI_NULLS ON;
+          BEGIN TRY
+            BEGIN TRANSACTION;
+            DECLARE @now DATETIME2 = SYSDATETIME();
+
+            -- 1. Update DotDieuTri
+            UPDATE dbo.DotDieuTri
+            SET trangThai = 'CHO_XUAT_VIEN',
+                thoiDiemRaVien = @now,
+                chanDoanRaVien = ISNULL(@dischargeDiagnosis, chanDoanVaoVien),
+                maICDRaVien = ISNULL(@dischargeIcd, maICDVaoVien),
+                ketQuaDieuTri = @treatmentResult,
+                loiDanRaVien = @advice
+            WHERE maDotDieuTri = @admissionId;
+
+            -- 2. Update PhanGiuong
+            UPDATE dbo.PhanGiuong
+            SET denThoiDiem = @now,
+                trangThai = 'DA_KET_THUC',
+                lyDoKetThuc = N'Bác sĩ duyệt ra viện'
+            WHERE maDotDieuTri = @admissionId AND trangThai = 'DANG_SU_DUNG';
+
+            -- 3. Update GiuongBenh to DANG_VE_SINH
+            IF @bedId IS NOT NULL
+            BEGIN
+              UPDATE dbo.GiuongBenh
+              SET trangThaiHienTai = 'DANG_VE_SINH'
+              WHERE maGiuong = @bedId;
+            END
+            ELSE
+            BEGIN
+              UPDATE g
+              SET trangThaiHienTai = 'DANG_VE_SINH'
+              FROM dbo.GiuongBenh g
+              JOIN dbo.PhanGiuong p ON p.maGiuong = g.maGiuong
+              WHERE p.maDotDieuTri = @admissionId;
+            END
+
+            COMMIT TRANSACTION;
+
+            SELECT 
+                @admissionId AS admissionId,
+                'DANG_VE_SINH' AS bedStatus,
+                N'Đã xác nhận duyệt ra viện và chuyển buồng giường sang trạng thái chờ khử khuẩn.' AS message
+            FOR JSON PATH, WITHOUT_ARRAY_WRAPPER;
+          END TRY
+          BEGIN CATCH
+            IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+            THROW;
+          END CATCH;
+        `;
+
+        const resultJson = await querySql(sql, {
+          admissionId,
+          bedId: bedId || null,
+          dischargeDiagnosis,
+          dischargeIcd,
+          treatmentResult: ['KHOI', 'DO_GIAM', 'KHONG_THAY_DOI', 'NANG_HON'].includes(treatmentResult) ? treatmentResult : 'KHOI',
+          advice
+        });
+
+        const parsed = JSON.parse(resultJson);
+        return respond(200, { success: true, ...parsed });
+      }
+
+      // 30. Confirm Bed Disinfection (POST /api/inpatient/clean)
+      if (url === '/api/inpatient/clean' && req.method === 'POST') {
+        let body = '';
+        for await (const part of req) { body += part; }
+        const data = JSON.parse(body);
+        const { bedId } = data;
+        if (!bedId) return respond(400, { error: 'Thiếu mã buồng giường.' });
+
+        const sql = `
+          SET QUOTED_IDENTIFIER ON;
+          SET ANSI_NULLS ON;
+          UPDATE dbo.GiuongBenh
+          SET trangThaiHienTai = 'TRONG'
+          WHERE maGiuong = @bedId;
+
+          SELECT @bedId AS bedId, 'TRONG' AS bedStatus, N'Giường đã hoàn tất khử khuẩn và sẵn sàng tiếp nhận.' AS message
+          FOR JSON PATH, WITHOUT_ARRAY_WRAPPER;
+        `;
+        const resultJson = await querySql(sql, { bedId });
+        return respond(200, { success: true, ...JSON.parse(resultJson) });
       }
 
       next();

@@ -281,7 +281,7 @@ export async function syncWithSqlServer(){
     if(hasChanges){
       if(ancillaryRes.status==='fulfilled'){
         for(const key of ['services','warehouses'])if(Array.isArray(ancillaryRes.value[key]))state.business[key]=ancillaryRes.value[key];
-        if(Array.isArray(ancillaryRes.value.inventory))state.inventory=ancillaryRes.value.inventory;
+        if(!state.inventory?.length && Array.isArray(ancillaryRes.value.inventory))state.inventory=ancillaryRes.value.inventory;
       }
       state.updatedAt=new Date().toISOString();
       subscribers.forEach(fn=>fn());
@@ -462,7 +462,7 @@ export function applyClinicalStock(tab,rowId,warehouse,actor,details={}){
     const row=d.business[tab].find(x=>x.id===rowId);
     if(!row) throw new Error('Chứng từ không tồn tại.');
     const dispensing=tab==='prescriptions';
-    if(row.status!==(dispensing?'Đã xác nhận':'Chờ thực hiện')) throw new Error('Chứng từ đã được xử lý hoặc trạng thái đã thay đổi.');
+    if(dispensing ? !['Đã xác nhận','Chờ cấp phát'].includes(row.status) : row.status!=='Chờ thực hiện') throw new Error('Chứng từ đã được xử lý hoặc trạng thái đã thay đổi.');
     const requests=dispensing?row.lines:row.kind==='Dùng thuốc'?[{medicine:row.medicine,quantity:row.quantity}]:[];
     const allocations=requests.length?planFEFO(d.inventory,requests,warehouse):[];
     consume(d,allocations,row.id);

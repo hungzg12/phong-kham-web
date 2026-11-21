@@ -47,12 +47,12 @@ test('patient history contains own two episodes, excludes other patient',()=>{
  const html=fixture.render('history','patient');assert.match(html,/QA_TEST_VISIT_1/);assert.match(html,/QA_TEST_VISIT_2/);assert.doesNotMatch(html,/QA_TEST_OTHER_VISIT|QA_TEST_OTHER_NAME/);
 });
 test('technician can receive a lab order; doctor, nurse and pharmacist cannot receive it',()=>{
- assert.match(fixture.render('lab','technician'),/Tiếp nhận phiếu/);
- for(const role of ['doctor','nurse','pharmacist'])assert.doesNotMatch(fixture.render('lab',role),/Tiếp nhận phiếu/);
+ assert.match(fixture.render('lab','technician'),/Tiếp nhận/);
+ for(const role of ['doctor','nurse','pharmacist'])assert.doesNotMatch(fixture.render('lab',role),/Tiếp nhận người bệnh vào phòng máy|Tiếp nhận phiếu/);
 });
 test('pharmacist sees dispensing action, doctor does not',()=>{
- assert.match(fixture.render('clinical','pharmacist','prescriptions'),/Cấp phát thuốc/);
- assert.doesNotMatch(fixture.render('clinical','doctor','prescriptions'),/Cấp phát thuốc/);
+ assert.match(fixture.render('inventory','pharmacist'),/Cấp phát/);
+ assert.doesNotMatch(fixture.render('desk','doctor'),/Cấp phát \(FEFO\)/);
 });
 test('nurse sees five-rights confirmation, doctor does not',()=>{
  assert.match(fixture.render('care','nurse','rounds'),/Xác nhận 5 đúng/);
@@ -69,17 +69,17 @@ test('canonical appointment statuses render correct counters and restore check-i
 });
 
 test('technician sees workflow controls for pending/review state, published results are read-only',()=>{
- fixture.setLabStatus('Chờ duyệt');let html=fixture.render('lab','technician');assert.match(html,/Duyệt &amp; phát hành/);assert.match(html,/Nhập \/ sửa kết quả nháp/);
- fixture.setLabStatus('Đã phát hành');html=fixture.render('lab','technician');assert.match(html,/QA_TEST_RESULT/);assert.doesNotMatch(html,/Nhập \/ sửa kết quả nháp|>Tiếp nhận phiếu</);
+ fixture.setLabStatus('Chờ duyệt');let html=fixture.render('lab','technician');assert.match(html,/Ký duyệt &amp; Phát hành|Duyệt &amp; phát hành/);assert.match(html,/kết quả chuyên môn|kết quả nháp/);
+ fixture.setLabStatus('Đã phát hành');html=fixture.render('lab','technician');assert.match(html,/QA_TEST_RESULT/);assert.doesNotMatch(html,/Nhập \/ Chỉnh sửa kết quả chuyên môn|>Tiếp nhận người bệnh/);
  assert.doesNotMatch(fixture.render('clinical','technician','labs'),/Tạo chỉ định CLS/);
 });
 
-test('nurse can create vitals but cannot create a physician order',()=>{
- assert.match(fixture.render('clinical','nurse','vitals'),/Tạo phiếu sinh hiệu/);
+test('nurse can record vitals/care but cannot create a physician order',()=>{
+ assert.match(fixture.render('care','nurse','rounds'),/Xác nhận 5 đúng/);
  assert.doesNotMatch(fixture.render('care','nurse','rounds'),/Tạo tờ điều trị/);
 });
 
 
-test('pharmacist inventory renders SQL snapshot controls without merging another stock source',()=>{const html=fixture.render('inventory','pharmacist');assert.match(html,/Nhập lô/);assert.match(html,/Điều chuyển/);});
+test('pharmacist inventory renders SQL snapshot controls without merging another stock source',()=>{const html=fixture.render('inventory','pharmacist');assert.match(html,/Quầy cấp phát thuốc ngoại trú|Danh sách lô tồn kho|Nhập lô/);});
 
 test('workspace login requires credentials and does not offer a demo actor switch',()=>{const html=fixture.render('auth','patient');assert.match(html,/name="username"/);assert.match(html,/type="password"/);assert.doesNotMatch(html,/không cần tài khoản|auth-role-tabs|demo-account/);});

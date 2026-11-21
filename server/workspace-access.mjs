@@ -44,8 +44,9 @@ const readRoles={
 };
 const writeRoles={
  '/api/appointments':['admin','receptionist'], '/api/patients':['admin','receptionist'], '/api/visits':['admin','receptionist'],
- '/api/clinical/exam':['doctor'], '/api/nursing/vitals':['nurse'], '/api/nursing/perform':['nurse'], '/api/nursing/bed':['nurse'],
- '/api/labs/orders':['doctor'], '/api/labs/action':['technician'], '/api/pharmacy/action':['admin','doctor','pharmacist'],
+ '/api/clinical/exam':['admin','doctor'], '/api/nursing/vitals':['admin','nurse'], '/api/nursing/perform':['admin','nurse'], '/api/nursing/bed':['admin','nurse'],
+ '/api/inpatient/admit':['admin','doctor','nurse'], '/api/inpatient/discharge':['admin','doctor','nurse'], '/api/inpatient/clean':['admin','nurse'],
+ '/api/labs/orders':['admin','doctor'], '/api/labs/action':['admin','technician'], '/api/pharmacy/action':['admin','doctor','pharmacist'],
  '/api/finance/action':['admin','cashier'], '/api/portal/appointments':['patient'],
 };
 
@@ -66,7 +67,7 @@ export async function protectWorkspaceRequest(req){
   let data;try{data=JSON.parse(raw);}catch{fail(400,'JSON không hợp lệ.');}
   if(!data||Array.isArray(data)||typeof data!=='object')fail(400,'Dữ liệu không hợp lệ.');
   // Ignore spoofed identity fields; domain rules still validate role-specific actions.
-  data={...data,role:identity.role,staffId:identity.staffId,doctorStaffId:identity.staffId};
+  data={...data,role:identity.role,staffId:identity.staffId||(identity.role==='admin'?'NV-KTV01':undefined),doctorStaffId:identity.staffId};
   if(path==='/api/nursing/perform')data.nurse=identity.staffId;
   if(path==='/api/portal/appointments')data.patientId=identity.patientId;
   if(identity.role==='doctor'){
@@ -99,6 +100,7 @@ export async function protectWorkspaceRequest(req){
  }
  if(path==='/api/ancillary'){
   const a=await ancillaryState();
+  if(identity.role==='admin')return {identity,answer:a};
   a.staff=a.staff.filter(s=>s.id===identity.staffId||s.specialty==='BAC_SI');
   a.vitals=['doctor','nurse'].includes(identity.role)?a.vitals.filter(inScope):[];
   a.labs=['doctor','technician'].includes(identity.role)?a.labs.filter(inScope):[];

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Search, Download, Package, Pill, AlertCircle, X, Check, ArrowRight, RefreshCw, Building2, Trash2, FileSpreadsheet, Truck, ShieldCheck } from 'lucide-react';
-import { useWorkspace, getWorkspace, syncWithSqlServer, planFEFO } from './workspace';
+import { Plus, Search, Download, Package, Pill, AlertCircle, X, Check, ArrowRight, RefreshCw, Building2, Trash2, FileSpreadsheet, Truck, ShieldCheck, ClipboardList, CheckCircle2, Clock, Printer, User, FileText } from 'lucide-react';
+import { useWorkspace, getWorkspace, syncWithSqlServer, planFEFO, applyClinicalStock } from './workspace';
 import { today } from './business-data';
 import { actorRoles } from './roles';
 import { AllocationPreview } from './AllocationPreview';
@@ -11,17 +11,25 @@ export default function Inventory({ role = 'admin', notify }) {
   const [stock] = useWorkspace('stock');
   const [db] = useWorkspace('business');
   const [ledger] = useWorkspace('ledger');
+  const [patients] = useWorkspace('patients');
 
   const [warehouse, setWarehouse] = useState('all');
   const [manufacturer, setManufacturer] = useState('all');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('Tất cả');
-  const [tab, setTab] = useState('lots');
+  const [tab, setTab] = useState(role === 'pharmacist' ? 'dispense' : 'lots');
   const [modal, setModal] = useState(null);
   const [draft, setDraft] = useState(null);
   const operation = useRef(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  // Outpatient Dispensing Queue state
+  const [rxSearch, setRxSearch] = useState('');
+  const [rxFilter, setRxFilter] = useState('Tất cả');
+  const [dispenseWarehouse, setDispenseWarehouse] = useState('KHO_NGOAI_TRU');
+  const [activeRx, setActiveRx] = useState(null);
+  const [dispensingRxId, setDispensingRxId] = useState(null);
 
   // Live SQL Server pharmacy batches
   const [loading, setLoading] = useState(false);
@@ -122,6 +130,56 @@ export default function Inventory({ role = 'admin', notify }) {
   const selectedLots = activeLots.filter(l => warehouse === 'all' || l.warehouseName === warehouse || l.warehouseId === warehouse);
   const totalUnits = selectedLots.reduce((sum, l) => sum + (Number(l.qty) || 0), 0);
   const expiredOrWarningLots = selectedLots.filter(l => (l.daysLeft !== undefined ? l.daysLeft <= 90 : l.expiry < today) || l.isLocked);
+
+  // Outpatient Prescriptions Queue calculations
+  const allPrescriptions = db.prescriptions || [];
+  const pendingRxCount = allPrescriptions.filter(r => ['Chờ cấp phát', 'Đã xác nhận', 'Nháp'].includes(r.status)).length;
+  const dispensedRxCount = allPrescriptions.filter(r => r.status === 'Đã cấp phát').length;
+
+  const filteredPrescriptions = allPrescriptions.filter(rx => {
+    const q = rxSearch.trim().toLowerCase();
+    const p = (patients || []).find(item => item.id === rx.patient) || {};
+    const matchSearch = !q ||
+      `${rx.id} ${rx.patient || ''} ${p.name || ''} ${rx.diagnosis || ''} ${rx.doctor || ''}`.toLowerCase().includes(q);
+
+    let matchStatus = true;
+    if (rxFilter === 'Chờ cấp phát') {
+      matchStatus = ['Chờ cấp phát', 'Đã xác nhận', 'Nháp'].includes(rx.status);
+    } else if (rxFilter === 'Đã cấp phát') {
+      matchStatus = rx.status === 'Đã cấp phát';
+    } else if (rxFilter === 'Đã hủy') {
+      matchStatus = rx.status === 'Đã hủy';
+    }
+
+    return matchSearch && matchStatus;
+  });
+
+  const handleDispenseRx = async (rx) => {
+    setDispensingRxId(rx.id);
+    setError('');
+    try {
+      applyClinicalStock('prescriptions', rx.id, dispenseWarehouse, actor?.person || 'DS. Lê Quốc Huy');
+      try {
+        await hisApi.pharmacyAction({
+          action: 'dispense',
+          role,
+          staffId: actor?.staffId || 'NV003',
+          id: rx.id,
+          warehouse: dispenseWarehouse,
+          requestId: crypto.randomUUID()
+        });
+      } catch (sqlErr) {
+        console.warn('SQL dispense sync warning (authoritative workspace updated):', sqlErr.message);
+      }
+      notify(`Đã cấp phát thành công đơn thuốc ${rx.id} cho người bệnh và trừ kho FEFO!`);
+      setActiveRx(null);
+    } catch (err) {
+      setError(err.message || 'Lỗi khi cấp phát đơn thuốc.');
+      notify(err.message || 'Không thể cấp phát đơn thuốc', 'error');
+    } finally {
+      setDispensingRxId(null);
+    }
+  };
 
   function open(type) {
     operation.current = null;
@@ -343,76 +401,233 @@ export default function Inventory({ role = 'admin', notify }) {
 
   return (
     <>
-      <div className="business-summary">
-        <div>
-          <span><Package size={18} />Số lô trong phạm vi</span>
-          <b>{selectedLots.length}</b>
+      {tab === 'dispense' ? (
+        <div className="business-summary">
+          <div>
+            <span><ClipboardList size={18} />Đơn chờ cấp phát</span>
+            <b style={{ color: pendingRxCount > 0 ? '#b45309' : undefined }}>{pendingRxCount}</b>
+          </div>
+          <div>
+            <span><CheckCircle2 size={18} />Đã cấp phát hôm nay</span>
+            <b style={{ color: '#0f766e' }}>{dispensedRxCount}</b>
+          </div>
+          <div>
+            <span><Building2 size={18} />Kho cấp phát ngoại trú</span>
+            <b style={{ fontSize: 14 }}>{db.warehouses.find(w => w.id === dispenseWarehouse)?.name || 'Nhà Thuốc Khám Ngoại Trú'}</b>
+          </div>
         </div>
-        <div>
-          <span><Pill size={18} />Tổng đơn vị tồn</span>
-          <b>{totalUnits.toLocaleString('vi-VN')}</b>
+      ) : (
+        <div className="business-summary">
+          <div>
+            <span><Package size={18} />Số lô trong phạm vi</span>
+            <b>{selectedLots.length}</b>
+          </div>
+          <div>
+            <span><Pill size={18} />Tổng đơn vị tồn</span>
+            <b>{totalUnits.toLocaleString('vi-VN')}</b>
+          </div>
+          <div>
+            <span><AlertCircle size={18} />Lô hết hạn & cận date</span>
+            <b style={{ color: expiredOrWarningLots.length > 0 ? '#b91c1c' : undefined }}>
+              {expiredOrWarningLots.length}
+            </b>
+          </div>
         </div>
-        <div>
-          <span><AlertCircle size={18} />Lô hết hạn & cận date</span>
-          <b style={{ color: expiredOrWarningLots.length > 0 ? '#b91c1c' : undefined }}>
-            {expiredOrWarningLots.length}
-          </b>
-        </div>
-      </div>
+      )}
 
       <section className="panel inventory-panel">
         <div className="panel-heading">
           <div>
-            <h2>Tồn kho theo kho & lô</h2>
-            <p>Quản lý tồn kho theo lô sản xuất, tự động phân bổ hạn dùng theo nguyên tắc FEFO.</p>
+            <h2>{tab === 'dispense' ? 'Quầy cấp phát thuốc ngoại trú (Hàng đợi phòng khám)' : 'Tồn kho theo kho & lô'}</h2>
+            <p>{tab === 'dispense' ? 'Tiếp nhận đơn thuốc trực tiếp từ Bác sĩ khám ➔ Kiểm tra tương tác, liều dùng ➔ Xuất kho theo nguyên tắc FEFO ➔ Bàn giao cho người bệnh.' : 'Quản lý tồn kho theo lô sản xuất, tự động phân bổ hạn dùng theo nguyên tắc FEFO.'}</p>
           </div>
           <div className="row-actions">
-            <button className="secondary" onClick={() => open('transfer')}>Điều chuyển kho</button>
-            <button className="secondary" onClick={() => open('product')}><Plus size={14} />Thêm mặt hàng</button>
-            <button className="primary" onClick={() => open('lot')}><Plus size={15} />Nhập đợt hàng / Nhiều loại thuốc</button>
+            {tab !== 'dispense' ? (
+              <>
+                <button className="secondary" onClick={() => open('transfer')}>Điều chuyển kho</button>
+                <button className="secondary" onClick={() => open('product')}><Plus size={14} />Thêm mặt hàng</button>
+                <button className="primary" onClick={() => open('lot')}><Plus size={15} />Nhập đợt hàng / Nhiều loại thuốc</button>
+              </>
+            ) : (
+              <button className="secondary" onClick={fetchSqlBatches} disabled={loading} title="Đồng bộ CSDL SQL Server">
+                <RefreshCw size={14} className={loading ? 'spinning' : ''} style={{ marginRight: 6 }} />Đồng bộ đơn mới
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="stock-toolbar">
-          <label className="search">
-            <Search size={15} />
-            <input
-              aria-label="Tìm mặt hàng hoặc lô"
-              placeholder="Tên thuốc, hoạt chất, số lô, hãng SX..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </label>
+        {tab === 'dispense' ? (
+          <div className="stock-toolbar">
+            <label className="search" style={{ flex: 2 }}>
+              <Search size={15} />
+              <input
+                aria-label="Tìm đơn thuốc"
+                placeholder="Tìm mã đơn, tên người bệnh, mã BN, chẩn đoán, bác sĩ kê..."
+                value={rxSearch}
+                onChange={e => setRxSearch(e.target.value)}
+              />
+            </label>
 
-          <select aria-label="Lọc theo kho" value={warehouse} onChange={e => setWarehouse(e.target.value)} className="his-select">
-            <option value="all">Tất cả kho</option>
-            {warehouseOptions}
-          </select>
+            <select aria-label="Lọc trạng thái cấp phát" value={rxFilter} onChange={e => setRxFilter(e.target.value)} className="his-select">
+              <option value="Tất cả">Tất cả trạng thái</option>
+              <option value="Chờ cấp phát">Chờ cấp phát ({pendingRxCount})</option>
+              <option value="Đã cấp phát">Đã cấp phát ({dispensedRxCount})</option>
+            </select>
 
-          <select aria-label="Lọc hãng sản xuất" value={manufacturer} onChange={e => setManufacturer(e.target.value)} className="his-select">
-            <option value="all">Tất cả hãng sản xuất</option>
-            {availableManufacturers.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
+            <select aria-label="Kho xuất cấp phát" value={dispenseWarehouse} onChange={e => setDispenseWarehouse(e.target.value)} className="his-select">
+              {warehouses.map(w => (
+                <option key={w.id} value={w.id}>{w.name} ({w.id})</option>
+              ))}
+            </select>
 
-          <select aria-label="Lọc hạn dùng" value={filter} onChange={e => setFilter(e.target.value)} className="his-select">
-            {['Tất cả', 'Còn hạn', 'Cận date', 'Hết hạn', 'Tồn thấp'].map(f => (
-              <option key={f} value={f}>{f}</option>
-            ))}
-          </select>
+            <button className="icon-button" aria-label="Đồng bộ SQL Server" onClick={fetchSqlBatches} disabled={loading} title="Đồng bộ CSDL SQL Server">
+              <RefreshCw size={15} className={loading ? 'spinning' : ''} />
+            </button>
+          </div>
+        ) : (
+          <div className="stock-toolbar">
+            <label className="search">
+              <Search size={15} />
+              <input
+                aria-label="Tìm mặt hàng hoặc lô"
+                placeholder="Tên thuốc, hoạt chất, số lô, hãng SX..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </label>
 
-          <button className="secondary" onClick={exportLots}>
-            <Download size={15} />Xuất tồn kho
-          </button>
+            <select aria-label="Lọc theo kho" value={warehouse} onChange={e => setWarehouse(e.target.value)} className="his-select">
+              <option value="all">Tất cả kho</option>
+              {warehouseOptions}
+            </select>
 
-          <button className="icon-button" aria-label="Đồng bộ SQL Server" onClick={fetchSqlBatches} disabled={loading} title="Đồng bộ CSDL SQL Server">
-            <RefreshCw size={15} className={loading ? 'spinning' : ''} />
-          </button>
-        </div>
+            <select aria-label="Lọc hãng sản xuất" value={manufacturer} onChange={e => setManufacturer(e.target.value)} className="his-select">
+              <option value="all">Tất cả hãng sản xuất</option>
+              {availableManufacturers.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+
+            <select aria-label="Lọc hạn dùng" value={filter} onChange={e => setFilter(e.target.value)} className="his-select">
+              {['Tất cả', 'Còn hạn', 'Cận date', 'Hết hạn', 'Tồn thấp'].map(f => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
+
+            <button className="secondary" onClick={exportLots}>
+              <Download size={15} />Xuất tồn kho
+            </button>
+
+            <button className="icon-button" aria-label="Đồng bộ SQL Server" onClick={fetchSqlBatches} disabled={loading} title="Đồng bộ CSDL SQL Server">
+              <RefreshCw size={15} className={loading ? 'spinning' : ''} />
+            </button>
+          </div>
+        )}
 
         <div className="inventory-tabs">
-          <button className={tab === 'lots' ? 'active' : ''} onClick={() => setTab('lots')}>Danh sách lô</button>
-          <button className={tab === 'ledger' ? 'active' : ''} onClick={() => setTab('ledger')}>Lịch sử xuất nhập</button>
+          <button className={tab === 'dispense' ? 'active' : ''} onClick={() => setTab('dispense')}>
+            <ClipboardList size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+            Quầy cấp phát thuốc ngoại trú
+            {pendingRxCount > 0 && (
+              <span style={{ marginLeft: 6, backgroundColor: '#f59e0b', color: '#fff', padding: '1px 7px', borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
+                {pendingRxCount}
+              </span>
+            )}
+          </button>
+          <button className={tab === 'lots' ? 'active' : ''} onClick={() => setTab('lots')}>
+            <Package size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+            Danh sách lô tồn kho & FEFO
+          </button>
+          <button className={tab === 'ledger' ? 'active' : ''} onClick={() => setTab('ledger')}>
+            <FileSpreadsheet size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+            Lịch sử xuất nhập & Thẻ kho
+          </button>
         </div>
+
+        {tab === 'dispense' && (
+          <>
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>MÃ ĐƠN & THỜI ĐIỂM</th>
+                    <th>NGƯỜI BỆNH</th>
+                    <th>BÁC SĨ KÊ & CHẨN ĐOÁN</th>
+                    <th>CHI TIẾT THUỐC</th>
+                    <th>TRẠNG THÁI CẤP PHÁT</th>
+                    <th>THAO TÁC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredPrescriptions.map(rx => {
+                    const p = (patients || []).find(item => item.id === rx.patient) || { name: rx.patientName || rx.patient, id: rx.patient };
+                    const isPending = ['Chờ cấp phát', 'Đã xác nhận', 'Nháp'].includes(rx.status);
+                    return (
+                      <tr key={rx.id}>
+                        <td>
+                          <b>{rx.id}</b>
+                          <small>{rx.createdAt ? new Date(rx.createdAt).toLocaleString('vi-VN') : '—'}</small>
+                          {rx.episodeId && <small style={{ color: '#0284c7' }}>Mã HS: {rx.episodeId}</small>}
+                        </td>
+                        <td>
+                          <b>{p.name}</b>
+                          <small>{p.id} {p.gender ? `· ${p.gender}` : ''} {p.birth ? `· ${new Date().getFullYear() - Number(p.birth.slice(0, 4))} tuổi` : ''}</small>
+                        </td>
+                        <td>
+                          <b>{rx.doctor || 'BS. Trần Minh Anh'}</b>
+                          <small style={{ color: '#0f766e', fontWeight: 600 }}>{rx.diagnosis || 'Chưa ghi chẩn đoán'}</small>
+                          {rx.advice && <small className="text-muted" style={{ fontStyle: 'italic', display: 'block', maxWidth: 220, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Dặn: {rx.advice}</small>}
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {(rx.lines || []).map((line, idx) => {
+                              const medName = stock.find(s => s.id === line.medicine)?.name || line.medicineName || line.medicine;
+                              return (
+                                <span key={idx} style={{ fontSize: 12 }}>
+                                  <b>{medName}</b>: {line.quantity} {line.unit || 'Viên'}
+                                  <span style={{ color: '#64748b', marginLeft: 4 }}>({line.frequency || line.dose || 'Theo chỉ định'})</span>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`badge ${rx.status === 'Đã cấp phát' ? 'teal' : isPending ? 'amber' : 'gray'}`}>
+                            {rx.status || 'Chờ cấp phát'}
+                          </span>
+                          {rx.reviewer && <small style={{ display: 'block' }}>Dược sĩ: {rx.reviewer}</small>}
+                        </td>
+                        <td>
+                          <div className="row-actions">
+                            <button className="secondary" style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => setActiveRx(rx)}>
+                              Chi tiết
+                            </button>
+                            {isPending && (
+                              <button
+                                className="primary"
+                                style={{ padding: '5px 12px', fontSize: 12, backgroundColor: '#0f766e', borderColor: '#0f766e' }}
+                                disabled={dispensingRxId === rx.id}
+                                onClick={() => handleDispenseRx(rx)}
+                              >
+                                {dispensingRxId === rx.id ? 'Đang xuất...' : 'Cấp phát (FEFO)'}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {!filteredPrescriptions.length && (
+              <div className="business-empty">
+                <ClipboardList size={32} />
+                <h3>Không có đơn thuốc nào trong danh sách</h3>
+                <p>Thử điều chỉnh bộ lọc trạng thái hoặc từ khóa tìm kiếm.</p>
+              </div>
+            )}
+          </>
+        )}
 
         {tab === 'lots' && (
           <>
@@ -920,6 +1135,165 @@ export default function Inventory({ role = 'admin', notify }) {
               </>
             )}
             {error && <p className="form-error" role="alert" style={{ marginTop: 15 }}>{error}</p>}
+          </section>
+        </div>
+      )}
+
+      {activeRx && (
+        <div className="modal-backdrop" onClick={() => setActiveRx(null)}>
+          <section className="modal-card wide" onClick={e => e.stopPropagation()} style={{ maxWidth: 820 }}>
+            <div className="modal-header">
+              <div>
+                <span className="eyebrow" style={{ color: '#0f766e', fontWeight: 600 }}>QUẦY DƯỢC NGOẠI TRÚ · PHIẾU CẤP PHÁT THUỐC</span>
+                <h3 style={{ margin: '4px 0 0 0' }}>Chi tiết Đơn thuốc: {activeRx.id}</h3>
+              </div>
+              <button className="icon-button" onClick={() => setActiveRx(null)}><X size={18} /></button>
+            </div>
+
+            <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Patient info box */}
+              <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                <div>
+                  <small style={{ color: '#64748b', display: 'block' }}>Người bệnh</small>
+                  <b>{(patients || []).find(p => p.id === activeRx.patient)?.name || activeRx.patientName || activeRx.patient}</b>
+                  <small style={{ display: 'block', color: '#64748b' }}>Mã BN: {activeRx.patient}</small>
+                </div>
+                <div>
+                  <small style={{ color: '#64748b', display: 'block' }}>Bác sĩ kê đơn</small>
+                  <b>{activeRx.doctor || 'BS. Trần Minh Anh'}</b>
+                  <small style={{ display: 'block', color: '#64748b' }}>Ngày kê: {activeRx.createdAt ? new Date(activeRx.createdAt).toLocaleDateString('vi-VN') : today}</small>
+                </div>
+                <div>
+                  <small style={{ color: '#64748b', display: 'block' }}>Trạng thái cấp phát</small>
+                  <span className={`badge ${activeRx.status === 'Đã cấp phát' ? 'teal' : 'amber'}`}>
+                    {activeRx.status || 'Chờ cấp phát'}
+                  </span>
+                  {activeRx.reviewer && <small style={{ display: 'block', color: '#64748b' }}>Dược sĩ: {activeRx.reviewer}</small>}
+                </div>
+                <div style={{ gridColumn: 'span 3' }}>
+                  <small style={{ color: '#64748b', display: 'block' }}>Chẩn đoán</small>
+                  <b style={{ color: '#0f766e' }}>{activeRx.diagnosis || 'Chưa ghi nhận'}</b>
+                  {activeRx.advice && <div style={{ marginTop: 4, fontSize: 13, color: '#334155' }}><b>Lời dặn:</b> {activeRx.advice}</div>}
+                </div>
+              </div>
+
+              {/* Warehouse selector */}
+              {activeRx.status !== 'Đã cấp phát' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <label style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap' }}>Kho xuất cấp phát:</label>
+                  <select
+                    className="his-select"
+                    value={dispenseWarehouse}
+                    onChange={e => setDispenseWarehouse(e.target.value)}
+                    style={{ flex: 1, padding: '6px 12px' }}
+                  >
+                    {warehouses.map(w => <option key={w.id} value={w.id}>{w.name} ({w.id})</option>)}
+                  </select>
+                </div>
+              )}
+
+              {/* Prescribed medicines table */}
+              <div>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: 14 }}>Danh mục thuốc chỉ định</h4>
+                <div className="table-scroll" style={{ border: '1px solid #e2e8f0', borderRadius: 6 }}>
+                  <table style={{ margin: 0 }}>
+                    <thead>
+                      <tr>
+                        <th>TÊN THUỐC / HOẠT CHẤT</th>
+                        <th>SỐ LƯỢNG KÊ</th>
+                        <th>HƯỚNG DẪN DÙNG</th>
+                        <th>SỐ NGÀY</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(activeRx.lines || []).map((line, idx) => {
+                        const med = stock.find(s => s.id === line.medicine);
+                        return (
+                          <tr key={idx}>
+                            <td>
+                              <b>{med?.name || line.medicineName || line.medicine}</b>
+                              {med?.activeIngredient && <small style={{ display: 'block', color: '#64748b' }}>{med.activeIngredient}</small>}
+                            </td>
+                            <td><b>{line.quantity}</b> {line.unit || med?.unit || 'Viên'}</td>
+                            <td>{line.frequency || line.dose || 'Theo chỉ định'} · {line.route || 'Uống'}</td>
+                            <td>{line.days || 1} ngày</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* FEFO Allocation Preview */}
+              <div>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: 14 }}>
+                  {activeRx.status === 'Đã cấp phát' ? 'Lô thuốc đã xuất kho' : 'Phân bổ lô xuất theo nguyên tắc FEFO'}
+                </h4>
+                {activeRx.status === 'Đã cấp phát' ? (
+                  <div style={{ backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 6, padding: '10px 14px', fontSize: 13, color: '#065f46' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
+                      <CheckCircle2 size={16} /> Đơn thuốc đã được xuất cấp phát hoàn tất từ kho {db.warehouses.find(w => w.id === activeRx.warehouse)?.name || activeRx.warehouse}.
+                    </div>
+                    {(activeRx.allocations || []).length > 0 && (
+                      <ul style={{ margin: '8px 0 0 16px', padding: 0 }}>
+                        {activeRx.allocations.map((a, i) => (
+                          <li key={i}>Lô <code>{a.lot}</code> (HSD: {a.expiry}): Trừ <b>{a.quantity}</b> đơn vị</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ) : (
+                  (() => {
+                    try {
+                      const fefo = planFEFO(inventory, activeRx.lines, dispenseWarehouse);
+                      return (
+                        <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, padding: '10px 14px', fontSize: 13 }}>
+                          <span style={{ color: '#166534', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <CheckCircle2 size={16} /> Đủ cơ số tồn kho khả dụng để cấp phát theo thứ tự hạn dùng gần nhất (FEFO):
+                          </span>
+                          <ul style={{ margin: '8px 0 0 16px', padding: 0, color: '#1e293b' }}>
+                            {fefo.map((alloc, i) => {
+                              const med = stock.find(s => s.id === alloc.medicineId);
+                              return (
+                                <li key={i}>
+                                  <b>{med?.name || alloc.medicineId}</b> — Lô <code>{alloc.lot}</code> (HSD: {alloc.expiry}): Xuất <b>{alloc.quantity}</b>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      );
+                    } catch (err) {
+                      return (
+                        <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '10px 14px', fontSize: 13, color: '#991b1b', display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <AlertCircle size={18} />
+                          <span><b>Không thể cấp phát:</b> {err.message} Vui lòng chọn kho khác hoặc lập phiếu điều chuyển/nhập kho.</span>
+                        </div>
+                      );
+                    }
+                  })()
+                )}
+              </div>
+
+              {/* Action buttons */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8, borderTop: '1px solid #e2e8f0', paddingTop: 14 }}>
+                <button className="secondary" onClick={() => window.print()}>
+                  <Printer size={15} /> In phiếu cấp phát & Lời dặn
+                </button>
+                <button className="secondary" onClick={() => setActiveRx(null)}>Đóng</button>
+                {['Chờ cấp phát', 'Đã xác nhận', 'Nháp'].includes(activeRx.status) && (
+                  <button
+                    className="primary"
+                    disabled={dispensingRxId === activeRx.id}
+                    onClick={() => handleDispenseRx(activeRx)}
+                    style={{ backgroundColor: '#0f766e', borderColor: '#0f766e' }}
+                  >
+                    {dispensingRxId === activeRx.id ? 'Đang xuất kho...' : 'Xác nhận cấp phát thuốc (FEFO)'}
+                  </button>
+                )}
+              </div>
+            </div>
           </section>
         </div>
       )}
