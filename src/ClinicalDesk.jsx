@@ -10,11 +10,12 @@ import Icd10Search from './Icd10Search';
 import Icd10ManagerModal from './Icd10ManagerModal';
 import './clinical-desk.css';
 const money=n=>new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(n||0);
-export default function ClinicalDesk({role,notify,navigate,inpatient=false}){
+export default function ClinicalDesk({role,notify,navigate,inpatient=false,clinicalContext}){
  const [globalIcd,setGlobalIcd]=useState(false);
  const [patients]=useWorkspace('patients'),[visits]=useWorkspace('visits'),[admissions]=useWorkspace('admissions');const actor=actorRoles[role];
  const episodes=(inpatient?admissions:visits).filter(v=>role!=='doctor'||(v.doctor||'').includes(actor.person));
  const [selected,setSelected]=useState(''),[query,setQuery]=useState(''),[status,setStatus]=useState(''),[department,setDepartment]=useState(''),[day,setDay]=useState('');const dirty=useRef(false);
+ useEffect(()=>{if(clinicalContext?.episodeId){setSelected(clinicalContext.episodeId);setQuery('');setStatus('');setDepartment('');setDay('');}},[clinicalContext?.episodeId]);
  const filtered=episodes.filter(v=>(!status ? v.status!=='Đã hủy' : v.status===status)&&(!department||v.department===department)&&(!day||v.date===day)).filter(v=>(v.id+' '+patients.find(p=>p.id===v.patientId)?.name).toLowerCase().includes(query.toLowerCase())).sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
  const current=filtered.find(v=>v.id===selected)||filtered[0];const patient=patients.find(p=>p.id===current?.patientId);
  function pick(id){if(dirty.current&&!window.confirm('Có nội dung chưa lưu. Bạn muốn bỏ thay đổi để chuyển hồ sơ?'))return;dirty.current=false;setSelected(id)}

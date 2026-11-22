@@ -43,17 +43,7 @@ export function initializeWorkspace(){
   const patients=copy(initialPatients);
   const stock=copy(initialStock);
   const notes={};
-  const beds=Array.from({length:8},(_,i)=>({
-    id:`G_NOI_301_0${i+1}`,
-    bedNumber:`301-0${i+1}`,
-    roomName:'Buồng 301 - Nội tổng quát',
-    department:'Nội tổng quát',
-    dailyRate:250000,
-    patient:null,
-    admissionId:null,
-    cleaning:false,
-    status:'Sẵn sàng'
-  }));
+  const beds=[];
 
   const visits=patients.map((p,i)=>visitFor(p,i,notes[p.id]));
   const admissions=[];
@@ -88,7 +78,7 @@ export function initializeWorkspace(){
 export async function syncWithSqlServer(){
   const epoch=workspaceEpoch;
   try{
-    const [pRes,qRes,bRes,mRes,sRes,batchRes,aRes,doctorRes,ancillaryRes,financeRes,pharmacyRes]=await Promise.allSettled([
+    const [pRes,qRes,bRes,mRes,sRes,batchRes,aRes,doctorRes,ancillaryRes,financeRes,pharmacyRes,equipmentRes]=await Promise.allSettled([
       hisApi.getPatients(),
       hisApi.getQueue('',true),
       hisApi.getBeds(),
@@ -99,7 +89,8 @@ export async function syncWithSqlServer(){
       hisApi.getDoctors(),
       hisApi.getAncillary(),
       hisApi.getFinance(),
-      hisApi.getPharmacyState()
+      hisApi.getPharmacyState(),
+      hisApi.getEquipment()
     ]);
 
     if(!state||epoch!==workspaceEpoch) return;
@@ -272,6 +263,7 @@ export async function syncWithSqlServer(){
       hasChanges=true;
     }
 
+    if(equipmentRes.status==='fulfilled'&&Array.isArray(equipmentRes.value)){state.business.equipment=equipmentRes.value;hasChanges=true;}
     if(pharmacyRes.status==='fulfilled'){
       const incoming=pharmacyRes.value;
       for(const key of ['prescriptions','warehouses','movements','counts'])if(Array.isArray(incoming[key]))state.business[key]=incoming[key];
@@ -280,7 +272,7 @@ export async function syncWithSqlServer(){
     }
     if(hasChanges){
       if(ancillaryRes.status==='fulfilled'){
-        for(const key of ['services','warehouses'])if(Array.isArray(ancillaryRes.value[key]))state.business[key]=ancillaryRes.value[key];
+        for(const key of ['services',...(pharmacyRes.status==='fulfilled'?[]:['warehouses'])])if(Array.isArray(ancillaryRes.value[key]))state.business[key]=ancillaryRes.value[key];
         if(!state.inventory?.length && Array.isArray(ancillaryRes.value.inventory))state.inventory=ancillaryRes.value.inventory;
       }
       state.updatedAt=new Date().toISOString();

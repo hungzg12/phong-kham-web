@@ -627,3 +627,5 @@
   color: #1f5745;
   margin-top: 8px;
 }
+
+.business-tabs[hidden]{display:none}.care-navigation{margin-bottom:23px}.care-navigation>button:focus-visible{outline:2px solid #178777;outline-offset:-2px}

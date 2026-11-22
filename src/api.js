@@ -22,6 +22,9 @@ async function req(url, options = {}) {
 }
 
 export const hisApi = {
+  notifications:()=>req('/api/notifications'),
+  notificationAction:data=>req('/api/notifications',{method:'POST',headers:jsonHeaders,body:JSON.stringify(data)}),
+  getEquipment:()=>req('/api/equipment'),
   login:data=>req('/api/auth/login',{method:'POST',headers:jsonHeaders,body:JSON.stringify(data)}),
   logout:()=>req('/api/auth/logout',{method:'POST',headers:jsonHeaders,body:'{}'}),
   workspaceSession:()=>req('/api/workspace/session'),
@@ -153,6 +156,7 @@ export const hisApi = {
   }),
 
   // 8. Appointments & ICD-10
+  saveAppointment: (method,data)=>req('/api/appointments',{method,headers:jsonHeaders,body:JSON.stringify(data)}),
   getAppointments: () => req('/api/appointments'),
   createAppointment: (data) => req('/api/appointments', {
     method: 'POST',

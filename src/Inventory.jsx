@@ -6,8 +6,10 @@ import { actorRoles } from './roles';
 import { AllocationPreview } from './AllocationPreview';
 import { hisApi } from './api';
 
-export default function Inventory({ role = 'admin', notify }) {
+export default function Inventory({ role = 'admin', notify, clinicalContext }) {
   const [inventory] = useWorkspace('inventory');
+  const [focusLot,setFocusLot]=useState('');
+  useEffect(()=>{if(clinicalContext?.recordId){setFocusLot(clinicalContext.recordId);setTab('lots');setWarehouse('all');setManufacturer('all');setFilter('Tất cả');setSearch('');}},[clinicalContext?.recordId]);
   const [stock] = useWorkspace('stock');
   const [db] = useWorkspace('business');
   const [ledger] = useWorkspace('ledger');
@@ -107,6 +109,7 @@ export default function Inventory({ role = 'admin', notify }) {
   });
 
   const filteredLots = activeLots.filter(l => {
+    if(focusLot&&l.id!==focusLot)return false;
     const matchWarehouse = warehouse === 'all' || l.warehouseName === warehouse || l.warehouseId === warehouse;
     const matchMfr = manufacturer === 'all' || l.manufacturer === manufacturer;
     const query = search.trim().toLowerCase();
@@ -435,7 +438,7 @@ export default function Inventory({ role = 'admin', notify }) {
         </div>
       )}
 
-      <section className="panel inventory-panel">
+      {focusLot&&<p className="doctor-access-help">Lô từ thông báo: {focusLot}<button className="secondary" onClick={()=>setFocusLot('')}>Xem tất cả lô</button></p>}<section className="panel inventory-panel">
         <div className="panel-heading">
           <div>
             <h2>{tab === 'dispense' ? 'Quầy cấp phát thuốc ngoại trú (Hàng đợi phòng khám)' : 'Tồn kho theo kho & lô'}</h2>

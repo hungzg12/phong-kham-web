@@ -1,6 +1,7 @@
 import {protectWorkspaceRequest} from './workspace-access.mjs';
+import {ensureNotifications,processNotifications,notificationList,notificationAction} from './notifications.mjs';
 import {pharmacyState,pharmacyAction} from './pharmacy.mjs';
-import {querySql} from './admin-store.mjs';
+import {querySql,loadState} from './admin-store.mjs';
 import {receivePatient,updatePatient,listVisits,changeVisit,saveExam,searchIcd,listDoctors} from './clinic-flow.mjs';
 import {ancillaryState,saveVitals,createLab,labAction,performCare,listBeds,bedAction} from './ancillary.mjs';
 import {financeState,financeAction} from './finance.mjs';
@@ -44,6 +45,10 @@ export function runSqlScript(relativeFile, data) {
 }
 
 export function createApiMiddleware({trustedTest=false}={}) {
+  const notificationDb=process.env.MEDICARE_SQL_CONNECTION||'';
+  let processing=false;
+  const tick=async()=>{if(processing||notificationDb!==(process.env.MEDICARE_SQL_CONNECTION||''))return;processing=true;try{await processNotifications();}catch(e){console.error('Notification worker:',e.message);}finally{processing=false;}};
+  const notificationTimer=setInterval(tick,15000);notificationTimer.unref();
   if(trustedTest&&!/Database=MediCareQA_Admin_[a-f0-9]{16}(?:;|$)/i.test(process.env.MEDICARE_SQL_CONNECTION||''))throw new Error('Test bypass requires an isolated MediCareQA database');
   return async (req, res, next) => {
     const url = req.url.split('?')[0];
@@ -56,8 +61,15 @@ export function createApiMiddleware({trustedTest=false}={}) {
 
     try {
       const access=trustedTest?{}:await protectWorkspaceRequest(req);
+      if(!trustedTest&&access.identity)await ensureNotifications();
+      if(url==='/api/notifications'&&!trustedTest){
+        if(req.method==='GET'){await tick();return respond(200,await notificationList(access.identity,new URL(req.url,'http://localhost').searchParams.get('id')));}
+        let raw='';for await(const part of req)raw+=part;
+        return respond(200,await notificationAction(access.identity,JSON.parse(raw)));
+      }
       if(Object.hasOwn(access,'answer'))return respond(200,access.answer);
       if(!trustedTest&&url==='/api/patients'&&req.method==='POST')return respond(410,{error:'Dùng tiếp đón để tạo bệnh nhân và lượt khám cùng giao dịch.'});
+      if(url==='/api/equipment'&&req.method==='GET')return respond(200,(await loadState())?.data.equipment||[]);
       if(url==='/api/pharmacy/state'&&req.method==='GET')return respond(200,await pharmacyState());
       if(url==='/api/pharmacy/action'&&req.method==='POST'){
         let body='';for await(const part of req){body+=part;if(body.length>60000)return respond(413,{error:'Dữ liệu quá dài.'});}
@@ -674,6 +686,8 @@ export function createApiMiddleware({trustedTest=false}={}) {
     } catch (err) {
       if (err instanceof SyntaxError) return respond(400,{error:'Dữ liệu JSON không hợp lệ.'});
       if (err.status) return respond(err.status, {error:err.message});
+      if(err.message.includes('Không tìm thấy thông tin buồng giường.'))return respond(404,{error:'Giường đã chọn không tồn tại trong SQL Server. Tải lại sơ đồ; quản trị viên cần tạo buồng và giường trước khi tiếp nhận.'});
+      if(err.message.includes('Giường bệnh hiện không ở trạng thái sẵn sàng tiếp nhận.'))return respond(409,{error:'Giường đã có người bệnh hoặc chưa sẵn sàng. Tải lại sơ đồ và chọn giường khác.'});
       console.error('API Error:', err.message);
       respond(503, { error: 'Lỗi xử lý yêu cầu CSDL SQL Server.', details: err.message });
     }

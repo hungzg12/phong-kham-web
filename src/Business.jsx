@@ -20,7 +20,7 @@ const terminal=['Đã hủy','Đã thu hồi','Đã từ chối','Đã đóng ca
 function Tone({value}){const negative=/hủy|hỏng|từ chối|Khóa|Tạm ngưng|Ngừng|thu hồi/.test(value),pending=/Chờ|Nháp|Đang/.test(value);return <span className={'badge '+(negative?'danger':pending?'amber':'teal')}>{value}</span>}
 function csvDownload(filename,headers,rows){const csv='\uFEFF'+[headers,...rows].map(r=>r.map(c=>'"'+String(c??'').replaceAll('"','""')+'"').join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const link=document.createElement('a');link.href=url;link.download=filename+'.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 
-export default function Business({clinicalContext,page,role='admin',requestedTab='',patients,stock,setStock,beds,setBeds,notes,appointments,setAppointments,notify}){
+export default function Business({hideTabs=false,clinicalContext,page,role='admin',requestedTab='',patients,stock,setStock,beds,setBeds,notes,appointments,setAppointments,notify}){
  const [inventory]=useWorkspace('inventory'),[visits]=useWorkspace('visits'),[admissions]=useWorkspace('admissions');
  const actor=actorRoles[role];
  const [scoped,setScoped]=useState(true);const scope=scoped?clinicalContext:null;
@@ -30,7 +30,7 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
  useEffect(()=>{function key(e){if(e.key==='Escape')setDialog(null)}window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key)},[]);
  function commit(next,event){setDb(old=>{const updated=typeof next==='function'?next(old):next;const value={...updated,audit:[{id:uid('LOG'),time:timestamp(),actor:actor.person+' · '+actor.name+' · Phiên demo',event},...(old.audit||[])].slice(0,300)};return value})}
  const involved=new Set([...patients.filter(p=>p.doctor.includes(actor.person)).map(p=>p.id),...Object.values(db).filter(Array.isArray).flat().filter(x=>x.doctor===actor.staffId&&x.patient).map(x=>x.patient)]);
- const rows=(db[tab]||[]).filter(r=>!scope||r.patient===scope.patientId&&r.episodeId===scope.episodeId).filter(r=>role!=='doctor'||!r.patient||involved.has(r.patient)).filter(r=>role!=='pharmacist'||tab!=='prescriptions'||r.status!=='Nháp'),def=definitions[tab];
+ const rows=(db[tab]||[]).filter(r=>!scope||((!scope.patientId||r.patient===scope.patientId)&&(!scope.episodeId||r.episodeId===scope.episodeId)&&(!scope.recordId||r.id===scope.recordId))).filter(r=>role!=='doctor'||!r.patient||involved.has(r.patient)).filter(r=>role!=='pharmacist'||tab!=='prescriptions'||r.status!=='Nháp'),def=definitions[tab];
  const editable=canCreate(role,tab);
  const episodeTab=['vitals','labs','prescriptions','referrals','rounds','consultations','discharges','archives','advances','settlements'].includes(tab);
  const nameOf=(source,id)=>source?.find(x=>x.id===id)?.name||id||'—';
@@ -146,7 +146,7 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
  
  return <div className="business">
   {scope&&<div className="doctor-access-help">Đang xem hồ sơ {scope.episodeId} · {patients.find(p=>p.id===scope.patientId)?.name}<button className="secondary" onClick={()=>setScoped(false)}>Xem tất cả hồ sơ</button></div>}
-  <div className="business-tabs" role="tablist" aria-label={extraTitles[page]}>
+  <div hidden={hideTabs} className="business-tabs" role="tablist" aria-label={extraTitles[page]}>
     {tabs.map(key=><button role="tab" aria-selected={tab===key} key={key} className={tab===key?'selected':''} onClick={()=>changeTab(key)}>{definitions[key]?.title||{settlements:'Quyết toán viện phí',reports:'Báo cáo & nhật ký',portal:'Thông tin người bệnh'}[key]}</button>)}
   </div>
   {tab==='roles'&&<div className="doctor-access-help">Vai trò quy định quyền chức năng chung. Để gán bác sĩ, khoa và phạm vi hồ sơ cho từng người, mở Tài khoản.<button className="secondary" onClick={()=>changeTab('accounts')}>Phân quyền bác sĩ theo khoa</button></div>}
@@ -258,7 +258,8 @@ function RecordForm({tab,definition,initial,defaults={},episodeTab=false,inpatie
     {episodeTab&&<EpisodeField patientId={values.patient} value={values.episodeId} inpatientOnly={inpatientOnly} onChange={value=>setValues(v=>({...v,episodeId:value}))}/>}
 
     <div className="form-grid">
-      {definition.fields.map(f=><Field key={f.key} field={f} value={values[f.key]} onChange={value=>setValues({...values,[f.key]:value})} optionsFor={optionsFor}/>)}
+      {definition.fields.map(f=><Field key={f.key} field={f} value={values[f.key]} onChange={value=>setValues({...values,[f.key]:value,...(['medicine','warehouse','kind'].includes(f.key)?{lotId:'',batchId:''}:{})})} optionsFor={optionsFor}/>)}
+      {tab==='movements'&&<label className="his-field-label">{values.kind==='Nhập kho'?'Chọn lô đã có (hoặc để trống để nhập lô mới)':'Lô xuất tại kho nguồn *'}<select className="his-select" required={['Xuất kho','Điều chuyển'].includes(values.kind)} value={values.kind==='Nhập kho'?(values.batchId||''):(values.lotId||'')} onChange={e=>{const selected=inventory.find(l=>(values.kind==='Nhập kho'?l.batchId:l.id)===e.target.value);setValues({...values,lotId:values.kind==='Nhập kho'?'':e.target.value,batchId:values.kind==='Nhập kho'?e.target.value:'',...(selected?{lot:selected.lot,expiry:selected.expiry}:{})})}}><option value="">{values.kind==='Nhập kho'?'Lô mới — nhập số lô và hạn dùng ở trên':'Chọn lô'}</option>{inventory.filter(l=>l.medicineId===values.medicine&&(values.kind==='Nhập kho'||l.warehouseId===values.warehouse)).filter((l,i,all)=>values.kind!=='Nhập kho'||all.findIndex(x=>x.batchId===l.batchId)===i).map(l=><option key={l.id} value={values.kind==='Nhập kho'?l.batchId:l.id}>{l.lot} · HSD {l.expiry} · Tồn khả dụng {l.qty}{l.locked?' · Đã khóa':''}</option>)}</select>{values.lotId&&<small>Tồn lô tại kho nguồn: {inventory.find(l=>l.id===values.lotId)?.qty??0}. Máy chủ kiểm tra lại tồn khi xác nhận.</small>}</label>}
     </div>
 
     {isVitals&&(
@@ -277,6 +278,7 @@ function RecordForm({tab,definition,initial,defaults={},episodeTab=false,inpatie
 
     {definition.prefix==='TK'&&isDoctorAccount(values,accessDb)&&<DoctorAccessFields values={values} onChange={setValues}/>}
 
+    {tab==='movements'&&['Xuất kho','Điều chuyển'].includes(values.kind)&&values.lotId&&<AllocationPreview requests={[{medicine:values.medicine,quantity:Number(values.quantity)}]} warehouse={values.warehouse} lotId={values.lotId}/>}
     {definition.prefix==='KK'&&<label className="his-field-label">Lô trong kho kiểm kê *
       <select name="lotId" required value={values.lotId||''} onChange={e=>setValues({...values,lotId:e.target.value})} className="his-select">
         <option value="">Chọn lô kiểm kê</option>
@@ -491,7 +493,7 @@ function ActionForm({dialog,stock,optionsFor,onSave}){
 
     {(action==='dispense'||action==='administer'&&(row.kind==='Dùng thuốc'||row.stockRequired))&&<>
       <Field field={{key:'warehouse',label:'Kho xuất thuốc *',type:'warehouse',required:true}} value={values.warehouse} optionsFor={optionsFor} onChange={v=>setValues({...values,warehouse:v})}/>
-      <AllocationPreview requests={action==='dispense'?row.lines:[{medicine:row.medicine,quantity:row.quantity}]} warehouse={values.warehouse}/>
+      <AllocationPreview requests={action==='dispense'?row.lines:[{medicine:row.medicine,quantity:row.quantity}]} warehouse={values.warehouse} lotId={row.lotId}/>
     </>}
 
     {action==='approveMovement'&&<div className="inline-notice">{row.kind} · Kho {row.warehouse} · {row.quantity} đơn vị {row.destination?'→ Kho '+row.destination:''}{row.lot?' · Lô '+row.lot:''}</div>}

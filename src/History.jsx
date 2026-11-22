@@ -652,6 +652,8 @@ export default function History({role='admin',patientId,navigate,notify}){
               <>
                 <h2>Hồ sơ bệnh án {modal.row.id}</h2>
                 <p className="dialog-subtitle">{modal.row.kind} · {modal.row.date} {modal.row.time} · {modal.row.department}</p>
+                <EpisodeAdministrativeDetails row={modal.row} patient={patients.find(p=>p.id===modal.row.patientId)} clinical={clinical}/>
+                {clinical&&!modal.row.note&&<p className="inline-notice">Chưa có nội dung khám được ghi nhận cho lượt này.</p>}
                 {clinical&&modal.row.note&&(
                   <div className="clinical-note">
                     <p><b>Triệu chứng:</b> {modal.row.note.symptoms}</p>
@@ -770,4 +772,9 @@ export default function History({role='admin',patientId,navigate,notify}){
       )}
     </div>
   );
+}
+
+export function EpisodeAdministrativeDetails({row,patient,clinical=false}){
+ const fields=[['Mã bệnh nhân',row.patientId],['Họ tên',patient?.name],['Ngày sinh',patient?.birth],['Giới tính',patient?.gender],['Điện thoại',patient?.phone],['CCCD / định danh',patient?.cccd],['BHYT',patient?.insurance],['Địa chỉ',patient?.address],['Trạng thái hồ sơ',row.status],['Khoa tiếp nhận',row.department],['Phòng khám',row.room],['Số thứ tự',row.queueNumber],['Bác sĩ phụ trách',row.doctor],['Lý do tiếp nhận',row.reason]];
+ return <section aria-label="Thông tin hành chính và lượt khám"><div className="detail-grid">{fields.map(([label,value])=><div key={label}><span>{label}</span><b>{value===undefined||value===null||value===''?'Chưa cập nhật':String(value)}</b></div>)}</div>{!clinical&&<p className="inline-notice">Vai trò hiện tại được xem thông tin hành chính và lượt khám. Nội dung khám, chẩn đoán và đơn thuốc được giới hạn theo quyền chuyên môn.</p>}</section>;
 }
