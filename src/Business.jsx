@@ -11,6 +11,7 @@ import {AllocationPreview} from './AllocationPreview';
 import {DoctorAccessFields,isDoctorAccount,doctorScopes,doctorFunctions} from './DoctorAccess';
 function formResult(fn){try{return fn()}catch(e){return e.message||'Không thực hiện được thao tác. Vui lòng thử lại.'}}
 import {actorRoles,allowedTabs,canCreate,canEdit,canAction} from './roles';
+import {parseBhytCard} from './bhyt-utils';
 
 const currency=n=>new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(Number(n)||0);
 const uid=p=>p+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,5).toUpperCase();
@@ -140,7 +141,7 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
  
  const renderReports=()=>{const tx=financialTransactions().filter(x=>x.date>=reportRange.from&&x.date<=reportRange.to),incoming=tx.filter(x=>x.signed>=0).reduce((s,x)=>s+x.signed,0),outgoing=-tx.filter(x=>x.signed<0).reduce((s,x)=>s+x.signed,0);return <><section className="panel report-panel"><div className="panel-heading"><div><h2>Báo cáo thu chi viện phí</h2><p>Chỉ tổng hợp giao dịch tiền mặt đã xác nhận trong phân hệ quyết toán này.</p></div><button className="secondary" onClick={()=>csvDownload('bao-cao-thu-chi',['Mã','Bệnh nhân','Ngày','Loại','Số tiền'],tx.map(x=>[x.id,display('patient',x.patient),x.date,x.kind,x.signed]))}><Download size={15}/>Xuất báo cáo</button></div><div className="report-filters"><label>Từ ngày<input type="date" value={reportRange.from} max={reportRange.to} onChange={e=>setReportRange({...reportRange,from:e.target.value})}/></label><label>Đến ngày<input type="date" value={reportRange.to} min={reportRange.from} onChange={e=>setReportRange({...reportRange,to:e.target.value})}/></label></div><div className="business-summary financial">{[['Tổng thu',incoming],['Tổng hoàn',outgoing],['Thuần tiền mặt',incoming-outgoing]].map(([name,total])=><div key={name}><span><Wallet size={17}/>{name}</span><b>{currency(total)}</b></div>)}</div><div className="table-scroll"><table><thead><tr><th>GIAO DỊCH</th><th>BỆNH NHÂN</th><th>NGÀY</th><th>NỘI DUNG</th><th>SỐ TIỀN</th></tr></thead><tbody>{tx.map(x=><tr key={x.id}><td>{x.id}</td><td>{display('patient',x.patient)}</td><td>{x.date}</td><td>{x.kind}</td><td><b>{currency(x.signed)}</b></td></tr>)}</tbody></table></div>{!tx.length&&<div className="business-empty">Chưa có giao dịch đã xác nhận trong khoảng thời gian này.</div>}</section><section className="panel audit-panel"><div className="panel-heading"><div><h2>Nhật ký thao tác</h2><p>Các thay đổi gần nhất trong phân hệ mở rộng</p></div><ShieldCheck size={19}/></div><div className="audit-list">{db.audit.slice(0,15).map(a=><div key={a.id}><span className="audit-dot"/><div><b>{a.event}</b><small>{a.actor} · {a.time}</small></div></div>)}{!db.audit.length&&<p>Chưa có thao tác được ghi nhận.</p>}</div></section></>};
  
- const renderPortal=()=>{const p=patients.find(x=>x.id===(role==='patient'?actor.patientId:selectedPatient));return <section className="panel portal-panel"><div className="panel-heading"><div><h2>Cổng thông tin người bệnh</h2><p>{role==='patient'?'Thông tin cá nhân, kết quả khám và lịch hẹn của bạn.':'Giao diện cổng thông tin người bệnh. Chọn hồ sơ để tra cứu.'}</p></div>{role!=='patient'&&<select aria-label="Chọn hồ sơ người bệnh" value={selectedPatient} onChange={e=>setSelectedPatient(e.target.value)}>{patients.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>}</div>{p&&<><div className="portal-welcome"><div><span>HỒ SƠ CÁ NHÂN</span><h2>Xin chào, {p.name}</h2><p>{p.id} · {p.gender} · {p.birth} · {p.phone}</p></div><ShieldCheck size={48}/></div><div className="business-tabs portal-tabs">{[['summary','Tổng quan'],['results','Kết quả khám'],['medicine','Đơn thuốc'],['appointments','Lịch hẹn'],['bills','Viện phí']].map(([key,title])=><button key={key} className={portalTab===key?'selected':''} onClick={()=>setPortalTab(key)}>{title}</button>)}</div><div className="portal-content">{portalTab==='summary'&&<><PatientHistory patientId={p.id} clinical/><div className="portal-cards"><article><Activity size={23}/><h3>Khám & điều trị</h3><b>{p.status}</b><p>{p.dept} · {p.doctor}</p></article><article><FileText size={23}/><h3>Hồ sơ bệnh án</h3><b>{db.archives.filter(x=>x.patient===p.id).length} hồ sơ</b><p>Thông tin đã được ghi nhận tại bệnh viện</p></article></div><h3>Thông tin bảo hiểm</h3><p>{p.insurance||'Chưa cập nhật thông tin BHYT'}</p></>}{portalTab==='results'&&<>{notes[p.id]&&<div className="portal-record"><h3>Kết quả khám</h3><p>Chẩn đoán: {notes[p.id].diagnosis}</p><p>Hướng xử trí: {notes[p.id].outcome}</p></div>}{db.labs.filter(x=>x.patient===p.id&&x.status==='Đã phát hành').map(r=><div className="portal-record" key={r.id}><h3>{display('service',r.service)}</h3><p>{r.result}</p><p>Kết luận: {r.conclusion}</p><small>{r.releasedAt}</small></div>)}{!notes[p.id]&&!db.labs.some(x=>x.patient===p.id&&x.status==='Đã phát hành')&&<Empty text="Chưa có kết quả được phát hành"/>}</>}{portalTab==='medicine'&&<>{db.prescriptions.filter(x=>x.patient===p.id&&x.status!=='Nháp'&&x.status!=='Đã hủy').map(r=><div className="portal-record" key={r.id}><h3>Đơn {r.id}</h3><p>{r.diagnosis}</p>{r.lines.map((l,i)=><p key={i}>{display('medicine',l.medicine)} · {l.quantity} · {l.dose} · {l.route} · {l.frequency} · {l.days} ngày</p>)}<p>Lời dặn: {r.advice}</p><Tone value={r.status}/></div>)}{!db.prescriptions.some(x=>x.patient===p.id&&!['Nháp','Đã hủy'].includes(x.status))&&<Empty text="Chưa có đơn thuốc được xác nhận"/>}</>}{portalTab==='appointments'&&<>{appointments.filter(x=>x.phone===p.phone).map(a=><div className="portal-record" key={a.id}><h3>{a.dept}</h3><p>{a.date.replace('T',' · ')}</p><Tone value={a.status}/>{a.status!=='Đã hủy'&&<button className="secondary" onClick={()=>setDialog({type:'portalCancel',row:a})}>Hủy lịch hẹn</button>}</div>)}<button className="primary" onClick={()=>setDialog({type:'portalAppointment',patient:p})}><Plus size={15}/>Đặt lịch mới</button></>}{portalTab==='bills'&&<>{db.settlements.filter(x=>x.patient===p.id).map(r=><div className="portal-record" key={r.id}><h3>Quyết toán {r.id}</h3><p>Tổng chi phí: {currency(r.gross)}</p><p>BHYT chi trả: {currency(r.insurance)}</p><p>Tạm ứng: {currency(r.advance)}</p><p>Cần thu / hoàn: {currency(r.balance)}</p><Tone value={r.status}/></div>)}{!db.settlements.some(x=>x.patient===p.id)&&<Empty text="Chưa có bảng quyết toán"/>}</>}</div></>}</section>};
+ const renderPortal=()=>{const p=patients.find(x=>x.id===(role==='patient'?actor.patientId:selectedPatient));return <section className="panel portal-panel"><div className="panel-heading"><div><h2>Cổng thông tin người bệnh</h2><p>{role==='patient'?'Thông tin cá nhân, kết quả khám và lịch hẹn của bạn.':'Giao diện cổng thông tin người bệnh. Chọn hồ sơ để tra cứu.'}</p></div>{role!=='patient'&&<select aria-label="Chọn hồ sơ người bệnh" value={selectedPatient} onChange={e=>setSelectedPatient(e.target.value)}>{patients.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>}</div>{p&&<><div className="portal-welcome"><div><span>HỒ SƠ CÁ NHÂN</span><h2>Xin chào, {p.name}</h2><p>{p.id} · {p.gender} · {p.birth} · {p.phone}</p></div><ShieldCheck size={48}/></div><div className="business-tabs portal-tabs">{[['summary','Tổng quan'],['results','Kết quả khám'],['medicine','Đơn thuốc'],['appointments','Lịch hẹn'],['bills','Viện phí']].map(([key,title])=><button key={key} className={portalTab===key?'selected':''} onClick={()=>setPortalTab(key)}>{title}</button>)}</div><div className="portal-content">{portalTab==='summary'&&<><PatientHistory patientId={p.id} clinical/><div className="portal-cards"><article><Activity size={23}/><h3>Khám & điều trị</h3><b>{p.status}</b><p>{p.dept} · {p.doctor}</p></article><article><FileText size={23}/><h3>Hồ sơ bệnh án</h3><b>{db.archives.filter(x=>x.patient===p.id).length} hồ sơ</b><p>Thông tin đã được ghi nhận tại bệnh viện</p></article></div><h3>Thông tin thẻ Bảo hiểm Y tế</h3>{(()=>{const bh=parseBhytCard(p.insurance);return bh.hasInsurance?<div style={{background:'linear-gradient(135deg, #065f46 0%, #047857 50%, #0f766e 100%)',borderRadius:'8px',padding:'14px 18px',color:'#ffffff',marginTop:'8px',maxWidth:'520px'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:'1px solid rgba(255,255,255,0.2)',paddingBottom:'6px',marginBottom:'8px'}}><span style={{fontSize:'10px',fontWeight:700,letterSpacing:'0.5px',textTransform:'uppercase'}}>Bảo hiểm Y tế Việt Nam</span><span style={{fontSize:'10px',background:'rgba(255,255,255,0.2)',padding:'2px 6px',borderRadius:'4px'}}>Thẻ điện tử</span></div><div style={{fontSize:'16px',fontWeight:700,letterSpacing:'1.5px',fontFamily:'monospace',marginBottom:'8px',color:'#ecfdf5'}}>{bh.code}</div><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',fontSize:'11.5px'}}><div><span style={{opacity:0.8}}>Mức hưởng:</span> <b>BHYT chi trả {bh.rate}%</b></div><div><span style={{opacity:0.8}}>Cùng chi trả:</span> <b>{bh.copayRate}%</b></div><div><span style={{opacity:0.8}}>Đối tượng:</span> <b>{bh.groupName}</b></div><div><span style={{opacity:0.8}}>Khu vực:</span> <b>{bh.provinceName || 'TP. Hồ Chí Minh'}</b></div></div></div>:<div style={{background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:'6px',padding:'10px 14px',color:'#475569',fontSize:'12px',marginTop:'8px',maxWidth:'520px'}}><b>Chế độ KCB: Viện phí (Khám tự chi trả 100%)</b><p style={{margin:'2px 0 0',color:'#64748b'}}>Chưa cập nhật thẻ BHYT liên kết.</p></div>})()}</>}{portalTab==='results'&&<>{notes[p.id]&&<div className="portal-record"><h3>Kết quả khám</h3><p>Chẩn đoán: {notes[p.id].diagnosis}</p><p>Hướng xử trí: {notes[p.id].outcome}</p></div>}{db.labs.filter(x=>x.patient===p.id&&x.status==='Đã phát hành').map(r=><div className="portal-record" key={r.id}><h3>{display('service',r.service)}</h3><p>{r.result}</p><p>Kết luận: {r.conclusion}</p><small>{r.releasedAt}</small></div>)}{!notes[p.id]&&!db.labs.some(x=>x.patient===p.id&&x.status==='Đã phát hành')&&<Empty text="Chưa có kết quả được phát hành"/>}</>}{portalTab==='medicine'&&<>{db.prescriptions.filter(x=>x.patient===p.id&&x.status!=='Nháp'&&x.status!=='Đã hủy').map(r=><div className="portal-record" key={r.id}><h3>Đơn {r.id}</h3><p>{r.diagnosis}</p>{r.lines.map((l,i)=><p key={i}>{display('medicine',l.medicine)} · {l.quantity} · {l.dose} · {l.route} · {l.frequency} · {l.days} ngày</p>)}<p>Lời dặn: {r.advice}</p><Tone value={r.status}/></div>)}{!db.prescriptions.some(x=>x.patient===p.id&&!['Nháp','Đã hủy'].includes(x.status))&&<Empty text="Chưa có đơn thuốc được xác nhận"/>}</>}{portalTab==='appointments'&&<>{appointments.filter(x=>x.phone===p.phone).map(a=><div className="portal-record" key={a.id}><h3>{a.dept}</h3><p>{a.date.replace('T',' · ')}</p><Tone value={a.status}/>{a.status!=='Đã hủy'&&<button className="secondary" onClick={()=>setDialog({type:'portalCancel',row:a})}>Hủy lịch hẹn</button>}</div>)}<button className="primary" onClick={()=>setDialog({type:'portalAppointment',patient:p})}><Plus size={15}/>Đặt lịch mới</button></>}{portalTab==='bills'&&<>{db.settlements.filter(x=>x.patient===p.id).map(r=><div className="portal-record" key={r.id}><h3>Quyết toán {r.id}</h3><p>Tổng chi phí: {currency(r.gross)}</p><p>BHYT chi trả: {currency(r.insurance)}</p><p>Tạm ứng: {currency(r.advance)}</p><p>Cần thu / hoàn: {currency(r.balance)}</p><Tone value={r.status}/></div>)}{!db.settlements.some(x=>x.patient===p.id)&&<Empty text="Chưa có bảng quyết toán"/>}</>}</div></>}</section>};
  
  if(page==='portal'&&role==='patient')return <PatientPortal requestedTab={requestedTab} notify={notify}/>;
  
@@ -227,7 +228,7 @@ function SimpleForm({title,description,fields=[],submit='Xác nhận',onSave,chi
 }
 
 function RecordForm({tab,definition,initial,defaults={},episodeTab=false,inpatientOnly=false,stock,optionsFor,onSave}){
- const [inventory]=useWorkspace('inventory'),[accessDb]=useWorkspace('business');
+ const [inventory]=useWorkspace('inventory'),[accessDb]=useWorkspace('business'),[patients]=useWorkspace('patients');
  const [values,setValues]=useState(()=>({
    ...Object.fromEntries(definition.fields.map(f=>[f.key,f.type==='datetime-local'?today+'T09:00':f.type==='date'?today:''])),
    ...defaults,
@@ -242,6 +243,8 @@ function RecordForm({tab,definition,initial,defaults={},episodeTab=false,inpatie
  // Auto BMI calculation for vitals tab
  const isVitals = tab === 'vitals';
  const bmi = values.weight && values.height ? (values.weight / Math.pow(values.height / 100, 2)).toFixed(1) : values.bmi || '22.0';
+ const currentPatient = (patients || []).find(p => p.id === values.patient);
+ const patientBhyt = parseBhytCard(currentPatient?.insurance);
 
  return <>
   <div className="his-form-header">
@@ -256,6 +259,28 @@ function RecordForm({tab,definition,initial,defaults={},episodeTab=false,inpatie
 
   <form onSubmit={async e=>{e.preventDefault();if(saving)return;setSaving(true);try{setError((await onSave({...values, bmi}))||'')}catch(error){setError(error.message)}finally{setSaving(false)}}} className="his-form-body">
     {episodeTab&&<EpisodeField patientId={values.patient} value={values.episodeId} inpatientOnly={inpatientOnly} onChange={value=>setValues(v=>({...v,episodeId:value}))}/>}
+
+    {values.patient && ['referrals', 'claims', 'advances', 'discharges'].includes(tab) && (
+      <div style={{ marginTop: '10px', marginBottom: '14px', padding: '10px 14px', background: patientBhyt.hasInsurance ? '#f0fdf4' : '#f8fafc', border: patientBhyt.hasInsurance ? '1px solid #bbf7d0' : '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <div>
+          <b style={{ color: patientBhyt.hasInsurance ? '#166534' : '#334155' }}>
+            {patientBhyt.hasInsurance ? `Hồ sơ BHYT: ${patientBhyt.code} (${patientBhyt.groupName})` : 'Chế độ KCB: Viện phí (Khám tự chi trả 100%)'}
+          </b>
+          <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: patientBhyt.hasInsurance ? '#15803d' : '#64748b' }}>
+            {tab === 'referrals'
+              ? (patientBhyt.hasInsurance ? `Quy chuẩn chuyển tuyến Thông tư 14/2014/TT-BYT: Giữ nguyên quyền lợi ${patientBhyt.rate}% tại cơ sở tuyến trên.` : 'Người bệnh tự chi trả chi phí chuyển viện theo biểu giá dịch vụ.')
+              : tab === 'claims'
+              ? (patientBhyt.hasInsurance ? `Đối soát giám định BHYT theo Quyết định 130/QĐ-BYT · Tỷ lệ Quỹ chi trả: ${patientBhyt.rate}% · Cùng chi trả: ${patientBhyt.copayRate}%` : 'Hồ sơ viện phí tự túc, không phát sinh chi phí đề nghị BHXH thanh toán.')
+              : tab === 'advances'
+              ? (patientBhyt.hasInsurance ? `Mức cùng chi trả dự kiến: ${patientBhyt.copayRate}% · Thu tạm ứng theo quy chế viện phí bệnh viện.` : 'Bệnh nhân tự chi trả 100% chi phí điều trị.')
+              : (patientBhyt.hasInsurance ? `Mức hưởng BHYT: ${patientBhyt.rate}%` : 'Viện phí 100%')}
+          </p>
+        </div>
+        <span className={`badge ${patientBhyt.hasInsurance ? patientBhyt.benefitBadgeClass : 'gray'}`}>
+          {patientBhyt.hasInsurance ? patientBhyt.benefitBadge : 'Viện phí'}
+        </span>
+      </div>
+    )}
 
     <div className="form-grid">
       {definition.fields.map(f=><Field key={f.key} field={f} value={values[f.key]} onChange={value=>setValues({...values,[f.key]:value})} optionsFor={optionsFor}/>)}
@@ -506,19 +531,18 @@ function ActionForm({dialog,stock,optionsFor,onSave}){
    FORM QUYẾT TOÁN VIỆN PHÍ CHUẨN BẢNG KÊ CHI PHÍ MẪU 01/BV (VIETTEL HIS ENGINE)
    ============================================================================= */
 function SettlementForm({scope,initialLines,patients,services,availableAdvance,onSave}){
+ const [db] = useWorkspace('business');
+ const [stock] = useWorkspace('stock');
  const [patientId,setPatientId]=useState(scope?.patientId||patients[0]?.id||'');
  const currentPatient = patients.find(p => p.id === patientId);
+ const patientBhyt = parseBhytCard(currentPatient?.insurance);
  const [episodeId,setEpisodeId]=useState(scope?.episodeId||'');
  
- // BHYT rate: 100%, 95%, 80%, or 0%
- const [insuranceRate, setInsuranceRate] = useState(currentPatient?.insurance ? 80 : 0);
+ // BHYT rate auto-detected from card code
+ const [insuranceRate, setInsuranceRate] = useState(patientBhyt.rate);
  useEffect(() => {
-   if (currentPatient?.insurance) {
-     const c = currentPatient.insurance.charAt(2);
-     setInsuranceRate(c === '1' || c === '2' ? 100 : c === '3' ? 95 : 80);
-   } else {
-     setInsuranceRate(0);
-   }
+   const bh = parseBhytCard(currentPatient?.insurance);
+   setInsuranceRate(bh.rate);
  }, [patientId, currentPatient]);
 
  const COST_GROUPS = [
@@ -538,6 +562,56 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
    { category: '3. Chẩn đoán hình ảnh', description: 'X-quang ngực thẳng kỹ thuật số', quantity: 1, price: 80000, insuranceCovered: true },
    { category: '5. Thuốc & Dịch truyền', description: 'Panadol Extra 500mg/65mg (Hộp 10 viên)', quantity: 2, price: 15000, insuranceCovered: true }
  ]);
+
+ // Load actual clinical services and medications when episode is selected
+ useEffect(() => {
+   if (episodeId && !initialLines?.length) {
+     const matchedLabs = (db.labs || []).filter(r => r.episodeId === episodeId && r.status !== 'Đã hủy');
+     const matchedCharges = (db.clinicalCharges || []).filter(r => r.episodeId === episodeId && r.status !== 'Đã hủy');
+     const matchedRx = (db.prescriptions || []).filter(r => r.episodeId === episodeId && r.status !== 'Đã hủy');
+
+     const labItems = matchedLabs.map(r => {
+       const s = db.services.find(x => x.id === r.service);
+       return {
+         category: s?.kind === 'Chẩn đoán hình ảnh' ? '3. Chẩn đoán hình ảnh' : '2. Xét nghiệm',
+         description: s?.name || r.service,
+         quantity: 1,
+         price: Number(r.price ?? s?.price ?? 120000),
+         insuranceCovered: true,
+         sourceId: r.id
+       };
+     });
+
+     const chargeItems = matchedCharges.map(r => {
+       const s = db.services.find(x => x.id === r.service);
+       return {
+         category: '1. Tiền khám bệnh',
+         description: s?.name || r.service,
+         quantity: Number(r.quantity) || 1,
+         price: Number(r.price ?? s?.price ?? 150000),
+         insuranceCovered: true,
+         sourceId: r.id
+       };
+     });
+
+     const rxItems = matchedRx.flatMap(rx => (rx.lines || []).map(line => {
+       const m = stock.find(s => s.id === line.medicine);
+       return {
+         category: '5. Thuốc & Dịch truyền',
+         description: m?.name || line.medicine,
+         quantity: Number(line.quantity) || 1,
+         price: Number(m?.price || m?.cost || 2500),
+         insuranceCovered: true,
+         sourceId: rx.id
+       };
+     }));
+
+     const combined = [...chargeItems, ...labItems, ...rxItems];
+     if (combined.length > 0) {
+       setLines(combined);
+     }
+   }
+ }, [episodeId, initialLines, db.labs, db.clinicalCharges, db.prescriptions, db.services, stock]);
 
  const [error,setError]=useState(''),[saving,setSaving]=useState(false);
 
@@ -640,13 +714,26 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
              </label>
            </div>
 
-           {currentPatient?.insurance && (
-             <div className="his-insurance-pill">
-               <span>Số thẻ BHYT: <b>{currentPatient.insurance}</b></span>
-               <span>Nơi ĐKKCB: <b>79-014 - BVĐK MediCare</b></span>
-               <span className="badge teal">Đúng tuyến KCB</span>
-             </div>
-           )}
+           {patientBhyt.hasInsurance ? (
+            <div style={{ marginTop: '12px', padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', fontSize: '12px', color: '#166534', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              <div>
+                <b>Thẻ BHYT: {patientBhyt.code}</b> · Nhóm <b>{patientBhyt.groupCode}</b> ({patientBhyt.groupName}) {patientBhyt.provinceName ? `· Tỉnh/TP cấp: ${patientBhyt.provinceName}` : ''}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span className={`badge ${patientBhyt.benefitBadgeClass}`}>{patientBhyt.benefitBadge}</span>
+                <span className="badge teal">Đúng tuyến KCB</span>
+                <small style={{ fontWeight: 600 }}>Cùng chi trả: {patientBhyt.copayRate}%</small>
+              </div>
+            </div>
+          ) : (
+            <div style={{ marginTop: '12px', padding: '10px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '12px', color: '#475569', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              <div>
+                <b>Đối tượng: Viện phí (Khám tự chi trả 100%)</b>
+                <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#64748b' }}>Người bệnh không xuất trình thẻ BHYT hợp lệ. Toàn bộ chi phí tính theo biểu giá dịch vụ niêm yết.</p>
+              </div>
+              <span className="badge gray">Viện phí 100%</span>
+            </div>
+          )}
          </div>
        </div>
 

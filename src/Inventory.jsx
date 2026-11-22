@@ -4,6 +4,7 @@ import { useWorkspace, getWorkspace, syncWithSqlServer, planFEFO, applyClinicalS
 import { today } from './business-data';
 import { actorRoles } from './roles';
 import { AllocationPreview } from './AllocationPreview';
+import { parseBhytCard } from './bhyt-utils';
 import { hisApi } from './api';
 
 export default function Inventory({ role = 'admin', notify }) {
@@ -565,6 +566,7 @@ export default function Inventory({ role = 'admin', notify }) {
                   {filteredPrescriptions.map(rx => {
                     const p = (patients || []).find(item => item.id === rx.patient) || { name: rx.patientName || rx.patient, id: rx.patient };
                     const isPending = ['Chờ cấp phát', 'Đã xác nhận', 'Nháp'].includes(rx.status);
+                    const bh = parseBhytCard(p.insurance || p.soBHYT || rx.insurance);
                     return (
                       <tr key={rx.id}>
                         <td>
@@ -575,6 +577,17 @@ export default function Inventory({ role = 'admin', notify }) {
                         <td>
                           <b>{p.name}</b>
                           <small>{p.id} {p.gender ? `· ${p.gender}` : ''} {p.birth ? `· ${new Date().getFullYear() - Number(p.birth.slice(0, 4))} tuổi` : ''}</small>
+                          <div style={{ marginTop: 4 }}>
+                            {bh.hasInsurance ? (
+                              <span className={`badge ${bh.benefitBadgeClass}`} style={{ fontSize: '9.5px', padding: '1px 6px' }}>
+                                {bh.benefitBadge} · {bh.code}
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: '9.5px', padding: '1px 6px', background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '4px' }}>
+                                Viện phí 100%
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td>
                           <b>{rx.doctor || 'BS. Trần Minh Anh'}</b>
@@ -1193,30 +1206,123 @@ export default function Inventory({ role = 'admin', notify }) {
 
             <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
               {/* Patient info box */}
-              <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-                <div>
-                  <small style={{ color: '#64748b', display: 'block' }}>Người bệnh</small>
-                  <b>{(patients || []).find(p => p.id === activeRx.patient)?.name || activeRx.patientName || activeRx.patient}</b>
-                  <small style={{ display: 'block', color: '#64748b' }}>Mã BN: {activeRx.patient}</small>
-                </div>
-                <div>
-                  <small style={{ color: '#64748b', display: 'block' }}>Bác sĩ kê đơn</small>
-                  <b>{activeRx.doctor || 'BS. Trần Minh Anh'}</b>
-                  <small style={{ display: 'block', color: '#64748b' }}>Ngày kê: {activeRx.createdAt ? new Date(activeRx.createdAt).toLocaleDateString('vi-VN') : today}</small>
-                </div>
-                <div>
-                  <small style={{ color: '#64748b', display: 'block' }}>Trạng thái cấp phát</small>
-                  <span className={`badge ${activeRx.status === 'Đã cấp phát' ? 'teal' : 'amber'}`}>
-                    {activeRx.status || 'Chờ cấp phát'}
-                  </span>
-                  {activeRx.reviewer && <small style={{ display: 'block', color: '#64748b' }}>Dược sĩ: {activeRx.reviewer}</small>}
-                </div>
-                <div style={{ gridColumn: 'span 3' }}>
-                  <small style={{ color: '#64748b', display: 'block' }}>Chẩn đoán</small>
-                  <b style={{ color: '#0f766e' }}>{activeRx.diagnosis || 'Chưa ghi nhận'}</b>
-                  {activeRx.advice && <div style={{ marginTop: 4, fontSize: 13, color: '#334155' }}><b>Lời dặn:</b> {activeRx.advice}</div>}
-                </div>
-              </div>
+              {(() => {
+                const pObj = (patients || []).find(p => p.id === activeRx.patient) || { name: activeRx.patientName || activeRx.patient, id: activeRx.patient };
+                const bh = parseBhytCard(pObj.insurance || pObj.soBHYT || activeRx.insurance);
+                const rxMedItems = (activeRx.lines || []).map(line => {
+                  const med = stock.find(s => s.id === line.medicine);
+                  const price = Number(med?.price || med?.cost || 2500);
+                  const qty = Number(line.quantity || 1);
+                  const inBhyt = (med?.insurancePrice !== undefined && med.insurancePrice > 0) || (med?.inBhyt !== false);
+                  return { ...line, med, price, qty, total: price * qty, inBhyt };
+                });
+                const totalCost = rxMedItems.reduce((s, l) => s + l.total, 0);
+                const eligibleCost = bh.hasInsurance ? rxMedItems.filter(l => l.inBhyt).reduce((s, l) => s + l.total, 0) : 0;
+                const bhytPaid = bh.hasInsurance ? Math.round((eligibleCost * bh.rate) / 100) : 0;
+                const patientDue = totalCost - bhytPaid;
+                return (
+                  <>
+                    <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                      <div>
+                        <small style={{ color: '#64748b', display: 'block' }}>Người bệnh</small>
+                        <b>{pObj.name}</b>
+                        <small style={{ display: 'block', color: '#64748b' }}>Mã BN: {activeRx.patient}</small>
+                      </div>
+                      <div>
+                        <small style={{ color: '#64748b', display: 'block' }}>Bác sĩ kê đơn</small>
+                        <b>{activeRx.doctor || 'BS. Trần Minh Anh'}</b>
+                        <small style={{ display: 'block', color: '#64748b' }}>Ngày kê: {activeRx.createdAt ? new Date(activeRx.createdAt).toLocaleDateString('vi-VN') : today}</small>
+                      </div>
+                      <div>
+                        <small style={{ color: '#64748b', display: 'block' }}>Chế độ KCB & BHYT</small>
+                        {bh.hasInsurance ? (
+                          <>
+                            <b style={{ color: '#047857' }}>{bh.code}</b>
+                            <small style={{ display: 'block', color: '#15803d' }}>{bh.benefitBadge} · {bh.groupName}</small>
+                          </>
+                        ) : (
+                          <>
+                            <b style={{ color: '#475569' }}>Viện phí</b>
+                            <small style={{ display: 'block', color: '#64748b' }}>Tự chi trả 100%</small>
+                          </>
+                        )}
+                      </div>
+                      <div>
+                        <small style={{ color: '#64748b', display: 'block' }}>Trạng thái cấp phát</small>
+                        <span className={`badge ${activeRx.status === 'Đã cấp phát' ? 'teal' : 'amber'}`}>
+                          {activeRx.status || 'Chờ cấp phát'}
+                        </span>
+                        {activeRx.reviewer && <small style={{ display: 'block', color: '#64748b' }}>Dược sĩ: {activeRx.reviewer}</small>}
+                      </div>
+                      <div style={{ gridColumn: 'span 4' }}>
+                        <small style={{ color: '#64748b', display: 'block' }}>Chẩn đoán</small>
+                        <b style={{ color: '#0f766e' }}>{activeRx.diagnosis || 'Chưa ghi nhận'}</b>
+                        {activeRx.advice && <div style={{ marginTop: 4, fontSize: 13, color: '#334155' }}><b>Lời dặn:</b> {activeRx.advice}</div>}
+                      </div>
+                    </div>
+
+                    {/* Prescribed medicines table */}
+                    <div>
+                      <h4 style={{ margin: '0 0 8px 0', fontSize: 14 }}>Danh mục thuốc chỉ định</h4>
+                      <div className="table-scroll" style={{ border: '1px solid #e2e8f0', borderRadius: 6 }}>
+                        <table style={{ margin: 0 }}>
+                          <thead>
+                            <tr>
+                              <th>TÊN THUỐC / HOẠT CHẤT</th>
+                              <th style={{ textAlign: 'center' }}>SL KÊ</th>
+                              <th style={{ textAlign: 'right' }}>ĐƠN GIÁ (₫)</th>
+                              <th style={{ textAlign: 'center' }}>BHYT</th>
+                              <th style={{ textAlign: 'right' }}>THÀNH TIỀN (₫)</th>
+                              <th>HƯỚNG DẪN DÙNG</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rxMedItems.map((item, idx) => (
+                              <tr key={idx}>
+                                <td>
+                                  <b>{item.med?.name || item.medicineName || item.medicine}</b>
+                                  {item.med?.activeIngredient && <small style={{ display: 'block', color: '#64748b' }}>{item.med.activeIngredient}</small>}
+                                </td>
+                                <td style={{ textAlign: 'center' }}><b>{item.qty}</b> {item.unit || item.med?.unit || 'Viên'}</td>
+                                <td style={{ textAlign: 'right' }}>{item.price.toLocaleString('vi-VN')}</td>
+                                <td style={{ textAlign: 'center' }}>
+                                  <span className={`badge ${item.inBhyt ? 'teal' : 'amber'}`} style={{ fontSize: '10px' }}>
+                                    {item.inBhyt ? 'BHYT' : 'Tự túc'}
+                                  </span>
+                                </td>
+                                <td style={{ textAlign: 'right', fontWeight: 600 }}>{item.total.toLocaleString('vi-VN')}</td>
+                                <td>{item.frequency || item.dose || 'Theo chỉ định'} · {item.route || 'Uống'} ({item.days || 1} ngày)</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* BHYT Financial Summary Card */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginTop: 10, padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8 }}>
+                        <div>
+                          <small style={{ color: '#64748b', display: 'block' }}>1. Tổng tiền thuốc</small>
+                          <b style={{ fontSize: 14, color: '#0f172a' }}>{totalCost.toLocaleString('vi-VN')} ₫</b>
+                        </div>
+                        <div>
+                          <small style={{ color: '#047857', display: 'block' }}>2. BHYT thanh toán ({bh.hasInsurance ? `${bh.rate}%` : '0%'})</small>
+                          <b style={{ fontSize: 14, color: '#047857' }}>{bhytPaid.toLocaleString('vi-VN')} ₫</b>
+                        </div>
+                        <div>
+                          <small style={{ color: '#1d4ed8', display: 'block' }}>3. BN cùng chi trả</small>
+                          <b style={{ fontSize: 14, color: '#1d4ed8' }}>{patientDue.toLocaleString('vi-VN')} ₫</b>
+                        </div>
+                        <div>
+                          <small style={{ color: '#64748b', display: 'block' }}>4. Chế độ đơn</small>
+                          <span className={`badge ${bh.hasInsurance ? bh.benefitBadgeClass : 'gray'}`}>
+                            {bh.hasInsurance ? `Đơn BHYT ${bh.rate}%` : 'Đơn Viện phí 100%'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
 
               {/* Warehouse selector */}
               {activeRx.status !== 'Đã cấp phát' && (
@@ -1233,38 +1339,7 @@ export default function Inventory({ role = 'admin', notify }) {
                 </div>
               )}
 
-              {/* Prescribed medicines table */}
-              <div>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: 14 }}>Danh mục thuốc chỉ định</h4>
-                <div className="table-scroll" style={{ border: '1px solid #e2e8f0', borderRadius: 6 }}>
-                  <table style={{ margin: 0 }}>
-                    <thead>
-                      <tr>
-                        <th>TÊN THUỐC / HOẠT CHẤT</th>
-                        <th>SỐ LƯỢNG KÊ</th>
-                        <th>HƯỚNG DẪN DÙNG</th>
-                        <th>SỐ NGÀY</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(activeRx.lines || []).map((line, idx) => {
-                        const med = stock.find(s => s.id === line.medicine);
-                        return (
-                          <tr key={idx}>
-                            <td>
-                              <b>{med?.name || line.medicineName || line.medicine}</b>
-                              {med?.activeIngredient && <small style={{ display: 'block', color: '#64748b' }}>{med.activeIngredient}</small>}
-                            </td>
-                            <td><b>{line.quantity}</b> {line.unit || med?.unit || 'Viên'}</td>
-                            <td>{line.frequency || line.dose || 'Theo chỉ định'} · {line.route || 'Uống'}</td>
-                            <td>{line.days || 1} ngày</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+
 
               {/* FEFO Allocation Preview */}
               <div>

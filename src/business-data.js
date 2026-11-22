@@ -49,7 +49,7 @@ export const seeds={
  warehouses:[
   {id:'KHO_TONG',name:'Kho Dược Tổng Toàn Viện',kind:'Kho tổng',manager:'NV-DS01',location:'Dãy A - Kệ 01 - Tầng 2',status:'Đang hoạt động'},
   {id:'KHO_NGOAI_TRU',name:'Nhà Thuốc Khám Ngoại Trú',kind:'Kho lẻ',manager:'NV-DS01',location:'Tủ lẻ 03 - Ngăn 1',status:'Đang hoạt động'},
-  {id:'TU_TRUC_CAP_CUU',name:'Tủ Trực Dược Khoa Nội 24/7',kind:'Tủ trực khoa',manager:'NV-DS01',location:'Phòng trực Khoa Nội tổng quát',status:'Đang hoạt động'}
+  {id:'TU_TRUC_NOI_247',name:'Tủ Trực Dược Khoa Nội 24/7',kind:'Tủ trực khoa',manager:'NV-DS01',location:'Phòng trực Khoa Nội tổng quát',status:'Đang hoạt động'}
  ],
  movements:[],counts:[],advances:[],shifts:[],
  archives:[],corrections:[],authorizations:[],

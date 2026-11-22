@@ -5,6 +5,7 @@ import {useWorkspace,getWorkspace,createVisit,saveVisitNote,syncWithSqlServer,tr
 import {today,clinics} from './business-data';
 import {actorRoles} from './roles';
 import Icd10Search from './Icd10Search';
+import { parseBhytCard } from './bhyt-utils';
 
 export function EpisodeField({patientId,value,onChange,inpatientOnly=false}){
   const [visits]=useWorkspace('visits'),[admissions]=useWorkspace('admissions');
@@ -23,13 +24,30 @@ export function EpisodeField({patientId,value,onChange,inpatientOnly=false}){
 }
 
 export function PatientHistory({patientId,clinical=false}){
-  const [visits]=useWorkspace('visits'),[admissions]=useWorkspace('admissions');
+  const [visits]=useWorkspace('visits'),[admissions]=useWorkspace('admissions'),[patients]=useWorkspace('patients');
+  const pt = patients.find(p => p.id === patientId);
+  const bh = parseBhytCard(pt?.insurance);
   const items=[...visits.filter(v=>v.patientId===patientId),...admissions.filter(a=>a.patientId===patientId)].sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id));
   return <div className="inline-history">
-    <h3>Lịch sử khám và điều trị · {items.length} hồ sơ</h3>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
+      <h3 style={{margin:0}}>Lịch sử khám và điều trị · {items.length} hồ sơ</h3>
+      {bh.hasInsurance ? (
+        <span className={`badge ${bh.benefitBadgeClass}`} style={{fontSize:'10px'}}>
+          {bh.benefitBadge} · {bh.code}
+        </span>
+      ) : (
+        <span className="badge gray" style={{fontSize:'10px'}}>Viện phí 100%</span>
+      )}
+    </div>
     {items.map(v=><div className="episode-mini" key={v.id}>
-      <b>{v.id}</b> · {v.date} · {v.department}<br/>
-      {v.status}{clinical&&v.note?.diagnosis&&<p>Chẩn đoán: {v.note.diagnosis}</p>}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <b>{v.id}</b>
+        <span className="badge teal" style={{fontSize:'9.5px'}}>{v.status}</span>
+      </div>
+      <div style={{fontSize:'12px',color:'#475569',marginTop:'2px'}}>
+        <span>{v.date}</span> · <span>{v.department}</span> {v.doctor ? `· ${v.doctor}` : ''}
+      </div>
+      {clinical&&v.note?.diagnosis&&<p style={{margin:'4px 0 0',color:'#0f766e',fontWeight:600}}>Chẩn đoán: {v.note.diagnosis}</p>}
     </div>)}
     {!items.length&&<p className="form-hint">Chưa có lượt khám hoặc đợt điều trị.</p>}
   </div>;
@@ -143,7 +161,10 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
           <div>
             <h2>Phiếu khám bệnh lâm sàng chuyên khoa & Chẩn đoán ICD-10</h2>
             <p className="his-header-sub">
-              Người bệnh: <b>{patient.name}</b> · Mã BN: <b>{patient.id}</b> · {patient.gender}, {patient.birth} · BHYT: {patient.insurance || 'Không có'}
+              Người bệnh: <b>{patient.name}</b> · Mã BN: <b>{patient.id}</b> · {patient.gender}, {patient.birth} · {(() => {
+                const bh = parseBhytCard(patient.insurance);
+                return bh.hasInsurance ? <span>BHYT: <b>{bh.code}</b> ({bh.benefitBadge} · {bh.groupName})</span> : <span>Chế độ: <b>Viện phí (Khám tự chi trả)</b></span>;
+              })()}
             </p>
           </div>
         </div>

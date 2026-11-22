@@ -3,6 +3,7 @@ import { BedDouble, User, AlertTriangle, ShieldCheck, Stethoscope, Clock, Credit
 import { hisApi } from './api';
 import { getWorkspace } from './workspace';
 import Icd10Search from './Icd10Search';
+import { parseBhytCard } from './bhyt-utils';
 
 const DEFAULT_DOCTORS = [
   { id: 'NV-BS01', name: 'BS. Trần Minh Anh (Nội tổng quát)' },
@@ -201,8 +202,13 @@ export default function InpatientAdmissionModal({
               <b className="his-val">{bed.patient} · {bed.admissionId || 'Đang mở'}</b>
             </div>
             <div>
-              <span className="his-label">Số thẻ BHYT</span>
-              <b className="his-val">{pt?.insurance || pt?.soBHYT || 'BHYT-4790123456'}</b>
+              <span className="his-label">Chế độ KCB & BHYT</span>
+              <b className="his-val">
+                {(() => {
+                  const bh = parseBhytCard(pt?.insurance || pt?.soBHYT);
+                  return bh.hasInsurance ? `${bh.code} (${bh.benefitBadge} · ${bh.groupName})` : 'Viện phí (Khám tự chi trả)';
+                })()}
+              </b>
             </div>
           </div>
           {pt?.allergies && (
@@ -298,15 +304,20 @@ export default function InpatientAdmissionModal({
               </div>
               <div>
                 <span className="his-label">Mã định danh / CCCD</span>
-                <b>{selectedPatient.soDinhDanh || '079188009999'}</b>
+                <b>{selectedPatient.cccd || selectedPatient.soDinhDanh || 'Chưa cập nhật'}</b>
               </div>
               <div>
-                <span className="his-label">Số thẻ BHYT</span>
-                <b className="text-teal">{selectedPatient.insurance || selectedPatient.soBHYT || 'DN4790123456789'}</b>
+                <span className="his-label">Chế độ KCB & BHYT</span>
+                <b className="text-teal">
+                  {(() => {
+                    const bh = parseBhytCard(selectedPatient.insurance || selectedPatient.soBHYT);
+                    return bh.hasInsurance ? `${bh.code} (${bh.benefitBadge} · ${bh.groupName})` : 'Viện phí (Khám tự chi trả 100%)';
+                  })()}
+                </b>
               </div>
               <div>
                 <span className="his-label">Điện thoại liên hệ</span>
-                <b>{selectedPatient.phone || selectedPatient.soDienThoai || '0987654321'}</b>
+                <b>{selectedPatient.phone || selectedPatient.soDienThoai || 'Chưa cập nhật'}</b>
               </div>
             </div>
 

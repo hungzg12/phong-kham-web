@@ -121,7 +121,7 @@ export function calculateBhytCostBreakdown(items = [], cardCode = '', isCorrectL
     const itemTotal = qty * price;
     gross += itemTotal;
 
-    const isEligible = item.insuranceCovered !== false && info.hasInsurance;
+    const isEligible = item.insuranceCovered !== false && item.inBhytList !== false && item.inBhyt !== false && info.hasInsurance;
     let itemBhytPay = 0;
     let itemCopay = itemTotal;
 
