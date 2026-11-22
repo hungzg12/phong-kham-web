@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { BedDouble, Search, CheckCircle2, AlertTriangle, User, Stethoscope, Sparkles, Filter, Building2, RefreshCw } from 'lucide-react';
+import { BedDouble, Search, CheckCircle2, AlertTriangle, User, Stethoscope, Sparkles, Filter, Building2, RefreshCw, UserPlus, Clock } from 'lucide-react';
 import { hisApi } from './api';
+import { useWorkspace } from './workspace';
 
 const DEPARTMENTS = [
   'Tất cả khoa phòng',
@@ -13,9 +14,15 @@ const DEPARTMENTS = [
 ];
 
 export default function InpatientBedMap({ beds, setBeds, patients, role, actor, onSelectBed, notify }) {
+  const [admissions] = useWorkspace('admissions');
   const [selectedDept, setSelectedDept] = useState('Tất cả khoa phòng');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [search, setSearch] = useState('');
+
+  const waitingAdmissions = (admissions || []).filter(a =>
+    a.status === 'Chờ xếp buồng' ||
+    (!beds.some(b => b.admissionId === a.id || b.patient === a.patientId) && a.status === 'Đang điều trị' && !a.dischargedAt)
+  );
 
   const totalBeds = beds.length;
   const occupiedBeds = beds.filter(b => b.patient).length;
@@ -101,6 +108,85 @@ export default function InpatientBedMap({ beds, setBeds, patients, role, actor, 
           </div>
         </div>
       </div>
+
+      {/* Admission Queue for Nurse */}
+      {waitingAdmissions.length > 0 && (
+        <div className="inpatient-admission-queue" style={{
+          background: '#f8fafc',
+          border: '1px solid #cbd5e1',
+          borderLeft: '4px solid #2563eb',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          marginBottom: '16px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <UserPlus size={18} style={{ color: '#2563eb' }} />
+              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>
+                Hàng đợi tiếp nhận nội trú · Chờ xếp buồng ({waitingAdmissions.length} người bệnh)
+              </h3>
+            </div>
+            <span style={{ fontSize: '11px', color: '#64748b' }}>
+              Chỉ định từ Bàn khám Ngoại trú
+            </span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '10px' }}>
+            {waitingAdmissions.map(adm => {
+              const pat = patients.find(p => p.id === adm.patientId) || { name: 'Người bệnh', id: adm.patientId };
+              const firstAvailableBed = beds.find(b => !b.patient && !b.cleaning);
+              return (
+                <div key={adm.id} style={{
+                  background: 'white',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '6px',
+                  padding: '10px 12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '8px'
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <b style={{ fontSize: '13px', color: '#0f172a' }}>{pat.name}</b>
+                      <span style={{ fontSize: '10px', background: '#eff6ff', color: '#1d4ed8', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                        {adm.department || 'Nội trú'}
+                      </span>
+                    </div>
+                    <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#64748b' }}>
+                      Mã: {adm.patientId} · BS chỉ định: {adm.doctor || 'Bác sĩ'}
+                    </p>
+                    {adm.reason && (
+                      <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#334155' }}>
+                        Lý do: {adm.reason}
+                      </p>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px solid #f1f5f9' }}>
+                    <span style={{ fontSize: '10px', color: '#94a3b8' }}>
+                      <Clock size={11} style={{ display: 'inline', marginRight: '3px', verticalAlign: '-1px' }} />
+                      {adm.time || 'Hôm nay'}
+                    </span>
+                    <button
+                      type="button"
+                      className="primary"
+                      style={{ fontSize: '11px', padding: '4px 10px', height: 'auto' }}
+                      onClick={() => {
+                        if (firstAvailableBed) {
+                          onSelectBed(firstAvailableBed, adm.patientId);
+                        } else {
+                          notify('Hiện không còn giường trống nào sẵn sàng. Vui lòng giải phóng hoặc khử khuẩn giường trước.');
+                        }
+                      }}
+                    >
+                      Xếp vào giường trống
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Filter Bar & Search */}
       <div className="bedmap-toolbar">

@@ -243,3 +243,39 @@
   font-style: italic;
   margin: 4px 0 0 0;
 }
+
+/* Clinical Workspace Ergonomics & Medical Display Polish */
+.clinical-desk {
+  overscroll-behavior: contain;
+}
+.desk-queue {
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.desk-workspace {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.desk-tab-panel {
+  overscroll-behavior: contain;
+}
+.desk-toolbar {
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.04);
+}
+.desk-toolbar button.primary {
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+.table-scroll td:last-child,
+.desk-records td:last-child {
+  white-space: nowrap;
+}
+@media (max-width: 1366px) {
+  .desk-layout {
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 14px;
+  }
+  .desk-field-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0 12px;
+  }
+}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BedDouble, User, AlertTriangle, ShieldCheck, Stethoscope, Clock, CreditCard, CheckCircle2, X, FileText, ChevronRight } from 'lucide-react';
 import { hisApi } from './api';
+import { getWorkspace } from './workspace';
 
 const DEFAULT_DOCTORS = [
   { id: 'NV-BS01', name: 'BS. Trần Minh Anh (Nội tổng quát)' },
@@ -32,16 +33,19 @@ export default function InpatientAdmissionModal({
   role,
   actor,
   patients = [],
+  initialPatientId = '',
   onClose,
   onSuccess,
   notify,
   navigate
 }) {
-  const [selectedPatientId, setSelectedPatientId] = useState('');
-  const [doctor, setDoctor] = useState('NV-BS01');
-  const [diagnosis, setDiagnosis] = useState('Viêm phổi thùy cấp - Theo dõi biến chứng suy hô hấp');
+  const pId = bed?.patient || initialPatientId || '';
+  const waitingAdm = (getWorkspace().admissions || []).find(a => a.patientId === pId);
+  const [selectedPatientId, setSelectedPatientId] = useState(pId);
+  const [doctor, setDoctor] = useState(waitingAdm?.doctor || 'NV-BS01');
+  const [diagnosis, setDiagnosis] = useState(waitingAdm?.diagnosis || 'Viêm phổi thùy cấp - Theo dõi biến chứng suy hô hấp');
   const [icdCode, setIcdCode] = useState('J18.1');
-  const [reason, setReason] = useState('Sốt cao 39°C liên tục 3 ngày, khó thở tăng dần khi gắng sức, ho đờm đục, đáp ứng kém với điều trị ngoại trú');
+  const [reason, setReason] = useState(waitingAdm?.reason || 'Sốt cao 39°C liên tục 3 ngày, khó thở tăng dần khi gắng sức, ho đờm đục, đáp ứng kém với điều trị ngoại trú');
   const [admissionTime, setAdmissionTime] = useState(() => {
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());

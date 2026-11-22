@@ -6,12 +6,13 @@ import { hisApi } from './api';
 
 export const LAB_ROOMS = [
   { id: 'ALL', name: 'Tất cả phòng CLS toàn viện', dept: 'Toàn viện' },
-  { id: 'P_XQ_01', name: 'Phòng X-Quang Kỹ thuật số', dept: 'Khoa CĐHA', match: s => s.includes('quang') || s.includes('xray') || s.includes('x-quang') },
-  { id: 'P_SA_01', name: 'Phòng Siêu âm Tổng quát & Doppler', dept: 'Khoa CĐHA', match: s => s.includes('siêu âm') || s.includes('sieu_am') },
-  { id: 'P_XN_HH', name: 'Phòng Xét nghiệm Huyết học & Truyền máu', dept: 'Khoa Xét nghiệm', match: s => s.includes('máu') || s.includes('công thức') || s.includes('huyết học') },
-  { id: 'P_XN_SH', name: 'Phòng Xét nghiệm Sinh hóa & Miễn dịch', dept: 'Khoa Xét nghiệm', match: s => s.includes('đường') || s.includes('glucose') || s.includes('men gan') || s.includes('ast') || s.includes('alt') || s.includes('creatinin') || s.includes('ure') || s.includes('lipid') || s.includes('mỡ') },
-  { id: 'P_TDCN_01', name: 'Phòng Điện tim & Thăm dò chức năng', dept: 'Khoa CĐHA', match: s => s.includes('điện tim') || s.includes('ecg') },
-  { id: 'P_NS_01', name: 'Phòng Nội soi Tiêu hóa & TMH', dept: 'Khoa CĐHA', match: s => s.includes('nội soi') || s.includes('tai mũi họng') }
+  { id: 'P_XQ_01', name: 'Phòng X-Quang Kỹ thuật số', dept: 'Khoa CĐHA', match: (s='',k='',c='') => s.includes('quang') || s.includes('xray') || s.includes('x-quang') || c.includes('xq') },
+  { id: 'P_CT_01', name: 'Phòng Cắt lớp vi tính (CT Scanner)', dept: 'Khoa CĐHA', match: (s='',k='',c='') => s.includes('ct') || s.includes('cắt lớp') || s.includes('scanner') || c.includes('ct') },
+  { id: 'P_SA_01', name: 'Phòng Siêu âm Tổng quát & Doppler', dept: 'Khoa CĐHA', match: (s='',k='',c='') => s.includes('siêu âm') || s.includes('sieu_am') || c.includes('sa') },
+  { id: 'P_XN_HH', name: 'Phòng Xét nghiệm Huyết học & Truyền máu', dept: 'Khoa Xét nghiệm', match: (s='',k='',c='') => s.includes('máu') || s.includes('công thức') || s.includes('huyết học') || c.includes('hh') },
+  { id: 'P_XN_SH', name: 'Phòng Xét nghiệm Sinh hóa & Miễn dịch', dept: 'Khoa Xét nghiệm', match: (s='',k='',c='') => s.includes('đường') || s.includes('glucose') || s.includes('men gan') || s.includes('ast') || s.includes('alt') || s.includes('creatinin') || s.includes('ure') || s.includes('lipid') || s.includes('mỡ') || c.includes('sh') },
+  { id: 'P_TDCN_01', name: 'Phòng Điện tim & Thăm dò chức năng', dept: 'Khoa CĐHA', match: (s='',k='',c='') => s.includes('điện tim') || s.includes('ecg') || s.includes('hô hấp') || s.includes('thông khí') },
+  { id: 'P_NS_01', name: 'Phòng Nội soi Tiêu hóa & TMH', dept: 'Khoa CĐHA', match: (s='',k='',c='') => s.includes('nội soi') || s.includes('tai mũi họng') || c.includes('ns') }
 ];
 
 export default function LabDesk({ role = 'technician', notify, clinicalContext }) {
@@ -40,8 +41,11 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
     .filter(l => role !== 'doctor' || allowed.has(l.episodeId))
     .filter(l => {
       if (!roomDef || roomDef.id === 'ALL') return true;
-      const sName = (db.services.find(s => s.id === l.service)?.name || l.service || '').toLowerCase();
-      return roomDef.match ? roomDef.match(sName) : true;
+      const sObj = db.services.find(s => s.id === l.service);
+      const sName = (sObj?.name || l.service || '').toLowerCase();
+      const sKind = (sObj?.kind || '').toLowerCase();
+      const sId = (l.service || '').toLowerCase();
+      return roomDef.match ? roomDef.match(sName, sKind, sId) : true;
     })
     .filter(l => (!status || l.status === status) && (l.id + ' ' + (patients.find(p => p.id === l.patient)?.name || '')).toLowerCase().includes(query.toLowerCase()));
 
@@ -224,8 +228,11 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
           {LAB_ROOMS.map(r => {
             const countInRoom = db.labs.filter(l => {
               if (r.id === 'ALL') return true;
-              const sName = (db.services.find(s => s.id === l.service)?.name || l.service || '').toLowerCase();
-              return r.match ? r.match(sName) : true;
+              const sObj = db.services.find(s => s.id === l.service);
+              const sName = (sObj?.name || l.service || '').toLowerCase();
+              const sKind = (sObj?.kind || '').toLowerCase();
+              const sId = (l.service || '').toLowerCase();
+              return r.match ? r.match(sName, sKind, sId) : true;
             }).length;
             return (
               <option key={r.id} value={r.id}>
