@@ -398,7 +398,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                   aria-pressed={isSelected}
                   style={{
                     border: isSelected ? '1.5px solid #0f766e' : '1px solid #e2e8f0',
-                    borderLeft: g.hasUrgent ? '4px solid #ef4444' : isSelected ? '4px solid #0f766e' : '3px solid #cbd5e1',
+                    borderLeft: isSelected ? '4px solid #0f766e' : '3px solid #cbd5e1',
                     background: isSelected ? '#f0fdfa' : '#ffffff',
                     padding: '8px 12px',
                     display: 'flex',

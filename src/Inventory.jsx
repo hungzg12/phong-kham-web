@@ -1324,52 +1324,67 @@ export default function Inventory({ role = 'admin', notify }) {
                 );
               })()}
 
-              {/* Warehouse selector */}
-              {activeRx.status !== 'Đã cấp phát' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <label style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap' }}>Kho xuất cấp phát:</label>
-                  <select
-                    className="his-select"
-                    value={dispenseWarehouse}
-                    onChange={e => setDispenseWarehouse(e.target.value)}
-                    style={{ flex: 1, padding: '6px 12px' }}
-                  >
-                    {warehouses.map(w => <option key={w.id} value={w.id}>{w.name} ({w.id})</option>)}
-                  </select>
-                </div>
-              )}
+              {/* Warehouse selector & FEFO Allocation Preview */}
+              {(() => {
+                let fefoAllocations = null;
+                let fefoError = null;
+                if (activeRx.status !== 'Đã cấp phát') {
+                  try {
+                    fefoAllocations = planFEFO(inventory, activeRx.lines, dispenseWarehouse);
+                  } catch (err) {
+                    fefoError = err.message;
+                  }
+                }
+                const alternativeWarehouse = !fefoAllocations && warehouses.find(w => {
+                  if (w.id === dispenseWarehouse) return false;
+                  try {
+                    return !!planFEFO(inventory, activeRx.lines, w.id);
+                  } catch {
+                    return false;
+                  }
+                });
 
-
-
-              {/* FEFO Allocation Preview */}
-              <div>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: 14 }}>
-                  {activeRx.status === 'Đã cấp phát' ? 'Lô thuốc đã xuất kho' : 'Phân bổ lô xuất theo nguyên tắc FEFO'}
-                </h4>
-                {activeRx.status === 'Đã cấp phát' ? (
-                  <div style={{ backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 6, padding: '10px 14px', fontSize: 13, color: '#065f46' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
-                      <CheckCircle2 size={16} /> Đơn thuốc đã được xuất cấp phát hoàn tất từ kho {db.warehouses.find(w => w.id === activeRx.warehouse)?.name || activeRx.warehouse}.
-                    </div>
-                    {(activeRx.allocations || []).length > 0 && (
-                      <ul style={{ margin: '8px 0 0 16px', padding: 0 }}>
-                        {activeRx.allocations.map((a, i) => (
-                          <li key={i}>Lô <code>{a.lot}</code> (HSD: {a.expiry}): Trừ <b>{a.quantity}</b> đơn vị</li>
-                        ))}
-                      </ul>
+                return (
+                  <>
+                    {activeRx.status !== 'Đã cấp phát' && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <label style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap' }}>Kho xuất cấp phát:</label>
+                        <select
+                          className="his-select"
+                          value={dispenseWarehouse}
+                          onChange={e => setDispenseWarehouse(e.target.value)}
+                          style={{ flex: 1, padding: '6px 12px' }}
+                        >
+                          {warehouses.map(w => <option key={w.id} value={w.id}>{w.name} ({w.id})</option>)}
+                        </select>
+                      </div>
                     )}
-                  </div>
-                ) : (
-                  (() => {
-                    try {
-                      const fefo = planFEFO(inventory, activeRx.lines, dispenseWarehouse);
-                      return (
+
+                    {/* FEFO Allocation Preview */}
+                    <div>
+                      <h4 style={{ margin: '0 0 8px 0', fontSize: 14 }}>
+                        {activeRx.status === 'Đã cấp phát' ? 'Lô thuốc đã xuất kho' : 'Phân bổ lô xuất theo nguyên tắc FEFO'}
+                      </h4>
+                      {activeRx.status === 'Đã cấp phát' ? (
+                        <div style={{ backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 6, padding: '10px 14px', fontSize: 13, color: '#065f46' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
+                            <CheckCircle2 size={16} /> Đơn thuốc đã được xuất cấp phát hoàn tất từ kho {db.warehouses.find(w => w.id === activeRx.warehouse)?.name || activeRx.warehouse}.
+                          </div>
+                          {(activeRx.allocations || []).length > 0 && (
+                            <ul style={{ margin: '8px 0 0 16px', padding: 0 }}>
+                              {activeRx.allocations.map((a, i) => (
+                                <li key={i}>Lô <code>{a.lot}</code> (HSD: {a.expiry}): Trừ <b>{a.quantity}</b> đơn vị</li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      ) : !fefoError ? (
                         <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, padding: '10px 14px', fontSize: 13 }}>
                           <span style={{ color: '#166534', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
                             <CheckCircle2 size={16} /> Đủ cơ số tồn kho khả dụng để cấp phát theo thứ tự hạn dùng gần nhất (FEFO):
                           </span>
                           <ul style={{ margin: '8px 0 0 16px', padding: 0, color: '#1e293b' }}>
-                            {fefo.map((alloc, i) => {
+                            {fefoAllocations?.map((alloc, i) => {
                               const med = stock.find(s => s.id === alloc.medicineId);
                               return (
                                 <li key={i}>
@@ -1379,36 +1394,70 @@ export default function Inventory({ role = 'admin', notify }) {
                             })}
                           </ul>
                         </div>
-                      );
-                    } catch (err) {
-                      return (
-                        <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '10px 14px', fontSize: 13, color: '#991b1b', display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <AlertCircle size={18} />
-                          <span><b>Không thể cấp phát:</b> {err.message} Vui lòng chọn kho khác hoặc lập phiếu điều chuyển/nhập kho.</span>
+                      ) : (
+                        <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: '#991b1b' }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                            <AlertCircle size={18} style={{ flexShrink: 0, marginTop: 2 }} />
+                            <div style={{ flex: 1 }}>
+                              <div><b>Không thể cấp phát:</b> {fefoError}</div>
+                              {alternativeWarehouse ? (
+                                <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                  <span style={{ color: '#047857', fontWeight: 600 }}>
+                                    💡 Kho <b>{alternativeWarehouse.name}</b> có đủ cơ số tồn khả dụng:
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDispenseWarehouse(alternativeWarehouse.id)}
+                                    style={{
+                                      padding: '5px 12px',
+                                      backgroundColor: '#059669',
+                                      color: '#ffffff',
+                                      border: 'none',
+                                      borderRadius: 6,
+                                      fontSize: 12.5,
+                                      fontWeight: 600,
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    Chuyển sang xuất tại {alternativeWarehouse.name}
+                                  </button>
+                                </div>
+                              ) : (
+                                <div style={{ marginTop: 6, fontSize: 12, color: '#7f1d1d' }}>
+                                  Vui lòng chọn kho khác hoặc lập phiếu điều chuyển/nhập kho.
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      );
-                    }
-                  })()
-                )}
-              </div>
+                      )}
+                    </div>
 
-              {/* Action buttons */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8, borderTop: '1px solid #e2e8f0', paddingTop: 14 }}>
-                <button className="secondary" onClick={() => window.print()}>
-                  <Printer size={15} /> In phiếu cấp phát & Lời dặn
-                </button>
-                <button className="secondary" onClick={() => setActiveRx(null)}>Đóng</button>
-                {['Chờ cấp phát', 'Đã xác nhận', 'Nháp'].includes(activeRx.status) && (
-                  <button
-                    className="primary"
-                    disabled={dispensingRxId === activeRx.id}
-                    onClick={() => handleDispenseRx(activeRx)}
-                    style={{ backgroundColor: '#0f766e', borderColor: '#0f766e' }}
-                  >
-                    {dispensingRxId === activeRx.id ? 'Đang xuất kho...' : 'Xác nhận cấp phát thuốc (FEFO)'}
-                  </button>
-                )}
-              </div>
+                    {/* Action buttons */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8, borderTop: '1px solid #e2e8f0', paddingTop: 14 }}>
+                      <button className="secondary" onClick={() => window.print()}>
+                        <Printer size={15} /> In phiếu cấp phát & Lời dặn
+                      </button>
+                      <button className="secondary" onClick={() => setActiveRx(null)}>Đóng</button>
+                      {['Chờ cấp phát', 'Đã xác nhận', 'Nháp'].includes(activeRx.status) && (
+                        <button
+                          className="primary"
+                          disabled={dispensingRxId === activeRx.id || !!fefoError}
+                          onClick={() => handleDispenseRx(activeRx)}
+                          style={{
+                            backgroundColor: fefoError ? '#94a3b8' : '#0f766e',
+                            borderColor: fefoError ? '#94a3b8' : '#0f766e',
+                            cursor: fefoError ? 'not-allowed' : 'pointer'
+                          }}
+                          title={fefoError ? 'Kho đã chọn không đủ cơ số tồn khả dụng' : 'Xuất kho và hoàn tất cấp phát'}
+                        >
+                          {dispensingRxId === activeRx.id ? 'Đang xuất kho...' : fefoError ? 'Thiếu tồn kho (Không thể xuất)' : 'Xác nhận cấp phát thuốc (FEFO)'}
+                        </button>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </section>
         </div>

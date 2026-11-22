@@ -24,7 +24,7 @@ BEGIN TRY
         VALUES 
         ('KHO_TONG', N'Kho Dược Tổng Toàn Viện', 'KHOA_DUOC', 'KHO_TONG', N'Tầng hầm B1', 1),
         ('KHO_NGOAI_TRU', N'Nhà Thuốc Khám Ngoại Trú', 'KHOA_DUOC', 'KHO_LE_NGOAI_TRU', N'Tầng 1 - Cổng chính', 1),
-        ('TU_TRUC_CAP_CUU', N'Tủ Trực Cấp Cứu 24/7', 'KHOA_DUOC', 'TU_TRUC_KHOA', N'Khoa Cấp Cứu', 1);
+        ('TU_TRUC_NOI_247', N'Tủ Trực Dược Khoa Nội 24/7', 'KHOA_DUOC', 'TU_TRUC_KHOA', N'Phòng trực Khoa Nội tổng quát', 1);
     END;
 
     -- 3. Nạp Danh mục Hàng hóa y tế (Thuốc & Vật tư)
@@ -96,7 +96,7 @@ BEGIN TRY
         -- Panadol: Kho Tổng giữ 3.600 viên, Kho Ngoại Trú giữ 1.200 viên, Tủ Trực cấp cứu giữ 200 viên (Đã xuất dùng 0 viên)
         ('LTK_001', 'KHO_TONG', 'LO_PARA_2026_01', 3600.0000, 3600.0000, N'Dãy A - Kệ 01 - Tầng 2', 0),
         ('LTK_002', 'KHO_NGOAI_TRU', 'LO_PARA_2026_01', 1200.0000, 1200.0000, N'Tủ lẻ 03 - Ngăn 1', 0),
-        ('LTK_003', 'TU_TRUC_CAP_CUU', 'LO_PARA_2026_01', 200.0000, 200.0000, N'Hộp thuốc khẩn', 0),
+        ('LTK_003', 'TU_TRUC_NOI_247', 'LO_PARA_2026_01', 200.0000, 200.0000, N'Hộp thuốc khẩn', 0),
 
         -- Augmentin (Lô cận date 60 ngày): Nhập 1.000 viên, hiện còn tồn 450 viên ở Kho ngoại trú (Đã kê đơn xuất 550 viên)
         ('LTK_004', 'KHO_NGOAI_TRU', 'LO_AUG_2026_CD', 450.0000, 450.0000, N'Kệ kháng sinh K1', 0),
@@ -105,7 +105,8 @@ BEGIN TRY
         ('LTK_005', 'KHO_NGOAI_TRU', 'LO_ZIN_2026_HOT', 180.0000, 180.0000, N'Kệ FEFO Cận Date', 0),
 
         -- Nexium: Nhập 3.000 viên, hiện tồn 2.500 viên ở Kho Tổng (Đã chuyển phát 500 viên)
-        ('LTK_006', 'KHO_TONG', 'LO_NEX_2026_OK', 2500.0000, 2500.0000, N'Dãy B - Kệ 04', 0),
+        ('LTK_006', 'KHO_TONG', 'LO_NEX_2026_OK', 2000.0000, 2000.0000, N'Dãy B - Kệ 04', 0),
+        ('LTK_009', 'KHO_NGOAI_TRU', 'LO_NEX_2026_OK', 500.0000, 500.0000, N'Tủ lẻ 02 - Ngăn tiêu hóa', 0),
 
         -- Lô Panadol hết hạn: Còn 350 viên trong Kho Tổng (ĐÃ BỊ KHÓA)
         ('LTK_007', 'KHO_TONG', 'LO_PARA_HET_HAN', 350.0000, 0.0000, N'Khu vực thuốc chờ hủy', 1),
