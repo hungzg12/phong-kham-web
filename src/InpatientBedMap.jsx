@@ -7,7 +7,7 @@ const DEPARTMENTS = [
   'Tất cả khoa phòng',
   'Khoa Nội tổng quát',
   'Khoa Tim mạch',
-  'Khoa Cấp cứu & Hồi sức tích cực (ICU)',
+  'Khoa Hồi sức tích cực & Chăm sóc đặc biệt (ICU)',
   'Khoa Ngoại tổng hợp',
   'Khoa Sản phụ khoa',
   'Khoa Nhi'

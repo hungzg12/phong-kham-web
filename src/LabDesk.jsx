@@ -3,6 +3,7 @@ import { Search, Plus, Trash2, Printer, Check, Sparkles, Activity, AlertTriangle
 import { useWorkspace, transact } from './workspace';
 import { actorRoles, canAction } from './roles';
 import { hisApi } from './api';
+import { parseBhytCard } from './bhyt-utils';
 
 export const LAB_ROOMS = [
   { id: 'ALL', name: 'Tất cả phòng CLS toàn viện', dept: 'Toàn viện' },
@@ -68,7 +69,6 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
         doctor: lab.doctor,
         diagnosis: lab.diagnosis,
         services: [],
-        hasUrgent: false,
         counts: { wait: 0, inProgress: 0, done: 0, total: 0 }
       };
       patientGroupMap.set(key, group);
@@ -77,7 +77,6 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
     const g = patientGroupMap.get(key);
     g.services.push(lab);
     g.counts.total++;
-    if (lab.priority === 'Khẩn cấp' || lab.priority === 'CAP_CUU') g.hasUrgent = true;
     if (lab.status === 'Chờ tiếp nhận') g.counts.wait++;
     else if (lab.status === 'Đang thực hiện') g.counts.inProgress++;
     else if (lab.status === 'Đã phát hành') g.counts.done++;
@@ -432,11 +431,18 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                       </b>
                       {demo && <span style={{ fontSize: '11px', color: '#64748b', whiteSpace: 'nowrap', flexShrink: 0 }}>({demo})</span>}
                     </div>
-                    {g.hasUrgent && (
-                      <span style={{ background: '#fee2e2', color: '#b91c1c', fontSize: '9px', padding: '1px 5px', borderRadius: '3px', fontWeight: 700, flexShrink: 0 }}>
-                        ⚡ CẤP CỨU
-                      </span>
-                    )}
+                    {(() => {
+                      const bh = parseBhytCard(g.patientObj?.insurance);
+                      return bh.hasInsurance ? (
+                        <span className={`badge ${bh.benefitBadgeClass}`} style={{ fontSize: '9.5px', padding: '1px 5px', fontWeight: 600, flexShrink: 0 }}>
+                          {bh.benefitBadge}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '9.5px', padding: '1px 5px', background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '3px', flexShrink: 0 }}>
+                          Viện phí
+                        </span>
+                      );
+                    })()}
                   </div>
 
                   {/* Line 2: Service count & names summary + Episode ID + Consolidated Status Badge */}
@@ -482,11 +488,18 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                       <span style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '11px', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
                         {patientObj.gender || 'Nam'} · {patientObj.birth ? new Date().getFullYear() - Number(patientObj.birth.slice(0, 4)) : '45'} tuổi
                       </span>
-                      {patientObj.insurance && (
-                        <span style={{ background: '#dcfce7', color: '#166534', fontSize: '11px', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
-                          BHYT: {patientObj.insurance}
-                        </span>
-                      )}
+                      {(() => {
+                        const bh = parseBhytCard(patientObj.insurance);
+                        return bh.hasInsurance ? (
+                          <span style={{ background: '#dcfce7', color: '#166534', border: '1px solid #bbf7d0', fontSize: '11px', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                            BHYT: {bh.code} ({bh.summary} · {bh.groupName})
+                          </span>
+                        ) : (
+                          <span style={{ background: '#f8fafc', color: '#475569', border: '1px solid #e2e8f0', fontSize: '11px', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                            Đối tượng: Viện phí (Khám tự chi trả)
+                          </span>
+                        );
+                      })()}
                     </div>
                     <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#475569' }}>
                       Đợt/Lượt khám: <b>{activeGroup.episodeId}</b> · Thời điểm chỉ định: <b>{activeGroup.date || 'Hôm nay'}</b> · Mã phiếu: <b>{row.id}</b>

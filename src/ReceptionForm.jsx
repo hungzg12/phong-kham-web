@@ -3,6 +3,7 @@ import { hisApi } from './api';
 import { clinics, today } from './business-data';
 import { syncWithSqlServer, useWorkspace } from './workspace';
 import { HeartPulse, Search, AlertTriangle, IdCard, Shield, Stethoscope, Check, X, UserCheck } from 'lucide-react';
+import { parseBhytCard } from './bhyt-utils';
 
 const CLINIC_ROOMS = [
   { code: 'PK-NOI', name: 'Phòng khám 101 - Nội tổng quát', dept: 'Nội tổng quát', doctor: 'BS.CKI Trần Minh Anh' },
@@ -420,7 +421,7 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
                     className="his-select"
                   >
                     <option value="BHYT">BHYT (Có thẻ BHYT)</option>
-                    <option value="VIEN_PHI">Viện phí (Khám dịch vụ)</option>
+                    <option value="VIEN_PHI">Viện phí (Khám tự chi trả 100%)</option>
                   </select>
                 </label>
 
@@ -459,6 +460,20 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
                   </div>
                 )}
               </div>
+
+              {patientType === 'BHYT' && insuranceCard.trim().length >= 3 && (() => {
+                const bh = parseBhytCard(insuranceCard);
+                return (
+                  <div style={{ marginTop: '10px', padding: '8px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', fontSize: '12px', color: '#166534', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                    <div>
+                      <b>Quy chuẩn BHYT:</b> Nhóm <b>{bh.groupCode}</b> ({bh.groupName}) {bh.provinceName ? `· Tỉnh/TP cấp: ${bh.provinceName}` : ''}
+                    </div>
+                    <div>
+                      <b>Đúng tuyến:</b> Quỹ BHYT thanh toán <b>{bh.rate}%</b> chi phí danh mục (Người bệnh cùng chi trả {bh.copayRate}%)
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* PHẦN 3: BUỒNG KHÁM & LÝ DO KHÁM */}

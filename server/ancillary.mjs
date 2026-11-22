@@ -16,7 +16,7 @@ export async function ancillaryState(){
  SELECT JSON_QUERY((SELECT maNhanVien id,hoTen name,chucDanh title,chuyenMon specialty,maKhoa departmentId,N'Đang hoạt động' status FROM dbo.NhanVien WHERE dangLamViec=1 FOR JSON PATH)) staff,
  JSON_QUERY((SELECT v.maPhieu id,l.maBenhNhan patient,COALESCE(JSON_VALUE(a.duLieuSau,'$.episodeId'),v.maLuotKham) episodeId,CONVERT(varchar(19),v.thoiDiemDo,126) time,v.mach pulse,v.nhietDo temperature,v.spo2,v.chieuCao height,v.canNang weight,v.bmi,CONCAT(v.huyetApTamThu,'/',v.huyetApTamTruong) pressure,N'Đã ghi nhận' status FROM dbo.PhieuSinhHieu v JOIN dbo.LuotKham l ON l.maLuotKham=v.maLuotKham OUTER APPLY(SELECT TOP 1 duLieuSau FROM dbo.NhatKyThayDoi WHERE loaiDoiTuong='SinhHieu' AND maDoiTuong=v.maPhieu ORDER BY maNhatKy DESC) a FOR JSON PATH)) vitals,
  JSON_QUERY((SELECT ct.maChiTiet id,COALESCE(c.maLuotKham,c.maDotDieuTri) episodeId,COALESCE(l.maBenhNhan,dt.maBenhNhan) patient,c.maBacSiChiDinh doctor,ct.maDichVu service,c.chanDoanLamSang diagnosis,
- CASE c.loaiUuTien WHEN 'CAP_CUU' THEN N'Khẩn cấp' ELSE N'Thường quy' END priority,
+ N'Thường quy' priority,
  CASE WHEN ct.trangThai='DA_HUY' THEN N'Đã hủy' WHEN k.trangThai='DA_DUYET' THEN N'Đã phát hành' WHEN k.maKetQua IS NOT NULL THEN N'Chờ duyệt' WHEN ct.trangThai='DANG_THUC_HIEN' THEN N'Đang thực hiện' ELSE N'Chờ tiếp nhận' END status,
  ISNULL(a.maNhatKy,0) resultRevision,
  COALESCE(JSON_QUERY(a.duLieuSau,'$.rows'), JSON_QUERY((SELECT cs.tenChiSo name, cs.giaTriDo value, cs.donViDo unit, cs.khoangThamChieu reference FROM dbo.ChiSoXetNghiem cs WHERE cs.maKetQua=k.maKetQua FOR JSON PATH))) resultRows,
@@ -144,7 +144,7 @@ export async function createLab(data){
  INSERT dbo.ChiDinhCLS(maChiDinh,maLuotKham,maDotDieuTri,maBacSiChiDinh,chanDoanLamSang,loaiUuTien) VALUES(@id,@visitId,@admissionId,@staff,@diagnosis,@priority);
  INSERT dbo.ChiTietChiDinh(maChiTiet,maChiDinh,maDichVu,donGiaApDung)
  SELECT 'CT-'+LEFT(REPLACE(CONVERT(varchar(36),NEWID()),'-',''),16),@id,d.maDichVu,d.donGia FROM dbo.DichVuKyThuat d JOIN OPENJSON(@services) s ON s.value=d.maDichVu;
- SET @result=N'{}';`,{id:uid('CD-'),visit:data.episodeId,patient:data.patient,staff:data.staffId,diagnosis:data.diagnosis,priority:data.priority==='Khẩn cấp'?'CAP_CUU':'THUONG',services:JSON.stringify(data.services)});
+ SET @result=N'{}';`,{id:uid('CD-'),visit:data.episodeId,patient:data.patient,staff:data.staffId,diagnosis:data.diagnosis,priority:'THUONG',services:JSON.stringify(data.services)});
  return (await ancillaryState()).labs.filter(l=>l.episodeId===data.episodeId);
 }
 
