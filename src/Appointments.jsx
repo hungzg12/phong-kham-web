@@ -1,14 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import {hisApi} from './api';
+import React, { useState, useEffect, useRef } from 'react';
 import { CalendarDays, List, Plus, Search, Check, X, ChevronLeft, ChevronRight, Clock3 } from 'lucide-react';
 import { clinics, today } from './business-data';
 import './calendar.css';
 import { syncWithSqlServer } from './workspace';
 
-export default function Appointments({ appointments, setAppointments, patients, setPatients, notify, request = 0 }) {
+export default function Appointments({ appointments, setAppointments, patients, setPatients, notify, request = 0, focusId, onBack }) {
   const [view, setView] = useState('list');
   const [filter, setFilter] = useState('Tất cả');
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState(null);
+  const returnFocus=useRef(null),closeButton=useRef(null);
+  useEffect(()=>{if(!modal)return;returnFocus.current=document.activeElement;closeButton.current?.focus();const onKey=e=>{if(e.key==='Escape'){e.preventDefault();setModal(null);}};window.addEventListener('keydown',onKey);return()=>{window.removeEventListener('keydown',onKey);returnFocus.current?.focus?.();};},[modal]);
   const [week, setWeek] = useState(0);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -75,7 +78,7 @@ export default function Appointments({ appointments, setAppointments, patients, 
     const query = search.trim().toLowerCase();
     const matchSearch = !query || `${a.name} ${a.phone} ${a.dept} ${a.id}`.toLowerCase().includes(query);
     const matchFilter = filter === 'Tất cả' ? a.status !== 'Đã hủy' : a.status === filter;
-    return matchSearch && matchFilter;
+    return matchSearch && (focusId?a.id===focusId:matchFilter);
   });
 
   const open = value => {
@@ -84,9 +87,7 @@ export default function Appointments({ appointments, setAppointments, patients, 
   };
 
   async function persist(method, body) {
-    const response = await fetch('/api/appointments', {method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Không lưu được lịch hẹn.');
+    const result = await hisApi.saveAppointment(method,body);
     if (!result.id) throw new Error('Máy chủ chưa xác nhận lịch hẹn đã lưu.');
     const record = {...result,dept:result.dept || result.department,date:result.day+'T'+result.time};
     setAppointments(list => [record,...list.filter(a=>a.id!==record.id)]);
@@ -123,9 +124,7 @@ export default function Appointments({ appointments, setAppointments, patients, 
     if(saving) return;
     setError('');setSaving(true);
     try {
-      const response=await fetch('/api/visits',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({appointmentId:a.id,patientId:a.patientId})});
-      const result=await response.json();
-      if(!response.ok)throw new Error(result.error || 'Không thể tiếp đón người bệnh.');
+      const result=await hisApi.createVisit({appointmentId:a.id,patientId:a.patientId});
       await syncFromSql();
       await syncWithSqlServer();
       setModal(null);
@@ -180,9 +179,6 @@ export default function Appointments({ appointments, setAppointments, patients, 
                 <CalendarDays size={16} />
               </button>
             </div>
-            <button className="primary" onClick={() => open({})}>
-              <Plus size={15} />Đặt lịch
-            </button>
           </div>
         </div>
 
@@ -278,7 +274,7 @@ export default function Appointments({ appointments, setAppointments, patients, 
               <div className="business-empty">
                 <CalendarDays size={35} />
                 <h3>Chưa có lịch hẹn phù hợp</h3>
-                <p>Nhấn Đặt lịch để thêm lịch khám cho người bệnh.</p>
+                <p>Nhấn Đặt lịch hẹn ở góc trên để thêm lịch khám cho người bệnh.</p>
               </div>
             )}
           </>
@@ -326,10 +322,11 @@ export default function Appointments({ appointments, setAppointments, patients, 
 
       {modal && (
         <div className="modal-backdrop" onClick={() => setModal(null)}>
-          <section className="modal" role="dialog" aria-modal="true" aria-label="Lịch hẹn" onClick={e => e.stopPropagation()}>
-            <button className="close icon-button" aria-label="Đóng lịch hẹn" onClick={() => setModal(null)}>
+          <section className="modal appointment-dialog" role="dialog" aria-modal="true" aria-label="Lịch hẹn" onClick={e => e.stopPropagation()}>
+            <button ref={closeButton} type="button" className="close icon-button" aria-label="Đóng lịch hẹn" onClick={() => setModal(null)}>
               <X size={20} />
             </button>
+            <button type="button" className="secondary appointment-dismiss" onClick={()=>setModal(null)}>Đóng / quay lại danh sách</button>
             {modal.mode === 'checkin' || modal.mode === 'view' ? (
               <>
                 <h2>{modal.mode === 'checkin' ? 'Check-in người bệnh' : 'Thông tin lịch hẹn'}</h2>

@@ -127,3 +127,22 @@ test('returns require original dispensing line; concurrent returns never exceed 
  assert.equal(Number((await pharmacyState()).inventory.find(x=>x.id==='QA_TEST_USTOCK').qty),9);
  assert.equal(Number(await querySql('SELECT COUNT(*) FROM dbo.SoKho WHERE soLuongSau<>soLuongTruoc+bienDong')),0);
 });
+
+test('lot workflow: import 300/500, transfer50, issue20 once, reject31, count28; conflicts and concurrent issues are atomic',async()=>{
+ await querySql(`INSERT dbo.HangHoaYTe(maHang,tenHang,loaiHang,donViCoSo) VALUES('QA_TEST_PCM',N'QA_TEST Paracetamol 500 mg','THUOC',N'Viên');INSERT dbo.Thuoc(maHang,hoatChat,hamLuong,duongDung,dangBaoChe) VALUES('QA_TEST_PCM',N'Paracetamol',N'500 mg',N'Uống',N'Viên nén');SELECT 'ok';`);
+ const base={medicine:'QA_TEST_PCM',warehouse:'QA_TEST_STORE',price:100,reason:'QA_TEST_LOT_WORKFLOW',expiry:'2095-01-01'};
+ for(const[lot,quantity]of [['PCM-001',300],['PCM-002',500]]){const row=await act('saveMovement',{...base,kind:'Nhập kho',lot,quantity});await act('approveMovement',{id:row.id});}
+ let state=await pharmacyState(),one=state.inventory.find(x=>x.medicineId==='QA_TEST_PCM'&&x.lot==='PCM-001');
+ const transfer=await act('saveMovement',{...base,kind:'Điều chuyển',lotId:one.id,destination:'QA_TEST_DEST',quantity:50});await act('approveMovement',{id:transfer.id});
+ state=await pharmacyState();let dest=state.inventory.find(x=>x.medicineId==='QA_TEST_PCM'&&x.warehouseId==='QA_TEST_DEST');assert.equal(dest.batchId,one.batchId);assert.equal(Number(dest.qty),50);assert.equal(Number(state.inventory.find(x=>x.id===one.id).qty),250);assert.equal(Number(state.inventory.find(x=>x.medicineId==='QA_TEST_PCM'&&x.lot==='PCM-002').qty),500);
+ const outgoing={...base,warehouse:'QA_TEST_DEST',kind:'Xuất kho',lotId:dest.id};const issue=await act('saveMovement',{...outgoing,quantity:20}),confirmation=body('approveMovement',{id:issue.id});await pharmacyAction(confirmation);await pharmacyAction(confirmation);
+ assert.equal(Number((await pharmacyState()).inventory.find(x=>x.id===dest.id).qty),30);
+ const over=await act('saveMovement',{...outgoing,quantity:31});await assert.rejects(act('approveMovement',{id:over.id}),e=>e.status===409);assert.equal(Number((await pharmacyState()).inventory.find(x=>x.id===dest.id).qty),30);
+ const countRow=await act('saveCount',{warehouse:'QA_TEST_DEST',medicine:'QA_TEST_PCM',lotId:dest.id,actual:28,reason:'QA_TEST_COUNT_MINUS2'});await act('approveCount',{id:countRow.id});state=await pharmacyState();assert.equal(Number(state.inventory.find(x=>x.id===dest.id).qty),28);assert.ok(state.ledger.some(x=>x.medicineId==='QA_TEST_PCM'&&Number(x.delta)===-2));
+ const conflict=await act('saveMovement',{...base,kind:'Nhập kho',batchId:one.batchId,lot:'PCM-001',quantity:1,expiry:'2096-01-01'});await assert.rejects(act('approveMovement',{id:conflict.id}),e=>e.status===409);
+ await querySql(`INSERT dbo.LoHang(maLoHang,maHang,soLoNhaSanXuat,ngaySanXuat,hanSuDung,soLuongNhap,donGiaNhap) VALUES('QA_TEST_PCM_OLD','QA_TEST_PCM','QA_TEST_EXPIRED_PCM','2020-01-01','2021-01-01',100,100);INSERT dbo.LoTonKho(maLoTon,maKho,maLoHang,soLuongTon,soLuongKhaDung) VALUES('QA_TEST_PCM_OLD','QA_TEST_DEST','QA_TEST_PCM_OLD',100,100);SELECT 'ok';`);
+ const expired=await act('saveMovement',{...outgoing,lotId:'QA_TEST_PCM_OLD',quantity:1});await assert.rejects(act('approveMovement',{id:expired.id}),e=>e.status===409);
+ const wrong=await act('saveMovement',{...outgoing,lotId:one.id,quantity:1});await assert.rejects(act('approveMovement',{id:wrong.id}),e=>e.status===409);
+ const issues=await Promise.all([act('saveMovement',{...outgoing,quantity:20}),act('saveMovement',{...outgoing,quantity:20})]);const simultaneous=await Promise.allSettled(issues.map(i=>act('approveMovement',{id:i.id})));assert.equal(simultaneous.filter(x=>x.status==='fulfilled').length,1);assert.equal(Number((await pharmacyState()).inventory.find(x=>x.id===dest.id).qty),8);
+ assert.equal(Number(await querySql('SELECT COUNT(*) FROM dbo.SoKho WHERE soLuongSau<>soLuongTruoc+bienDong')),0);
+});

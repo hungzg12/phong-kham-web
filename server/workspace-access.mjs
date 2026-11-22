@@ -28,6 +28,8 @@ export async function workspaceIdentity(req){
  return {role:actor,userId:user.id,person:staff.name,staffId:staff.id,csrf:session.csrf};
 }
 const readRoles={
+ '/api/notifications':['admin','receptionist','doctor','nurse','technician','pharmacist','cashier','patient'],
+ '/api/equipment':['admin'],
  '/api/patients':['admin','receptionist','doctor','nurse','technician','pharmacist','cashier','patient'],
  '/api/queue':['admin','receptionist','doctor','nurse','patient'],
  '/api/ancillary':['admin','receptionist','doctor','nurse','technician','pharmacist','cashier'],
@@ -43,6 +45,7 @@ const readRoles={
  '/api/pharmacy/batches':['admin','pharmacist'], '/api/clinical/prescriptions':['admin','doctor','pharmacist'],
 };
 const writeRoles={
+ '/api/notifications':['admin','receptionist','doctor','nurse','technician','pharmacist','cashier','patient'],
  '/api/appointments':['admin','receptionist'], '/api/patients':['admin','receptionist'], '/api/visits':['admin','receptionist'],
  '/api/clinical/exam':['admin','doctor'], '/api/nursing/vitals':['admin','nurse'], '/api/nursing/perform':['admin','nurse'], '/api/nursing/bed':['admin','nurse'],
  '/api/inpatient/admit':['admin','doctor','nurse'], '/api/inpatient/discharge':['admin','doctor','nurse'], '/api/inpatient/clean':['admin','nurse'],
@@ -66,6 +69,9 @@ export async function protectWorkspaceRequest(req){
   let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>65536)fail(413,'Dữ liệu quá dài.');}
   let data;try{data=JSON.parse(raw);}catch{fail(400,'JSON không hợp lệ.');}
   if(!data||Array.isArray(data)||typeof data!=='object')fail(400,'Dữ liệu không hợp lệ.');
+  if(path==='/api/notifications'){
+   const trusted=Buffer.from(JSON.stringify(data));req[Symbol.asyncIterator]=async function*(){yield trusted;};return {identity};
+  }
   // Ignore spoofed identity fields; domain rules still validate role-specific actions.
   data={...data,role:identity.role,staffId:identity.staffId||(identity.role==='admin'?'NV-KTV01':undefined),doctorStaffId:identity.staffId};
   if(path==='/api/nursing/perform')data.nurse=identity.staffId;

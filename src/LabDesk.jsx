@@ -36,7 +36,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
 
   // Filter rows by room and search criteria
   const rows = db.labs
-    .filter(l => !scope || (l.patient === scope.patientId && l.episodeId === scope.episodeId))
+    .filter(l => !scope || ((!scope.patientId || l.patient === scope.patientId) && l.episodeId === scope.episodeId && (!scope.recordId || l.id === scope.recordId)))
     .filter(l => role !== 'doctor' || allowed.has(l.episodeId))
     .filter(l => {
       if (!roomDef || roomDef.id === 'ALL') return true;
