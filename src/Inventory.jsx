@@ -181,10 +181,10 @@ export default function Inventory({ role = 'admin', notify }) {
     }
   };
 
-  function open(type) {
+  function open(type, customDraft = null) {
     operation.current = null;
     setModal(type);
-    setDraft(null);
+    setDraft(customDraft);
     setError('');
 
     if (type === 'lot') {
@@ -640,7 +640,10 @@ export default function Inventory({ role = 'admin', notify }) {
                     <th>SỐ LÔ SX</th>
                     <th>HẠN DÙNG (FEFO)</th>
                     <th>TỒN KHO</th>
+                    <th>ĐƠN VỊ</th>
+                    <th>ĐƠN GIÁ (₫)</th>
                     <th>TRẠNG THÁI</th>
+                    <th>THAO TÁC</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -670,13 +673,46 @@ export default function Inventory({ role = 'admin', notify }) {
                         </small>
                       </td>
                       <td>
-                        <b>{l.qty.toLocaleString('vi-VN')}</b> {l.unit}
+                        <b>{l.qty.toLocaleString('vi-VN')}</b>
                         {l.availQty !== l.qty && <small>Khả dụng: {l.availQty.toLocaleString('vi-VN')}</small>}
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '12px', color: '#475569', fontWeight: 500 }}>{l.unit || 'Viên'}</span>
+                      </td>
+                      <td>
+                        <b style={{ color: '#0f766e', fontSize: '12px' }}>{(l.price || l.cost || 2000).toLocaleString('vi-VN')} ₫</b>
                       </td>
                       <td>
                         <span className={`badge ${l.daysLeft !== undefined && l.daysLeft < 0 ? 'danger' : l.daysLeft !== undefined && l.daysLeft <= 90 ? 'amber' : 'teal'}`}>
                           {l.daysLeft !== undefined && l.daysLeft < 0 ? 'Đã hết hạn' : l.daysLeft !== undefined && l.daysLeft <= 90 ? 'Cận date' : 'Khả dụng'}
                         </span>
+                      </td>
+                      <td>
+                        <div className="row-actions">
+                          <button
+                            type="button"
+                            className="secondary"
+                            style={{ padding: '4px 10px', fontSize: '11.5px', height: '28px' }}
+                            title="Điều chuyển kho cho lô thuốc này"
+                            onClick={() => {
+                              open('transfer', { medicineId: l.medicineId, sourceWarehouse: l.warehouseId, lot: l.lot, qty: Math.min(100, l.qty) });
+                            }}
+                          >
+                            Điều chuyển
+                          </button>
+                          <button
+                            type="button"
+                            className="secondary"
+                            style={{ padding: '4px 10px', fontSize: '11.5px', height: '28px' }}
+                            title="Xem lịch sử xuất nhập & thẻ kho của thuốc này"
+                            onClick={() => {
+                              setSearch(l.name);
+                              setTab('ledger');
+                            }}
+                          >
+                            Thẻ kho
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1106,14 +1142,14 @@ export default function Inventory({ role = 'admin', notify }) {
                   ) : (
                     <>
                       <label>Mặt hàng điều chuyển
-                        <select name="medicine" required className="his-select">
+                        <select name="medicine" required className="his-select" defaultValue={draft?.medicineId || ''}>
                           <option value="">Chọn thuốc / vật tư</option>
                           {stock.map(s => <option key={s.id} value={s.id}>{s.name} · {s.id}</option>)}
                         </select>
                       </label>
                       <div className="form-grid">
                         <label>Kho nguồn (Xuất đi)
-                          <select name="source" required defaultValue={warehouse !== 'all' ? warehouse : ''} className="his-select">
+                          <select name="source" required defaultValue={draft?.sourceWarehouse || (warehouse !== 'all' ? warehouse : '')} className="his-select">
                             <option value="">Chọn kho nguồn</option>
                             {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                           </select>
@@ -1125,7 +1161,7 @@ export default function Inventory({ role = 'admin', notify }) {
                           </select>
                         </label>
                       </div>
-                      <label>Số lượng điều chuyển<input name="quantity" type="number" min="1" step="1" required className="his-input" /></label>
+                      <label>Số lượng điều chuyển<input name="quantity" type="number" min="1" step="1" required defaultValue={draft?.qty || ''} className="his-input" /></label>
                     </>
                   )}
                   <label>Lý do thao tác<input name="reason" required maxLength={500} placeholder="Xuất cấp kho ngoại trú, bổ sung cơ số..." className="his-input" /></label>

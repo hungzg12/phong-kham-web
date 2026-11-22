@@ -340,9 +340,11 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                   <small style={{ color: '#64748b', fontSize: '11px' }}>
                     Phiếu: {l.id} · BS: {db.staff.find(st => st.id === l.doctor)?.name || l.doctor}
                   </small>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
-                    <small style={{ color: '#94a3b8', fontSize: '10px' }}>Hồ sơ: {l.episodeId}</small>
-                    <span className={`badge ${l.status === 'Đã phát hành' ? 'teal' : l.status === 'Đang thực hiện' ? 'blue' : 'amber'}`} style={{ fontSize: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', gap: '8px' }}>
+                    <small style={{ color: '#64748b', fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '160px' }} title={l.episodeId}>
+                      Mã HS: {l.episodeId}
+                    </small>
+                    <span className={`badge ${l.status === 'Đã phát hành' ? 'teal' : l.status === 'Đang thực hiện' ? 'blue' : 'amber'}`} style={{ fontSize: '10.5px', flexShrink: 0 }}>
                       {l.status}
                     </span>
                   </div>
@@ -421,14 +423,27 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                       Bệnh nhân đang ở phòng chờ CLS
                     </h3>
                     {canWrite ? (
-                      <button
-                        className="primary"
-                        style={{ padding: '8px 20px', fontSize: '13px', fontWeight: 600 }}
-                        disabled={saving}
-                        onClick={() => action('accept')}
-                      >
-                        {saving ? 'Đang xử lý...' : 'Tiếp nhận người bệnh vào phòng máy'}
-                      </button>
+                      <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <button
+                          className="primary"
+                          style={{ padding: '8px 20px', fontSize: '13px', fontWeight: 600, background: '#0f766e', borderColor: '#0f766e', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                          disabled={saving}
+                          onClick={async () => {
+                            await action('accept');
+                            fillQuickTemplate();
+                          }}
+                        >
+                          <Sparkles size={15} /> Tiếp nhận & Nhập kết quả ngay (Điền mẫu chuẩn)
+                        </button>
+                        <button
+                          className="secondary"
+                          style={{ padding: '8px 16px', fontSize: '13px', fontWeight: 500 }}
+                          disabled={saving}
+                          onClick={() => action('accept')}
+                        >
+                          Tiếp nhận vào phòng máy
+                        </button>
+                      </div>
                     ) : (
                       <div style={{ fontStyle: 'italic', color: '#64748b', fontSize: '13px' }}>
                         Chờ Kỹ thuật viên tiếp nhận phòng máy.
