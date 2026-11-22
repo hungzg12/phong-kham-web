@@ -244,7 +244,9 @@ CREATE TABLE dbo.DanhMucICD10 (
     tenChuong NVARCHAR(250) NULL,
     maNhom VARCHAR(20) NULL,
     tenNhom NVARCHAR(250) NULL,
-    dangHoatDong BIT NOT NULL DEFAULT 1
+    thuongGap BIT NOT NULL DEFAULT 0,
+    dangHoatDong BIT NOT NULL DEFAULT 1,
+    trangThai AS dangHoatDong
 );';
     EXEC sys.sp_executesql N'-- 19. Bảng BoDemSoThuTuKham
 CREATE TABLE dbo.BoDemSoThuTuKham (

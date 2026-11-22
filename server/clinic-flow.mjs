@@ -100,8 +100,8 @@ export async function listVisits({history=false,id=null}={}){
 
 export async function searchIcd(query=''){
  const q=text(query,100);
- return JSON.parse(await querySql(`SELECT (SELECT TOP(35) maICD,tenBenh,ISNULL(tenTiengAnh,'') AS tenTiengAnh,maChuong,tenChuong,dangHoatDong AS trangThai
- FROM dbo.DanhMucICD10 WHERE dangHoatDong=1 AND (maICD LIKE @q+'%' OR tenBenh LIKE N'%'+@q+'%' OR tenTiengAnh LIKE N'%'+@q+'%') ORDER BY maICD FOR JSON PATH)`,{q})||'[]');
+ return JSON.parse(await querySql(`SELECT (SELECT TOP(35) maICD,tenBenh,ISNULL(tenTiengAnh,'') AS tenTiengAnh,maChuong,tenChuong,trangThai
+ FROM dbo.DanhMucICD10 WHERE trangThai=1 AND (maICD LIKE @q+'%' OR tenBenh LIKE N'%'+@q+'%' OR tenTiengAnh LIKE N'%'+@q+'%') ORDER BY thuongGap DESC, maICD ASC FOR JSON PATH)`,{q})||'[]');
 }
 
 export async function listDoctors(){
@@ -158,11 +158,12 @@ export async function saveExam(data){
  SELECT @room=maBuong,@day=ngayKham,@hour=DATEPART(HOUR,thoiDiemCapSo) FROM dbo.LuotKham WHERE maLuotKham=@id;
  IF @room IS NULL THROW 51000,'FLOW_MISSING',1;
  SELECT TOP 1 @doctor=maBacSi FROM dbo.PhanCongKham WHERE maBuong=@room AND ngayKham=@day AND caKham=CASE WHEN @hour<12 THEN 'SANG' ELSE 'CHIEU' END AND trangThai IN('DA_PHAN_CONG','DANG_TRUC','HOAN_TAT') ORDER BY maPhanCong;
+ IF @doctor IS NOT NULL AND @doctorId IS NOT NULL AND @doctorId<>@doctor THROW 51000,'FLOW_DOCTOR',1;
  IF @doctor IS NULL AND @doctorId IS NOT NULL AND EXISTS(SELECT 1 FROM dbo.NhanVien WHERE maNhanVien=@doctorId AND chuyenMon='BAC_SI' AND dangLamViec=1)
   SET @doctor=@doctorId;
  IF @doctor IS NULL
   SELECT TOP 1 @doctor=n.maNhanVien FROM dbo.NhanVien n JOIN dbo.Khoa k ON k.maKhoa=n.maKhoa JOIN dbo.BuongKham b ON b.maKhoa=k.maKhoa WHERE b.maBuong=@room AND n.chuyenMon='BAC_SI' AND n.dangLamViec=1 ORDER BY n.maNhanVien;
- IF @doctor IS NULL THROW 51000,'FLOW_DOCTOR',1;
+ IF @doctor IS NULL OR (@doctorId IS NOT NULL AND @doctorId<>@doctor) THROW 51000,'FLOW_DOCTOR',1;
  SELECT @current=ISNULL(MAX(maNhatKy),0) FROM dbo.NhatKyThayDoi WHERE loaiDoiTuong='HoSoKham' AND maDoiTuong=@id AND ISJSON(duLieuSau)=1;
  IF @current<>CONVERT(bigint,@revision) THROW 51000,'FLOW_STALE',1;
  IF EXISTS(SELECT 1 FROM dbo.LuotKham WHERE maLuotKham=@id AND trangThai='DA_HUY') THROW 51000,'FLOW_LOCKED',1;
