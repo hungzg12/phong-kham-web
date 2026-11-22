@@ -193,11 +193,11 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
             </div>
           </div>
 
-          {/* KHU 1: CHỈ SỐ SINH HIỆU (dbo.PhieuSinhHieu) */}
+          {/* KHU 1: CHỈ SỐ SINH HIỆU */}
           <div className="his-form-section">
             <div className="his-section-header">
               <HeartPulse size={16} />
-              <span>1. Dấu hiệu sinh tồn (Sinh hiệu) & Thể trạng (Lưu bảng dbo.PhieuSinhHieu)</span>
+              <span>1. Dấu hiệu sinh tồn (Sinh hiệu) & Thể trạng</span>
             </div>
 
             <div className="his-grid-4">
@@ -320,16 +320,16 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
             </div>
           </div>
 
-          {/* KHU 2: BỆNH SỬ & KHÁM LÂM SÀNG (dbo.HoSoKham) */}
+          {/* KHU 2: BỆNH SỬ & KHÁM LÂM SÀNG */}
           <div className="his-form-section">
             <div className="his-section-header">
               <FileText size={16} />
-              <span>2. Quá trình bệnh lý, Tiền sử & Khám lâm sàng (Lưu bảng dbo.HoSoKham)</span>
+              <span>2. Quá trình bệnh lý, Tiền sử & Khám lâm sàng</span>
             </div>
 
             <div className="his-grid-1">
               <label className="his-label">
-                Lý do vào khám & Quá trình bệnh lý đợt này (dbo.HoSoKham.benhSu) *
+                Lý do vào khám & Quá trình bệnh lý đợt này *
                 <textarea
                   required
                   rows={2}
@@ -342,7 +342,7 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
 
             <div className="his-grid-2">
               <label className="his-label">
-                Tiền sử bản thân & gia đình (dbo.HoSoKham.tienSuBanThan)
+                Tiền sử bản thân & gia đình
                 <textarea
                   rows={2}
                   value={historyNotes}
@@ -352,7 +352,7 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
               </label>
 
               <label className="his-label">
-                Khám toàn thân & các cơ quan bộ phận (dbo.HoSoKham.khamToanThan)
+                Khám toàn thân & các cơ quan bộ phận
                 <textarea
                   rows={2}
                   value={physicalExam}
@@ -388,7 +388,7 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
 
             <div className="his-grid-3">
               <label className="his-label">
-                Mã bệnh chính ICD-10 (dbo.HoSoKham.maICDXacDinh) *
+                Mã bệnh chính ICD-10 *
                 <select
                   value={primaryIcd}
                   onChange={e => {
@@ -421,7 +421,7 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
               </label>
 
               <label className="his-label">
-                Chẩn đoán mô tả đầy đủ (dbo.HoSoKham.chanDoanXacDinh) *
+                Chẩn đoán mô tả đầy đủ *
                 <input
                   required
                   value={diagnosis}
@@ -462,7 +462,7 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
               </label>
 
               <label className="his-label">
-                Lời dặn dò chế độ điều trị & dinh dưỡng (dbo.HoSoKham.loiDanBacSi)
+                Lời dặn dò chế độ điều trị & dinh dưỡng
                 <textarea
                   rows={2}
                   value={advice}

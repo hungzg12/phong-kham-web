@@ -228,7 +228,7 @@ export default function InpatientAdmissionModal({
             <Stethoscope size={18} />
             <h3>Nghiệp vụ Chuyên môn & Tờ điều trị hàng ngày</h3>
           </div>
-          <p className="his-card-desc">Bác sĩ ra Y lệnh thuốc, dịch truyền và chế độ chăm sóc trong Tờ điều trị hàng ngày (dbo.ToDieuTri & dbo.YLenh). Điều dưỡng thực hiện y lệnh tại giường và trừ kho tủ trực theo FEFO.</p>
+          <p className="his-card-desc">Bác sĩ ra Y lệnh thuốc, dịch truyền và chế độ chăm sóc trong Tờ điều trị hàng ngày. Điều dưỡng thực hiện y lệnh tại giường và trừ kho tủ trực theo chuẩn FEFO.</p>
           <div className="his-action-row">
             <button type="button" className="secondary" onClick={() => { onClose(); if (navigate) navigate('care'); }}>
               <FileText size={16} /> Mở Bàn điều trị & Y lệnh hàng ngày
@@ -244,7 +244,7 @@ export default function InpatientAdmissionModal({
         <div className="his-modal-actions">
           <button type="button" className="secondary" onClick={onClose} disabled={submitting}>Đóng</button>
           <button type="button" className="primary" onClick={handleDischarge} disabled={submitting}>
-            {submitting ? 'Đang duyệt xuất viện...' : 'Xác nhận Bác sĩ Duyệt Xuất viện & Chuyển khử khuẩn (SQL Server)'}
+            {submitting ? 'Đang duyệt xuất viện...' : 'Xác nhận Bác sĩ Duyệt Xuất viện & Chuyển khử khuẩn'}
           </button>
         </div>
       </div>
@@ -259,11 +259,11 @@ export default function InpatientAdmissionModal({
         <div className="his-header-title">
           <div className="his-pill-group">
             <span className="badge teal">TIẾP NHẬN NỘI TRÚ</span>
-            <span className="badge gray">CHIP: VIETTEL HIS</span>
-            <span className="badge green">CSDL: QuanLyBenhVien</span>
+            <span className="badge gray">QUY CHUẨN BỘ Y TẾ</span>
+            <span className="badge green">KHOA ĐIỀU TRỊ</span>
           </div>
           <h2>Phiếu Tiếp nhận Nội trú & Xếp buồng giường</h2>
-          <p>Ánh xạ chuẩn 1:1 CSDL Microsoft SQL Server: <code>dbo.DotDieuTri</code> · <code>dbo.PhanGiuong</code> · <code>dbo.GiaoDichThanhToan</code></p>
+          <p>Quy trình tiếp nhận nội trú, quản lý buồng bệnh và phân bổ y lệnh theo đợt điều trị</p>
         </div>
         <div className="his-header-specs">
           <div><span>Vị trí:</span> <b>{bed.roomName || 'Buồng 301 - Nội tổng quát'}</b></div>
@@ -341,15 +341,15 @@ export default function InpatientAdmissionModal({
         )}
       </div>
 
-      {/* CARD 2: THÔNG TIN CHUYÊN MÔN VÀO VIỆN (dbo.DotDieuTri) */}
+      {/* CARD 2: THÔNG TIN CHUYÊN MÔN VÀO VIỆN */}
       <div className="his-card">
         <div className="his-card-title">
           <Stethoscope size={18} />
-          <h3>Khối 2: Thiết lập Đợt điều trị & Chuyên môn vào viện (dbo.DotDieuTri)</h3>
+          <h3>Khối 2: Thiết lập Đợt điều trị & Chuyên môn vào viện</h3>
         </div>
         <div className="his-form-grid">
           <label className="his-field">
-            <span>Bác sĩ điều trị chính (maBacSiDieuTriChinh) <small className="required-star">*</small></span>
+            <span>Bác sĩ điều trị chính <small className="required-star">*</small></span>
             <select value={doctor} onChange={e => setDoctor(e.target.value)} required>
               {doctorsList.map(d => (
                 <option key={d.id} value={d.id}>{d.name} ({d.id})</option>
@@ -358,7 +358,7 @@ export default function InpatientAdmissionModal({
           </label>
 
           <label className="his-field">
-            <span>Mã bệnh ICD-10 vào viện (maICDVaoVien) <small className="required-star">*</small></span>
+            <span>Mã bệnh ICD-10 vào viện <small className="required-star">*</small></span>
             <select
               value={icdCode}
               onChange={e => {
@@ -375,7 +375,7 @@ export default function InpatientAdmissionModal({
           </label>
 
           <label className="his-field col-span-2">
-            <span>Chẩn đoán lâm sàng vào viện (chanDoanVaoVien) <small className="required-star">*</small></span>
+            <span>Chẩn đoán lâm sàng vào viện <small className="required-star">*</small></span>
             <input
               type="text"
               value={diagnosis}
@@ -394,7 +394,7 @@ export default function InpatientAdmissionModal({
           </label>
 
           <label className="his-field col-span-2">
-            <span>Lý do nhập viện (lyDoNhapVien) <small className="required-star">*</small></span>
+            <span>Lý do nhập viện <small className="required-star">*</small></span>
             <textarea
               rows={2}
               value={reason}
@@ -405,7 +405,7 @@ export default function InpatientAdmissionModal({
           </label>
 
           <label className="his-field">
-            <span>Thời điểm tiếp nhận (thoiDiemNhapVien)</span>
+            <span>Thời điểm tiếp nhận</span>
             <input
               type="datetime-local"
               value={admissionTime}
@@ -416,7 +416,7 @@ export default function InpatientAdmissionModal({
         </div>
       </div>
 
-      {/* CARD 3: PHÂN GIƯỜNG & TẠM ỨNG VIỆN PHÍ (dbo.PhanGiuong & dbo.GiaoDichThanhToan) */}
+      {/* CARD 3: PHÂN GIƯỜNG & TẠM ỨNG VIỆN PHÍ */}
       <div className="his-card">
         <div className="his-card-title">
           <CreditCard size={18} />
@@ -424,7 +424,7 @@ export default function InpatientAdmissionModal({
         </div>
         <div className="his-form-grid">
           <label className="his-field">
-            <span>Số tiền tạm ứng nội trú (tienTamUngHienTai)</span>
+            <span>Số tiền tạm ứng nội trú</span>
             <input
               type="number"
               min="0"

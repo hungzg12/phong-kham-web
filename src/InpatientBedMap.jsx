@@ -131,46 +131,67 @@ export default function InpatientBedMap({ beds, setBeds, patients, role, actor, 
               Chỉ định từ Bàn khám Ngoại trú
             </span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '10px' }}>
-            {waitingAdmissions.map(adm => {
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {waitingAdmissions.map((adm, idx) => {
               const pat = patients.find(p => p.id === adm.patientId) || { name: 'Người bệnh', id: adm.patientId };
+              const age = pat?.birth ? `${new Date().getFullYear() - Number(String(pat.birth).slice(0, 4))}T` : '';
+              const gender = pat?.gender === 'female' || pat?.gender === 'Nữ' ? 'Nữ' : pat?.gender === 'male' || pat?.gender === 'Nam' ? 'Nam' : '';
+              const demo = [age, gender].filter(Boolean).join(' · ');
               const firstAvailableBed = beds.find(b => !b.patient && !b.cleaning);
               return (
-                <div key={adm.id} style={{
-                  background: '#f8fafc',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '6px',
-                  padding: '10px 12px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  gap: '8px'
-                }}>
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                      <b style={{ fontSize: '13px', color: '#0f172a' }}>{pat.name}</b>
-                      <span style={{ fontSize: '11px', background: '#f0fdfa', color: '#0f766e', border: '1px solid #ccfbf1', padding: '2px 7px', borderRadius: '4px', fontWeight: 600 }}>
-                        {adm.department || 'Nội trú'}
-                      </span>
-                    </div>
-                    <p style={{ margin: '4px 0 0', fontSize: '11.5px', color: '#64748b' }}>
-                      Mã: {adm.patientId} · BS chỉ định: {adm.doctor || 'Bác sĩ'}
-                    </p>
-                    {adm.reason && (
-                      <p style={{ margin: '4px 0 0', fontSize: '11.5px', color: '#334155' }}>
-                        Lý do: {adm.reason}
-                      </p>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid #e2e8f0' }}>
-                    <span style={{ fontSize: '11px', color: '#94a3b8' }}>
-                      <Clock size={11} style={{ display: 'inline', marginRight: '3px', verticalAlign: '-1px' }} />
-                      {adm.time || 'Hôm nay'}
+                <div
+                  key={adm.id}
+                  style={{
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderLeft: '4px solid #0f766e',
+                    borderRadius: '6px',
+                    padding: '8px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '14px',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '220px' }}>
+                    <span style={{ background: '#f1f5f9', color: '#475569', fontSize: '11px', fontWeight: 700, padding: '2px 7px', borderRadius: '4px', flexShrink: 0 }}>
+                      {String(idx + 1).padStart(2, '0')}
                     </span>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <b style={{ fontSize: '13px', color: '#0f172a' }}>{pat.name}</b>
+                        {demo && <span style={{ fontSize: '11px', color: '#64748b' }}>({demo})</span>}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+                        Mã: {adm.patientId} · Đợt: {adm.id}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ minWidth: '180px' }}>
+                    <span style={{ fontSize: '11px', background: '#f0fdfa', color: '#0f766e', border: '1px solid #ccfbf1', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+                      {adm.department || 'Khoa Nội'}
+                    </span>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '3px' }}>
+                      BS: {adm.doctor || 'BS điều trị'}
+                    </div>
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: '160px', fontSize: '11.5px', color: '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={adm.reason}>
+                    <span style={{ color: '#94a3b8', fontSize: '11px' }}>Lý do: </span>{adm.reason || 'Nhập viện điều trị nội trú'}
+                  </div>
+
+                  <div style={{ fontSize: '11px', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                    <Clock size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: '-1px' }} />
+                    {adm.time || 'Hôm nay'}
+                  </div>
+
+                  <div style={{ flexShrink: 0 }}>
                     <button
                       type="button"
                       className="primary"
-                      style={{ fontSize: '12px', padding: '5px 12px', height: 'auto', background: '#0f766e', borderColor: '#0f766e' }}
+                      style={{ fontSize: '12px', padding: '5px 12px', height: 'auto', background: '#0f766e', borderColor: '#0f766e', display: 'inline-flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}
                       onClick={() => {
                         if (firstAvailableBed) {
                           onSelectBed(firstAvailableBed, adm.patientId);
@@ -179,7 +200,7 @@ export default function InpatientBedMap({ beds, setBeds, patients, role, actor, 
                         }
                       }}
                     >
-                      Xếp vào giường trống
+                      <UserPlus size={14} /> Xếp buồng ngay
                     </button>
                   </div>
                 </div>

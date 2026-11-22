@@ -295,27 +295,37 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
             <option value="Đã phát hành">Đã phát hành (Đã gửi BS)</option>
           </select>
 
-          <div className="desk-patient-list">
+          <div className="desk-patient-list" style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
             {rows.map((l, idx) => {
               const p = patients.find(x => x.id === l.patient);
               const s = db.services.find(x => x.id === l.service);
               const isSelected = row?.id === l.id;
               const isUrgent = l.priority === 'Khẩn cấp' || l.priority === 'CAP_CUU';
+              const age = p?.birth ? `${new Date().getFullYear() - Number(String(p.birth).slice(0, 4))}T` : '';
+              const gender = p?.gender === 'female' || p?.gender === 'Nữ' ? 'Nữ' : p?.gender === 'male' || p?.gender === 'Nam' ? 'Nam' : '';
+              const demo = [age, gender].filter(Boolean).join('·');
+              const doctorStaff = db.staff.find(st => st.id === l.doctor);
+              const doctorShort = doctorStaff?.name?.replace(/^BS(\.CK[I|II])?\s*/, '') || l.doctor || '';
+              const statusBadgeClass = l.status === 'Đã phát hành' ? 'teal' : l.status === 'Đang thực hiện' ? 'blue' : 'amber';
+              const statusShort = l.status === 'Chờ tiếp nhận' ? 'Chờ TN' : l.status === 'Đang thực hiện' ? 'Đang làm' : 'Đã có KQ';
 
               return (
                 <button
                   key={l.id}
                   aria-pressed={isSelected}
                   style={{
-                    borderLeft: isUrgent ? '4px solid #ef4444' : isSelected ? '4px solid #0f766e' : '1px solid #e2e8f0',
+                    border: isSelected ? '1px solid #99f6e4' : '1px solid #e2e8f0',
+                    borderLeft: isUrgent ? '4px solid #ef4444' : isSelected ? '4px solid #0f766e' : '3px solid #cbd5e1',
                     background: isSelected ? '#f0fdfa' : '#ffffff',
-                    padding: '10px 12px',
+                    padding: '6px 10px',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '4px',
+                    gap: '3px',
                     textAlign: 'left',
                     borderRadius: '6px',
-                    position: 'relative'
+                    cursor: 'pointer',
+                    minHeight: '46px',
+                    transition: 'all 0.15s ease'
                   }}
                   onClick={() => {
                     if (editing && !window.confirm('Bỏ kết quả chưa lưu để chuyển phiếu?')) return;
@@ -323,29 +333,35 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                     setEditing(null);
                     setError('');
                   }}
+                  title={`${p?.name || l.patient} — ${s?.name || l.service} (${l.id})`}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <b style={{ fontSize: '13px', color: '#0f172a' }}>
-                      {idx + 1}. {p?.name || l.patient}
-                    </b>
-                    {isUrgent && (
-                      <span style={{ background: '#fee2e2', color: '#b91c1c', fontSize: '10px', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                        CẤP CỨU
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', width: '100%' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
+                      <span style={{ background: isSelected ? '#ccfbf1' : '#f1f5f9', color: isSelected ? '#0f766e' : '#475569', fontSize: '11px', fontWeight: 700, padding: '1px 5px', borderRadius: '4px', flexShrink: 0 }}>
+                        {String(idx + 1).padStart(2, '0')}
                       </span>
-                    )}
+                      <b style={{ fontSize: '12.5px', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {p?.name || l.patient}
+                      </b>
+                      {demo && <span style={{ fontSize: '11px', color: '#64748b', whiteSpace: 'nowrap', flexShrink: 0 }}>({demo})</span>}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                      {isUrgent && (
+                        <span style={{ background: '#fee2e2', color: '#b91c1c', fontSize: '9px', padding: '1px 4px', borderRadius: '3px', fontWeight: 700 }}>
+                          CẤP CỨU
+                        </span>
+                      )}
+                      <span className={`badge ${statusBadgeClass}`} style={{ fontSize: '10px', padding: '1px 6px' }}>
+                        {statusShort}
+                      </span>
+                    </div>
                   </div>
-                  <small style={{ color: '#0f766e', fontWeight: 600, fontSize: '11px' }}>
-                    {s?.name || l.service}
-                  </small>
-                  <small style={{ color: '#64748b', fontSize: '11px' }}>
-                    Phiếu: {l.id} · BS: {db.staff.find(st => st.id === l.doctor)?.name || l.doctor}
-                  </small>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', gap: '8px' }}>
-                    <small style={{ color: '#64748b', fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '160px' }} title={l.episodeId}>
-                      Mã HS: {l.episodeId}
-                    </small>
-                    <span className={`badge ${l.status === 'Đã phát hành' ? 'teal' : l.status === 'Đang thực hiện' ? 'blue' : 'amber'}`} style={{ fontSize: '10.5px', flexShrink: 0 }}>
-                      {l.status}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', width: '100%', fontSize: '11px', color: '#64748b' }}>
+                    <span style={{ color: '#0f766e', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }} title={s?.name || l.service}>
+                      {s?.name || l.service}
+                    </span>
+                    <span style={{ color: '#94a3b8', fontSize: '10.5px', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                      {l.id.replace(/^CT-\d+-/, '')} · BS {doctorShort}
                     </span>
                   </div>
                 </button>

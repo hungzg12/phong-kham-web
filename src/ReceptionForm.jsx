@@ -288,11 +288,11 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
           </div>
         ) : (
           <>
-            {/* PHẦN 1: THÔNG TIN HÀNH CHÍNH (dbo.BenhNhan) */}
+            {/* PHẦN 1: THÔNG TIN HÀNH CHÍNH */}
             <div className="his-form-section">
               <div className="his-section-header">
                 <IdCard size={16} />
-                <span>1. Thông tin hành chính người bệnh (Lưu bảng dbo.BenhNhan)</span>
+                <span>1. Thông tin hành chính người bệnh</span>
               </div>
 
               <div className="his-grid-3">
@@ -310,7 +310,10 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
                 </label>
 
                 <label className="his-label">
-                  Ngày tháng năm sinh * {calculatedAge() && <span className="his-age-badge">{calculatedAge()}</span>}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Ngày tháng năm sinh *</span>
+                    {calculatedAge() && <span className="his-age-badge" style={{ margin: 0 }}>{calculatedAge()}</span>}
+                  </div>
                   <input
                     name="birth"
                     type="date"
@@ -376,7 +379,7 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
                 </label>
 
                 <label className="his-label his-col-2">
-                  Tiền sử bệnh lý bản thân (dbo.BenhNhan.tienSuBenh)
+                  Tiền sử bệnh lý bản thân
                   <input
                     name="history"
                     maxLength={500}
@@ -388,7 +391,7 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
                 </label>
 
                 <label className="his-label">
-                  Dị ứng thuốc & dị nguyên (dbo.BenhNhan.diUngThuoc)
+                  Dị ứng thuốc & dị nguyên
                   <input
                     name="allergy"
                     maxLength={255}
@@ -401,7 +404,7 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
               </div>
             </div>
 
-            {/* PHẦN 2: ĐỐI TƯỢNG KHÁM & BHYT (dbo.BenhNhan.soBHYT) */}
+            {/* PHẦN 2: ĐỐI TƯỢNG KHÁM & BHYT */}
             <div className="his-form-section">
               <div className="his-section-header">
                 <Shield size={16} />
@@ -416,8 +419,8 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
                     onChange={e => setPatientType(e.target.value)}
                     className="his-select"
                   >
-                    <option value="BHYT">BHYT - Khám chữa bệnh Bảo hiểm</option>
-                    <option value="VIEN_PHI">Viện phí - Dịch vụ / Thu phí</option>
+                    <option value="BHYT">BHYT (Có thẻ BHYT)</option>
+                    <option value="VIEN_PHI">Viện phí (Khám dịch vụ)</option>
                   </select>
                 </label>
 
@@ -458,12 +461,12 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
               </div>
             </div>
 
-            {/* PHẦN 3: BUỒNG KHÁM & LÝ DO KHÁM (dbo.LuotKham) */}
+            {/* PHẦN 3: BUỒNG KHÁM & LÝ DO KHÁM */}
             {mode === 'register' && (
               <div className="his-form-section">
                 <div className="his-section-header">
                   <Stethoscope size={16} />
-                  <span>3. Phân luồng tiếp đón & Buồng khám (Lưu bảng dbo.LuotKham)</span>
+                  <span>3. Phân luồng buồng khám & Bác sĩ</span>
                 </div>
 
                 <div className="his-grid-2">
@@ -476,14 +479,14 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
                     >
                       {CLINIC_ROOMS.map(room => (
                         <option key={room.code} value={room.code}>
-                          {room.name} — {room.doctor}
+                          {room.name} ({room.doctor})
                         </option>
                       ))}
                     </select>
                   </label>
 
                   <label className="his-label">
-                    Lý do vào viện / Triệu chứng ban đầu * (dbo.LuotKham.lyDoKham)
+                    Lý do khám / Triệu chứng ban đầu *
                     <input
                       value={intakeReason}
                       onChange={e => setIntakeReason(e.target.value)}
@@ -505,7 +508,7 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
                     </div>
                   </div>
                   <div className="his-queue-badge">
-                    <span className="badge teal">Cấp số thứ tự (STT) tự động qua BoDemSoThuTuKham</span>
+                    <span className="badge teal">Tự động cấp số thứ tự khám (STT)</span>
                   </div>
                 </div>
               </div>
