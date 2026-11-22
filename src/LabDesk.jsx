@@ -26,7 +26,8 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
   const [selectedRoom, setSelectedRoom] = useState('ALL');
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('');
-  const [selected, setSelected] = useState('');
+  const [selectedGroupKey, setSelectedGroupKey] = useState('');
+  const [selectedServiceId, setSelectedServiceId] = useState('');
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -35,8 +36,8 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
   const scope = scoped ? clinicalContext : null;
   const roomDef = LAB_ROOMS.find(r => r.id === selectedRoom);
 
-  // Filter rows by room and search criteria
-  const rows = db.labs
+  // 1. Filter rows by room and search criteria
+  const allFilteredLabs = db.labs
     .filter(l => !scope || (l.patient === scope.patientId && l.episodeId === scope.episodeId))
     .filter(l => role !== 'doctor' || allowed.has(l.episodeId))
     .filter(l => {
@@ -49,26 +50,63 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
     })
     .filter(l => (!status || l.status === status) && (l.id + ' ' + (patients.find(p => p.id === l.patient)?.name || '')).toLowerCase().includes(query.toLowerCase()));
 
-  const row = rows.find(r => r.id === selected) || rows[0];
+  // 2. Group by Patient & Episode so EACH PATIENT APPEARS EXACTLY ONCE IN THE QUEUE
+  const patientGroups = [];
+  const patientGroupMap = new Map();
+
+  for (const lab of allFilteredLabs) {
+    const key = `${lab.patient}_${lab.episodeId}`;
+    if (!patientGroupMap.has(key)) {
+      const pObj = patients.find(p => p.id === lab.patient);
+      const group = {
+        key,
+        patientId: lab.patient,
+        patientName: pObj?.name || lab.patient,
+        patientObj: pObj || { name: 'Người bệnh', id: lab.patient },
+        episodeId: lab.episodeId,
+        date: lab.date,
+        doctor: lab.doctor,
+        diagnosis: lab.diagnosis,
+        services: [],
+        hasUrgent: false,
+        counts: { wait: 0, inProgress: 0, done: 0, total: 0 }
+      };
+      patientGroupMap.set(key, group);
+      patientGroups.push(group);
+    }
+    const g = patientGroupMap.get(key);
+    g.services.push(lab);
+    g.counts.total++;
+    if (lab.priority === 'Khẩn cấp' || lab.priority === 'CAP_CUU') g.hasUrgent = true;
+    if (lab.status === 'Chờ tiếp nhận') g.counts.wait++;
+    else if (lab.status === 'Đang thực hiện') g.counts.inProgress++;
+    else if (lab.status === 'Đã phát hành') g.counts.done++;
+  }
+
+  // Active group & active service
+  const activeGroup = patientGroups.find(g => g.key === selectedGroupKey) || patientGroups[0];
+  const row = activeGroup?.services.find(s => s.id === selectedServiceId) || activeGroup?.services[0];
   const canWrite = canAction(role, 'labs', 'accept');
 
-  // Identify service details
+  // Identify active service details
   const currentService = db.services.find(s => s.id === row?.service);
   const serviceName = currentService?.name || row?.service || 'Dịch vụ CLS';
   const isImaging = currentService?.kind === 'Chẩn đoán hình ảnh' || serviceName.toLowerCase().includes('quang') || serviceName.toLowerCase().includes('siêu âm') || serviceName.toLowerCase().includes('điện tim') || serviceName.toLowerCase().includes('nội soi');
-  const patientObj = patients.find(p => p.id === row?.patient) || { name: 'Người bệnh', id: row?.patient || 'BN-Chưa xác định' };
+  const patientObj = activeGroup?.patientObj || { name: 'Người bệnh', id: row?.patient || 'BN-Chưa xác định' };
 
-  async function action(kind) {
-    if (saving || !row) return;
+  async function action(kind, targetLabId) {
+    const targetId = targetLabId || row?.id;
+    const targetRow = activeGroup?.services.find(s => s.id === targetId) || row;
+    if (saving || !targetRow) return;
     setError('');
     setSaving(true);
     try {
       const saved = await hisApi.labAction({
-        id: row.id,
+        id: targetRow.id,
         action: kind,
         role,
-        staffId: actor.staffId || 'NV005',
-        revision: kind === 'save' ? (editing?.baseRevision || 0) : (row.resultRevision || 0),
+        staffId: actor.staffId || 'NV-KTV01',
+        revision: kind === 'save' ? (editing?.baseRevision || 0) : (targetRow.resultRevision || 0),
         rows: editing?.rows,
         conclusion: editing?.conclusion,
         critical: editing?.critical
@@ -78,12 +116,39 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
       });
       setEditing(null);
       if (kind === 'publish') {
-        notify(`Đã ký duyệt & phát hành kết quả ${row.id}! Kết quả đã gửi liên thông về Bàn khám Bác sĩ.`);
+        notify(`Đã ký duyệt & phát hành kết quả ${targetRow.id}! Kết quả đã gửi liên thông về Bàn khám Bác sĩ.`);
       } else if (kind === 'accept') {
         notify(`Đã tiếp nhận bệnh nhân ${patientObj.name} vào phòng thực hiện CLS.`);
       } else {
         notify('Đã lưu bản nháp kết quả trong SQL Server.');
       }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function batchAcceptServices() {
+    if (!activeGroup || saving) return;
+    const waiting = activeGroup.services.filter(s => s.status === 'Chờ tiếp nhận');
+    if (!waiting.length) return;
+    setSaving(true);
+    setError('');
+    try {
+      for (const item of waiting) {
+        const saved = await hisApi.labAction({
+          id: item.id,
+          action: 'accept',
+          role,
+          staffId: actor.staffId || 'NV-KTV01',
+          revision: item.resultRevision || 0
+        });
+        transact(d => {
+          d.business.labs = d.business.labs.map(r => r.id === saved.id ? saved : r);
+        });
+      }
+      notify(`Đã tiếp nhận toàn bộ ${waiting.length} dịch vụ cho người bệnh ${patientObj.name}`);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -220,7 +285,8 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
           value={selectedRoom}
           onChange={e => {
             setSelectedRoom(e.target.value);
-            setSelected('');
+            setSelectedGroupKey('');
+            setSelectedServiceId('');
             setEditing(null);
           }}
           style={{ padding: '8px 12px', fontSize: '13px', borderRadius: '6px', border: '1.5px solid #cbd5e1', fontWeight: 600, color: '#0f766e', minWidth: '320px', background: '#f8fafc' }}
@@ -245,24 +311,27 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
         {/* Quick status counters */}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', fontSize: '12px' }}>
           <span style={{ background: '#fef3c7', color: '#92400e', padding: '4px 10px', borderRadius: '20px', fontWeight: 600 }}>
-            Chờ tiếp nhận: {rows.filter(r => r.status === 'Chờ tiếp nhận').length}
+            Chờ tiếp nhận: {allFilteredLabs.filter(r => r.status === 'Chờ tiếp nhận').length}
           </span>
           <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '4px 10px', borderRadius: '20px', fontWeight: 600 }}>
-            Đang làm: {rows.filter(r => r.status === 'Đang thực hiện').length}
+            Đang làm: {allFilteredLabs.filter(r => r.status === 'Đang thực hiện').length}
           </span>
           <span style={{ background: '#dcfce7', color: '#166534', padding: '4px 10px', borderRadius: '20px', fontWeight: 600 }}>
-            Đã có KQ: {rows.filter(r => r.status === 'Đã phát hành').length}
+            Đã có KQ: {allFilteredLabs.filter(r => r.status === 'Đã phát hành').length}
           </span>
         </div>
       </div>
 
       {/* 3. Main Split Desk Layout */}
       <div className="desk-layout" style={{ gridTemplateColumns: '320px minmax(0, 1fr)' }}>
-        {/* Left Side: Patient Queue by Room */}
+        {/* Left Side: Patient Queue Grouped by Patient */}
         <aside className="desk-queue" style={{ maxHeight: '82vh' }}>
           <div className="desk-queue-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
             <span style={{ fontWeight: 700, fontSize: '13px', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Clock size={16} /> Hàng đợi bệnh nhân ({rows.length})
+              <Clock size={16} /> Hàng đợi bệnh nhân ({patientGroups.length})
+            </span>
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
+              {allFilteredLabs.length} chỉ định
             </span>
           </div>
 
@@ -291,85 +360,105 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
             <option value="">Tất cả trạng thái</option>
             <option value="Chờ tiếp nhận">Chờ tiếp nhận</option>
             <option value="Đang thực hiện">Đang thực hiện</option>
-            <option value="Chờ duyệt">Chờ duyệt</option>
             <option value="Đã phát hành">Đã phát hành (Đã gửi BS)</option>
           </select>
 
-          <div className="desk-patient-list" style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-            {rows.map((l, idx) => {
-              const p = patients.find(x => x.id === l.patient);
-              const s = db.services.find(x => x.id === l.service);
-              const isSelected = row?.id === l.id;
-              const isUrgent = l.priority === 'Khẩn cấp' || l.priority === 'CAP_CUU';
+          <div className="desk-patient-list" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {patientGroups.map((g, idx) => {
+              const p = g.patientObj;
+              const isSelected = activeGroup?.key === g.key;
               const age = p?.birth ? `${new Date().getFullYear() - Number(String(p.birth).slice(0, 4))}T` : '';
               const gender = p?.gender === 'female' || p?.gender === 'Nữ' ? 'Nữ' : p?.gender === 'male' || p?.gender === 'Nam' ? 'Nam' : '';
               const demo = [age, gender].filter(Boolean).join('·');
-              const doctorStaff = db.staff.find(st => st.id === l.doctor);
-              const doctorShort = doctorStaff?.name?.replace(/^BS(\.CK[I|II])?\s*/, '') || l.doctor || '';
-              const statusBadgeClass = l.status === 'Đã phát hành' ? 'teal' : l.status === 'Đang thực hiện' ? 'blue' : 'amber';
-              const statusShort = l.status === 'Chờ tiếp nhận' ? 'Chờ TN' : l.status === 'Đang thực hiện' ? 'Đang làm' : 'Đã có KQ';
+              const doctorStaff = db.staff.find(st => st.id === g.doctor);
+              const doctorShort = doctorStaff?.name?.replace(/^BS(\.CK[I|II])?\s*/, '') || g.doctor || '';
+
+              // Consolidated status
+              let statusLabel = 'Chờ TN';
+              let statusClass = 'amber';
+              if (g.counts.done === g.counts.total) {
+                statusLabel = `Đã có KQ (${g.counts.done}/${g.counts.total})`;
+                statusClass = 'teal';
+              } else if (g.counts.inProgress > 0) {
+                statusLabel = `Đang làm (${g.counts.inProgress + g.counts.done}/${g.counts.total})`;
+                statusClass = 'blue';
+              } else {
+                statusLabel = `Chờ TN (${g.counts.wait})`;
+                statusClass = 'amber';
+              }
+
+              // Service summary string
+              const serviceNames = g.services.map(s => {
+                const sObj = db.services.find(x => x.id === s.service);
+                return sObj?.name || s.service;
+              }).join(', ');
 
               return (
                 <button
-                  key={l.id}
+                  key={g.key}
                   aria-pressed={isSelected}
                   style={{
-                    border: isSelected ? '1px solid #99f6e4' : '1px solid #e2e8f0',
-                    borderLeft: isUrgent ? '4px solid #ef4444' : isSelected ? '4px solid #0f766e' : '3px solid #cbd5e1',
+                    border: isSelected ? '1.5px solid #0f766e' : '1px solid #e2e8f0',
+                    borderLeft: g.hasUrgent ? '4px solid #ef4444' : isSelected ? '4px solid #0f766e' : '3px solid #cbd5e1',
                     background: isSelected ? '#f0fdfa' : '#ffffff',
-                    padding: '6px 10px',
+                    padding: '8px 12px',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '3px',
+                    gap: '4px',
                     textAlign: 'left',
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     cursor: 'pointer',
-                    minHeight: '46px',
-                    transition: 'all 0.15s ease'
+                    minHeight: '52px',
+                    transition: 'all 0.15s ease',
+                    boxShadow: isSelected ? '0 1px 4px rgba(15,118,110,0.12)' : 'none'
                   }}
                   onClick={() => {
-                    if (editing && !window.confirm('Bỏ kết quả chưa lưu để chuyển phiếu?')) return;
-                    setSelected(l.id);
+                    if (editing && !window.confirm('Bỏ kết quả chưa lưu để chuyển người bệnh?')) return;
+                    setSelectedGroupKey(g.key);
+                    setSelectedServiceId(g.services[0]?.id || '');
                     setEditing(null);
                     setError('');
                   }}
-                  title={`${p?.name || l.patient} — ${s?.name || l.service} (${l.id})`}
+                  title={`${g.patientName} — ${g.counts.total} dịch vụ: ${serviceNames}`}
                 >
+                  {/* Line 1: STT + Patient Name + Demographics + Urgent Tag + Status Badge */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', width: '100%' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
                       <span style={{ background: isSelected ? '#ccfbf1' : '#f1f5f9', color: isSelected ? '#0f766e' : '#475569', fontSize: '11px', fontWeight: 700, padding: '1px 5px', borderRadius: '4px', flexShrink: 0 }}>
                         {String(idx + 1).padStart(2, '0')}
                       </span>
-                      <b style={{ fontSize: '12.5px', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {p?.name || l.patient}
+                      <b style={{ fontSize: '13px', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {g.patientName}
                       </b>
                       {demo && <span style={{ fontSize: '11px', color: '#64748b', whiteSpace: 'nowrap', flexShrink: 0 }}>({demo})</span>}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                      {isUrgent && (
-                        <span style={{ background: '#fee2e2', color: '#b91c1c', fontSize: '9px', padding: '1px 4px', borderRadius: '3px', fontWeight: 700 }}>
-                          CẤP CỨU
+                      {g.hasUrgent && (
+                        <span style={{ background: '#fee2e2', color: '#b91c1c', fontSize: '9px', padding: '1px 5px', borderRadius: '3px', fontWeight: 700 }}>
+                          ⚡ CẤP CỨU
                         </span>
                       )}
-                      <span className={`badge ${statusBadgeClass}`} style={{ fontSize: '10px', padding: '1px 6px' }}>
-                        {statusShort}
+                      <span className={`badge ${statusClass}`} style={{ fontSize: '10px', padding: '1px 6px' }}>
+                        {statusLabel}
                       </span>
                     </div>
                   </div>
+
+                  {/* Line 2: Service count & names summary */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', width: '100%', fontSize: '11px', color: '#64748b' }}>
-                    <span style={{ color: '#0f766e', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }} title={s?.name || l.service}>
-                      {s?.name || l.service}
+                    <span style={{ color: '#0f766e', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }} title={serviceNames}>
+                      {g.counts.total} DV: {serviceNames}
                     </span>
                     <span style={{ color: '#94a3b8', fontSize: '10.5px', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                      {l.id.replace(/^CT-\d+-/, '')} · BS {doctorShort}
+                      {g.episodeId}
                     </span>
                   </div>
                 </button>
               );
             })}
-            {!rows.length && (
+            {!patientGroups.length && (
               <div style={{ padding: '24px 12px', textAlign: 'center', color: '#94a3b8', fontSize: '12px' }}>
-                Không có bệnh nhân chờ tại phòng này.
+                Không có người bệnh chờ tại phòng này.
               </div>
             )}
           </div>
@@ -377,13 +466,13 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
 
         {/* Right Side: Technician Workstation */}
         <div className="desk-workspace" style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
-          {row ? (
+          {activeGroup && row ? (
             <>
               {/* Card 1: Patient Details & Doctor's Clinical Order Info */}
               <div style={{ padding: '16px 20px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <h3 style={{ margin: 0, fontSize: '18px', color: '#0f172a', fontWeight: 700 }}>
                         {patientObj.name}
                       </h3>
@@ -400,7 +489,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                       )}
                     </div>
                     <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#475569' }}>
-                      Mã phiếu CLS: <b>{row.id}</b> · Đợt/Lượt khám: <b>{row.episodeId}</b> · Thời điểm chỉ định: <b>{row.date || 'Hôm nay'}</b>
+                      Đợt/Lượt khám: <b>{activeGroup.episodeId}</b> · Thời điểm chỉ định: <b>{activeGroup.date || 'Hôm nay'}</b> · Mã phiếu: <b>{row.id}</b>
                     </p>
                   </div>
                   <div style={{ textAlign: 'right' }}>
@@ -414,30 +503,118 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                 <div style={{ marginTop: '12px', padding: '10px 14px', background: '#eff6ff', borderRadius: '6px', border: '1px solid #bfdbfe', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px', fontSize: '12px' }}>
                   <div>
                     <span style={{ color: '#1e40af', fontWeight: 600 }}>Bác sĩ chỉ định:</span>{' '}
-                    <b>{db.staff.find(s => s.id === row.doctor)?.name || row.doctor}</b> (Khoa Khám bệnh / Nội trú)
+                    <b>{db.staff.find(s => s.id === activeGroup.doctor)?.name || activeGroup.doctor}</b> (Khoa Khám bệnh / Nội trú)
                   </div>
                   <div>
-                    <span style={{ color: '#1e40af', fontWeight: 600 }}>Dịch vụ chỉ định:</span>{' '}
-                    <b style={{ color: '#0f766e' }}>{serviceName}</b>
+                    <span style={{ color: '#1e40af', fontWeight: 600 }}>Tổng số chỉ định:</span>{' '}
+                    <b style={{ color: '#0f766e' }}>{activeGroup.services.length} dịch vụ kỹ thuật</b>
                   </div>
                   <div style={{ gridColumn: '1 / -1' }}>
                     <span style={{ color: '#1e40af', fontWeight: 600 }}>Chẩn đoán sơ bộ của Bác sĩ:</span>{' '}
                     <span style={{ color: '#b91c1c', fontWeight: 700 }}>
-                      {row.diagnosis || 'Theo dõi lâm sàng và chỉ định cận lâm sàng đánh giá'}
+                      {activeGroup.diagnosis || 'Theo dõi lâm sàng và chỉ định cận lâm sàng đánh giá'}
                     </span>
                   </div>
                 </div>
               </div>
 
+              {/* Segmented Service Selector Tabs (Show all services ordered for this patient) */}
+              <div style={{ display: 'flex', gap: '8px', padding: '10px 20px', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', overflowX: 'auto', alignItems: 'center' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#334155', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Activity size={14} style={{ color: '#0f766e' }} /> Chọn dịch vụ:
+                </span>
+                {activeGroup.services.map((sItem, sIdx) => {
+                  const serv = db.services.find(x => x.id === sItem.service);
+                  const sName = serv?.name || sItem.service;
+                  const isAct = row?.id === sItem.id;
+                  const sBadge = sItem.status === 'Đã phát hành' ? '✓ Đã có KQ' : sItem.status === 'Đang thực hiện' ? 'Đang làm' : 'Chờ TN';
+                  const sBadgeColor = sItem.status === 'Đã phát hành' ? '#166534' : sItem.status === 'Đang thực hiện' ? '#0369a1' : '#b45309';
+                  const sBadgeBg = sItem.status === 'Đã phát hành' ? '#dcfce7' : sItem.status === 'Đang thực hiện' ? '#e0f2fe' : '#fef3c7';
+
+                  return (
+                    <button
+                      key={sItem.id}
+                      type="button"
+                      onClick={() => {
+                        if (editing && !window.confirm('Bỏ kết quả chưa lưu để chuyển dịch vụ?')) return;
+                        setSelectedServiceId(sItem.id);
+                        setEditing(null);
+                        setError('');
+                      }}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: isAct ? 700 : 500,
+                        border: isAct ? '1.5px solid #0f766e' : '1px solid #cbd5e1',
+                        background: isAct ? '#f0fdfa' : '#ffffff',
+                        color: isAct ? '#0f766e' : '#334155',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.15s ease',
+                        boxShadow: isAct ? '0 1px 3px rgba(15,118,110,0.1)' : 'none'
+                      }}
+                    >
+                      <span>{sIdx + 1}. {sName}</span>
+                      <span style={{ fontSize: '10px', fontWeight: 700, color: sBadgeColor, background: sBadgeBg, padding: '1px 5px', borderRadius: '4px' }}>
+                        {sBadge}
+                      </span>
+                    </button>
+                  );
+                })}
+
+                {canWrite && activeGroup.services.some(s => s.status === 'Chờ tiếp nhận') && (
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={batchAcceptServices}
+                    disabled={saving}
+                    style={{ marginLeft: 'auto', padding: '6px 12px', fontSize: '11.5px', fontWeight: 600, color: '#0f766e', borderColor: '#0f766e', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                    title="Tiếp nhận đồng thời tất cả các chỉ định đang chờ của bệnh nhân này"
+                  >
+                    <Check size={13} /> Tiếp nhận tất cả ({activeGroup.services.filter(s => s.status === 'Chờ tiếp nhận').length} DV)
+                  </button>
+                )}
+              </div>
+
               {/* Card 2: Technician Result Entry or Result Presentation */}
               <div style={{ padding: '20px' }}>
+                {/* Active Service Banner */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', paddingBottom: '10px', borderBottom: '1px solid #f1f5f9' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ background: '#ccfbf1', color: '#0f766e', padding: '3px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 700 }}>
+                      Đang xử lý
+                    </span>
+                    <h4 style={{ margin: 0, fontSize: '15px', color: '#0f172a', fontWeight: 700 }}>
+                      {serviceName}
+                    </h4>
+                    <span style={{ fontSize: '12px', color: '#64748b' }}>({row.id})</span>
+                  </div>
+                  {row.status !== 'Chờ tiếp nhận' && !editing && (
+                    <button
+                      type="button"
+                      className="secondary"
+                      style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      onClick={() => window.print()}
+                    >
+                      <Printer size={13} /> In kết quả dịch vụ này
+                    </button>
+                  )}
+                </div>
+
                 {/* Stage A: When Waiting for Check-in */}
                 {row.status === 'Chờ tiếp nhận' && !editing && (
-                  <div style={{ padding: '24px', textAlign: 'center', background: '#fafaf9', borderRadius: '8px', border: '1.5px dashed #cbd5e1' }}>
+                  <div style={{ padding: '28px', textAlign: 'center', background: '#fafaf9', borderRadius: '8px', border: '1.5px dashed #cbd5e1' }}>
                     <Activity size={32} style={{ color: '#0f766e', margin: '0 auto 8px' }} />
-                    <h3 style={{ margin: '0 0 14px', fontSize: '15px', color: '#1e293b' }}>
-                      Bệnh nhân đang ở phòng chờ CLS
+                    <h3 style={{ margin: '0 0 8px', fontSize: '16px', color: '#1e293b' }}>
+                      Chỉ định "{serviceName}" đang chờ tiếp nhận
                     </h3>
+                    <p style={{ margin: '0 0 16px', fontSize: '12px', color: '#64748b' }}>
+                      Bệnh nhân đang ở phòng chờ. Kỹ thuật viên tiếp nhận để bắt đầu thực hiện kỹ thuật và nhập kết quả.
+                    </p>
                     {canWrite ? (
                       <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
                         <button
@@ -449,7 +626,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                             fillQuickTemplate();
                           }}
                         >
-                          <Sparkles size={15} /> Tiếp nhận & Nhập kết quả ngay (Điền mẫu chuẩn)
+                          <Sparkles size={15} /> Tiếp nhận & Điền mẫu chuẩn ngay
                         </button>
                         <button
                           className="secondary"

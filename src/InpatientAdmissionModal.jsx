@@ -2,22 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { BedDouble, User, AlertTriangle, ShieldCheck, Stethoscope, Clock, CreditCard, CheckCircle2, X, FileText, ChevronRight } from 'lucide-react';
 import { hisApi } from './api';
 import { getWorkspace } from './workspace';
+import Icd10Search from './Icd10Search';
 
 const DEFAULT_DOCTORS = [
   { id: 'NV-BS01', name: 'BS. Trần Minh Anh (Nội tổng quát)' },
   { id: 'NV-BS02', name: 'BS. Nguyễn Văn Hùng (Trưởng khoa Tim mạch)' },
   { id: 'NV-BS03', name: 'BS. Lê Thị Mai (Bác sĩ CKI)' }
-];
-
-const COMMON_ICD10 = [
-  { code: 'J18.1', name: 'Viêm phổi thùy cấp' },
-  { code: 'J20', name: 'Viêm phế quản cấp' },
-  { code: 'I10', name: 'Bệnh tăng huyết áp vô căn (nguyên phát)' },
-  { code: 'A09', name: 'Tiêu chảy và viêm dạ dày-ruột nghi do nhiễm khuẩn' },
-  { code: 'K29.7', name: 'Viêm dạ dày, không xác định (Đau dạ dày)' },
-  { code: 'E11', name: 'Đái tháo đường typ 2' },
-  { code: 'J44', name: 'Bệnh phổi tắc nghẽn mạn tính (COPD)' },
-  { code: 'A90', name: 'Sốt Dengue (Sốt xuất huyết cổ điển)' }
 ];
 
 const COMMON_DIAGNOSES = [
@@ -357,22 +347,19 @@ export default function InpatientAdmissionModal({
             </select>
           </label>
 
-          <label className="his-field">
-            <span>Mã bệnh ICD-10 vào viện <small className="required-star">*</small></span>
-            <select
-              value={icdCode}
-              onChange={e => {
-                setIcdCode(e.target.value);
-                const found = COMMON_ICD10.find(i => i.code === e.target.value);
-                if (found) setDiagnosis(`${found.name} - Điều trị nội trú`);
+          <div className="his-field">
+            <span style={{ display: 'block', marginBottom: 6, fontSize: 12, fontWeight: 500, color: '#334155' }}>
+              Mã bệnh ICD-10 vào viện (Tra cứu CSDL) <small className="required-star">*</small>
+            </span>
+            <Icd10Search
+              valueCode={icdCode}
+              valueName=""
+              onChange={({ code, name }) => {
+                setIcdCode(code);
+                if (name && !diagnosis) setDiagnosis(`${name} - Điều trị nội trú`);
               }}
-              required
-            >
-              {COMMON_ICD10.map(i => (
-                <option key={i.code} value={i.code}>{i.code} — {i.name}</option>
-              ))}
-            </select>
-          </label>
+            />
+          </div>
 
           <label className="his-field col-span-2">
             <span>Chẩn đoán lâm sàng vào viện <small className="required-star">*</small></span>

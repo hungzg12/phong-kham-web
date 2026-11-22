@@ -18,16 +18,23 @@ export async function ancillaryState(){
  JSON_QUERY((SELECT ct.maChiTiet id,COALESCE(c.maLuotKham,c.maDotDieuTri) episodeId,COALESCE(l.maBenhNhan,dt.maBenhNhan) patient,c.maBacSiChiDinh doctor,ct.maDichVu service,c.chanDoanLamSang diagnosis,
  CASE c.loaiUuTien WHEN 'CAP_CUU' THEN N'Khẩn cấp' ELSE N'Thường quy' END priority,
  CASE WHEN ct.trangThai='DA_HUY' THEN N'Đã hủy' WHEN k.trangThai='DA_DUYET' THEN N'Đã phát hành' WHEN k.maKetQua IS NOT NULL THEN N'Chờ duyệt' WHEN ct.trangThai='DANG_THUC_HIEN' THEN N'Đang thực hiện' ELSE N'Chờ tiếp nhận' END status,
- ISNULL(a.maNhatKy,0) resultRevision,JSON_QUERY(a.duLieuSau,'$.rows') resultRows,JSON_VALUE(a.duLieuSau,'$.result') result,JSON_VALUE(a.duLieuSau,'$.conclusion') conclusion,JSON_VALUE(a.duLieuSau,'$.critical') critical,
+ ISNULL(a.maNhatKy,0) resultRevision,
+ COALESCE(JSON_QUERY(a.duLieuSau,'$.rows'), JSON_QUERY((SELECT cs.tenChiSo name, cs.giaTriDo value, cs.donViDo unit, cs.khoangThamChieu reference FROM dbo.ChiSoXetNghiem cs WHERE cs.maKetQua=k.maKetQua FOR JSON PATH))) resultRows,
+ COALESCE(JSON_VALUE(a.duLieuSau,'$.result'), km.moTaHinhAnh) result,
+ COALESCE(JSON_VALUE(a.duLieuSau,'$.conclusion'), k.ghiChuChuyenMon, km.ketLuan) conclusion,
+ COALESCE(JSON_VALUE(a.duLieuSau,'$.critical'), CASE WHEN kx.coCanhBaoNguyKich=1 THEN N'Có' ELSE N'Không' END) critical,
  CONVERT(varchar(19),k.thoiDiemDuyet,126) releasedAt,CASE WHEN k.trangThai='DA_DUYET' THEN n.hoTen ELSE NULL END reviewer,CONVERT(char(10),c.thoiDiemChiDinh,23) date
  FROM dbo.ChiTietChiDinh ct JOIN dbo.ChiDinhCLS c ON c.maChiDinh=ct.maChiDinh LEFT JOIN dbo.LuotKham l ON l.maLuotKham=c.maLuotKham LEFT JOIN dbo.DotDieuTri dt ON dt.maDotDieuTri=c.maDotDieuTri
  OUTER APPLY(SELECT TOP 1 * FROM dbo.KetQuaCLS WHERE maChiTiet=ct.maChiTiet AND laBanHienHanh=1 ORDER BY phienBan DESC) k
+ LEFT JOIN dbo.KetQuaXetNghiem kx ON kx.maKetQua=k.maKetQua
+ LEFT JOIN dbo.KetQuaMoTa km ON km.maKetQua=k.maKetQua
  LEFT JOIN dbo.NhanVien n ON n.maNhanVien=k.maKyThuatVien
  OUTER APPLY(SELECT TOP 1 maNhatKy,duLieuSau FROM dbo.NhatKyThayDoi WHERE loaiDoiTuong='CLS' AND maDoiTuong=ct.maChiTiet ORDER BY maNhatKy DESC) a
  FOR JSON PATH)) labs
  FOR JSON PATH,WITHOUT_ARRAY_WRAPPER)`);
  const result=JSON.parse(raw);
  for(const key of ['staff','vitals','labs'])if(!Array.isArray(result[key]))result[key]=[];
+ for(const l of result.labs)if(typeof l.resultRows==='string'){try{l.resultRows=JSON.parse(l.resultRows);}catch{l.resultRows=null;}}
  result.services=JSON.parse(await querySql(`SELECT (SELECT maDichVu id,tenDichVu name,CASE loaiDichVu WHEN 'XET_NGHIEM' THEN N'Xét nghiệm' WHEN 'CDHA' THEN N'Chẩn đoán hình ảnh' ELSE N'Thủ thuật' END kind,donGia price,N'Đang hoạt động' status FROM dbo.DichVuKyThuat WHERE dangHoatDong=1 FOR JSON PATH)`)||'[]');
  result.warehouses=JSON.parse(await querySql("SELECT (SELECT maKho id,tenKho name,N'Đang hoạt động' status FROM dbo.KhoDuoc WHERE dangHoatDong=1 FOR JSON PATH)")||'[]');
  result.inventory=JSON.parse(await querySql(`SELECT (SELECT t.maLoTon id,t.maKho warehouseId,h.maHang medicineId,h.soLoNhaSanXuat lot,CONVERT(char(10),h.hanSuDung,23) expiry,t.soLuongKhaDung qty,t.soLuongTon physicalQty,t.trangThaiKhoa locked FROM dbo.LoTonKho t JOIN dbo.LoHang h ON h.maLoHang=t.maLoHang FOR JSON PATH)`)||'[]');

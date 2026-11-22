@@ -438,7 +438,9 @@ export default function Inventory({ role = 'admin', notify }) {
       <section className="panel inventory-panel">
         <div className="panel-heading">
           <div>
-            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>{tab === 'dispense' ? 'Quầy cấp phát thuốc ngoại trú' : 'Danh mục thuốc & Tồn kho'}</h2>
+            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>
+              {tab === 'dispense' ? 'Quầy cấp phát thuốc ngoại trú' : tab === 'lots' ? 'Danh mục thuốc & Quản lý tồn kho (FEFO)' : 'Lịch sử xuất nhập & Thẻ kho'}
+            </h2>
           </div>
           <div className="row-actions">
             {tab !== 'dispense' ? (
@@ -455,6 +457,28 @@ export default function Inventory({ role = 'admin', notify }) {
           </div>
         </div>
 
+        {/* 1. Main Navigation Tabs Placed At Top */}
+        <div className="inventory-tabs">
+          <button className={tab === 'dispense' ? 'active' : ''} onClick={() => setTab('dispense')}>
+            <ClipboardList size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+            Quầy cấp phát thuốc ngoại trú
+            {pendingRxCount > 0 && (
+              <span style={{ marginLeft: 6, backgroundColor: '#f59e0b', color: '#fff', padding: '1px 7px', borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
+                {pendingRxCount}
+              </span>
+            )}
+          </button>
+          <button className={tab === 'lots' ? 'active' : ''} onClick={() => setTab('lots')}>
+            <Package size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+            Danh sách lô tồn kho & FEFO
+          </button>
+          <button className={tab === 'ledger' ? 'active' : ''} onClick={() => setTab('ledger')}>
+            <FileSpreadsheet size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+            Lịch sử xuất nhập & Thẻ kho
+          </button>
+        </div>
+
+        {/* 2. Specific Search & Filter Toolbar For Active Tab */}
         {tab === 'dispense' ? (
           <div className="stock-toolbar">
             <label className="search" style={{ flex: 2 }}>
@@ -520,26 +544,6 @@ export default function Inventory({ role = 'admin', notify }) {
             </button>
           </div>
         )}
-
-        <div className="inventory-tabs">
-          <button className={tab === 'dispense' ? 'active' : ''} onClick={() => setTab('dispense')}>
-            <ClipboardList size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
-            Quầy cấp phát thuốc ngoại trú
-            {pendingRxCount > 0 && (
-              <span style={{ marginLeft: 6, backgroundColor: '#f59e0b', color: '#fff', padding: '1px 7px', borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
-                {pendingRxCount}
-              </span>
-            )}
-          </button>
-          <button className={tab === 'lots' ? 'active' : ''} onClick={() => setTab('lots')}>
-            <Package size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
-            Danh sách lô tồn kho & FEFO
-          </button>
-          <button className={tab === 'ledger' ? 'active' : ''} onClick={() => setTab('ledger')}>
-            <FileSpreadsheet size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
-            Lịch sử xuất nhập & Thẻ kho
-          </button>
-        </div>
 
         {tab === 'dispense' && (
           <>

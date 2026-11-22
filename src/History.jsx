@@ -4,21 +4,7 @@ import {Plus,Search,FileText,Stethoscope,BedDouble,X,Check,HeartPulse,Activity,S
 import {useWorkspace,getWorkspace,createVisit,saveVisitNote,syncWithSqlServer,transact,id,audit,episodeOptions,syncLatestPatient} from './workspace';
 import {today,clinics} from './business-data';
 import {actorRoles} from './roles';
-
-const COMMON_ICD10 = [
-  { code: 'I10', name: 'Tăng huyết áp vô căn (nguyên phát)' },
-  { code: 'E11', name: 'Đái tháo đường không phụ thuộc insulin (Type 2)' },
-  { code: 'J00', name: 'Viêm mũi họng cấp tính (cảm thường)' },
-  { code: 'J06.9', name: 'Nhiễm trùng đường hô hấp trên cấp tính' },
-  { code: 'K21', name: 'Bệnh trào ngược dạ dày - thực quản (GERD)' },
-  { code: 'K29.7', name: 'Viêm dạ dày, không xác định' },
-  { code: 'M54.5', name: 'Đau thắt lưng (đau lưng vùng thấp)' },
-  { code: 'M17', name: 'Thoái hóa khớp gối' },
-  { code: 'R05', name: 'Ho kéo dài chưa rõ nguyên nhân' },
-  { code: 'R50.9', name: 'Sốt, không xác định' },
-  { code: 'J20', name: 'Viêm phế quản cấp' },
-  { code: 'I20', name: 'Cơn đau thắt ngực (bệnh mạch vành)' }
-];
+import Icd10Search from './Icd10Search';
 
 export function EpisodeField({patientId,value,onChange,inpatientOnly=false}){
   const [visits]=useWorkspace('visits'),[admissions]=useWorkspace('admissions');
@@ -367,66 +353,54 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
           <div className="his-form-section">
             <div className="his-section-header">
               <Shield size={16} />
-              <span>3. Chẩn đoán xác định & Mã hóa danh mục ICD-10 (Bộ Y tế)</span>
+              <span>3. Chẩn đoán xác định & Tra cứu danh mục ICD-10 từ CSDL Bộ Y tế</span>
             </div>
 
-            <div className="his-quick-icd">
-              <span>Mã ICD-10 gợi ý nhanh:</span>
-              <div className="his-icd-tags">
-                {COMMON_ICD10.slice(0, 6).map(icd => (
-                  <button
-                    type="button"
-                    key={icd.code}
-                    className="his-icd-chip"
-                    onClick={() => handleIcdSelect(icd.code, icd.name, true)}
-                  >
-                    <b>{icd.code}</b> {icd.name}
-                  </button>
-                ))}
+            <div className="his-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+              <div>
+                <span className="his-label" style={{ display: 'block', marginBottom: '6px' }}>
+                  Bệnh chính (Mã ICD-10 CSDL) *
+                </span>
+                <Icd10Search
+                  valueCode={primaryIcd}
+                  valueName=""
+                  onChange={({ code, name }) => {
+                    if (code) {
+                      handleIcdSelect(code, name, true);
+                    } else {
+                      setPrimaryIcd('');
+                    }
+                  }}
+                />
+              </div>
+
+              <div>
+                <span className="his-label" style={{ display: 'block', marginBottom: '6px' }}>
+                  Bệnh kèm theo (ICD-10 phụ)
+                </span>
+                <Icd10Search
+                  valueCode={secondaryIcd}
+                  valueName=""
+                  onChange={({ code, name }) => {
+                    if (code) {
+                      handleIcdSelect(code, name, false);
+                    } else {
+                      setSecondaryIcd('');
+                    }
+                  }}
+                />
               </div>
             </div>
 
-            <div className="his-grid-3">
+            <div>
               <label className="his-label">
-                Mã bệnh chính ICD-10 *
-                <select
-                  value={primaryIcd}
-                  onChange={e => {
-                    const item = COMMON_ICD10.find(x => x.code === e.target.value);
-                    handleIcdSelect(e.target.value, item ? item.name : '', true);
-                  }}
-                  className="his-select"
-                >
-                  {COMMON_ICD10.map(x => (
-                    <option key={x.code} value={x.code}>{x.code} - {x.name}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="his-label">
-                Mã bệnh kèm theo (ICD-10 phụ)
-                <select
-                  value={secondaryIcd}
-                  onChange={e => {
-                    const item = COMMON_ICD10.find(x => x.code === e.target.value);
-                    handleIcdSelect(e.target.value, item ? item.name : '', false);
-                  }}
-                  className="his-select"
-                >
-                  <option value="">-- Không có bệnh kèm theo --</option>
-                  {COMMON_ICD10.map(x => (
-                    <option key={x.code} value={x.code}>{x.code} - {x.name}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="his-label">
-                Chẩn đoán mô tả đầy đủ *
+                Chẩn đoán lâm sàng mô tả đầy đủ *
                 <input
                   required
                   value={diagnosis}
                   onChange={e => setDiagnosis(e.target.value)}
                   className="his-input"
+                  placeholder="Ví dụ: Tăng huyết áp vô căn (I10) / Kèm theo: Đái tháo đường typ 2 (E11)..."
                 />
               </label>
             </div>
