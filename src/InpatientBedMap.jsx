@@ -112,17 +112,18 @@ export default function InpatientBedMap({ beds, setBeds, patients, role, actor, 
       {/* Admission Queue for Nurse */}
       {waitingAdmissions.length > 0 && (
         <div className="inpatient-admission-queue" style={{
-          background: '#f8fafc',
-          border: '1px solid #cbd5e1',
-          borderLeft: '4px solid #2563eb',
+          background: '#ffffff',
+          border: '1px solid #ccfbf1',
+          borderTop: '3px solid #0f766e',
           borderRadius: '8px',
-          padding: '12px 16px',
-          marginBottom: '16px'
+          padding: '14px 16px',
+          marginBottom: '18px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <UserPlus size={18} style={{ color: '#2563eb' }} />
-              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>
+              <UserPlus size={18} style={{ color: '#0f766e' }} />
+              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#0f766e' }}>
                 Hàng đợi tiếp nhận nội trú · Chờ xếp buồng ({waitingAdmissions.length} người bệnh)
               </h3>
             </div>
@@ -136,7 +137,7 @@ export default function InpatientBedMap({ beds, setBeds, patients, role, actor, 
               const firstAvailableBed = beds.find(b => !b.patient && !b.cleaning);
               return (
                 <div key={adm.id} style={{
-                  background: 'white',
+                  background: '#f8fafc',
                   border: '1px solid #e2e8f0',
                   borderRadius: '6px',
                   padding: '10px 12px',
@@ -148,28 +149,28 @@ export default function InpatientBedMap({ beds, setBeds, patients, role, actor, 
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                       <b style={{ fontSize: '13px', color: '#0f172a' }}>{pat.name}</b>
-                      <span style={{ fontSize: '10px', background: '#eff6ff', color: '#1d4ed8', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                      <span style={{ fontSize: '11px', background: '#f0fdfa', color: '#0f766e', border: '1px solid #ccfbf1', padding: '2px 7px', borderRadius: '4px', fontWeight: 600 }}>
                         {adm.department || 'Nội trú'}
                       </span>
                     </div>
-                    <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#64748b' }}>
+                    <p style={{ margin: '4px 0 0', fontSize: '11.5px', color: '#64748b' }}>
                       Mã: {adm.patientId} · BS chỉ định: {adm.doctor || 'Bác sĩ'}
                     </p>
                     {adm.reason && (
-                      <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#334155' }}>
+                      <p style={{ margin: '4px 0 0', fontSize: '11.5px', color: '#334155' }}>
                         Lý do: {adm.reason}
                       </p>
                     )}
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px solid #f1f5f9' }}>
-                    <span style={{ fontSize: '10px', color: '#94a3b8' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid #e2e8f0' }}>
+                    <span style={{ fontSize: '11px', color: '#94a3b8' }}>
                       <Clock size={11} style={{ display: 'inline', marginRight: '3px', verticalAlign: '-1px' }} />
                       {adm.time || 'Hôm nay'}
                     </span>
                     <button
                       type="button"
                       className="primary"
-                      style={{ fontSize: '11px', padding: '4px 10px', height: 'auto' }}
+                      style={{ fontSize: '12px', padding: '5px 12px', height: 'auto', background: '#0f766e', borderColor: '#0f766e' }}
                       onClick={() => {
                         if (firstAvailableBed) {
                           onSelectBed(firstAvailableBed, adm.patientId);
