@@ -196,14 +196,14 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
             </h2>
             <p className="his-header-sub">
               {mode === 'register'
-                ? 'Quy trình tiếp nhận bệnh nhân, kiểm tra quyền lợi BHYT và phân buồng khám theo chuẩn Viettel HIS'
+                ? 'Tiếp nhận và phân luồng phòng khám ngoại trú'
                 : `Bệnh nhân: ${person?.name || ''} · Mã BN: ${person?.id || ''}`}
             </p>
           </div>
         </div>
         <div className="his-mode-badge">
           <span className="badge teal">
-            {mode === 'register' ? 'Tiếp đón Ngoại Trú (KCB 2026)' : mode === 'edit' ? 'Hồ sơ hành chính' : 'Điều phối buồng'}
+            {mode === 'register' ? 'Tiếp đón Ngoại trú' : mode === 'edit' ? 'Hồ sơ hành chính' : 'Điều phối buồng'}
           </span>
         </div>
       </div>

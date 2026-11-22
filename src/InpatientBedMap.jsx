@@ -50,11 +50,11 @@ export default function InpatientBedMap({ beds, setBeds, patients, role, actor, 
   return (
     <div className="inpatient-bedmap">
       {/* Header & Department Switcher */}
-      <div className="bedmap-header">
+      <div className="bedmap-header" style={{ marginBottom: '14px', alignItems: 'center' }}>
         <div>
-          <span className="eyebrow">QUẢN TRỊ NỘI TRÚ & ĐIỀU PHỐI BUỒNG GIƯỜNG</span>
-          <h2>Sơ đồ buồng giường nội trú toàn viện</h2>
-          <p>Theo dõi tình trạng lấp đầy buồng giường, tiếp nhận bệnh nhân và xử lý vệ sinh khử khuẩn chuẩn Viettel HIS.</p>
+          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>
+            Sơ đồ buồng giường nội trú
+          </h2>
         </div>
         <div className="bedmap-header-actions">
           <div className="dept-select-wrap">
@@ -194,14 +194,14 @@ export default function InpatientBedMap({ beds, setBeds, patients, role, actor, 
                 {isCleaning && (
                   <div className="bed-cleaning-notice">
                     <AlertTriangle size={15} />
-                    <span>Bệnh nhân đã xuất viện. Cần điều dưỡng xác nhận vệ sinh khử khuẩn buồng.</span>
+                    <span>Chờ khử khuẩn buồng</span>
                   </div>
                 )}
 
                 {isAvailable && (
                   <div className="bed-available-notice">
                     <CheckCircle2 size={15} />
-                    <span>Giường sạch sẽ, đầy đủ drap & thiết bị. Bấm để tiếp nhận người bệnh vào nằm viện.</span>
+                    <span>Giường trống · Khả dụng</span>
                   </div>
                 )}
               </div>
@@ -209,10 +209,10 @@ export default function InpatientBedMap({ beds, setBeds, patients, role, actor, 
               <div className="bed-card-footer">
                 <span className="bed-action-hint">
                   {isOccupied
-                    ? 'Bấm xem hồ sơ / Cho ra viện →'
+                    ? 'Xem hồ sơ / Ra viện'
                     : isCleaning
-                    ? 'Bấm xác nhận hoàn tất khử khuẩn →'
-                    : 'Bấm tiếp nhận vào giường này →'}
+                    ? 'Xác nhận đã khử khuẩn'
+                    : 'Tiếp nhận người bệnh'}
                 </span>
               </div>
             </div>

@@ -183,17 +183,11 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
   return (
     <section className="lab-desk">
       {/* 1. Header Banner & Context */}
-      <div className="desk-intro" style={{ background: '#f8fafc', padding: '16px 20px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+      <div className="desk-intro" style={{ background: '#ffffff', padding: '14px 18px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <span className="eyebrow" style={{ color: '#0f766e', fontWeight: 700, letterSpacing: '0.5px' }}>
-            PHÂN HỆ CẬN LÂM SÀNG & CHẨN ĐOÁN HÌNH ẢNH · VIETTEL HIS STANDARD
-          </span>
-          <h2 style={{ margin: '4px 0 6px', fontSize: '20px', color: '#0f172a' }}>
-            Bàn làm việc Kỹ thuật viên & Bác sĩ Cận lâm sàng
+          <h2 style={{ margin: 0, fontSize: '18px', color: '#0f172a', fontWeight: 700 }}>
+            Bàn làm việc Cận lâm sàng & Chẩn đoán hình ảnh
           </h2>
-          <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: 1.6 }}>
-            Kỹ thuật viên thao tác theo phòng máy trực ➔ Tiếp nhận người bệnh ➔ Thực hiện kỹ thuật & Nhập kết quả chuyên môn ➔ Bác sĩ CĐHA ký duyệt ➔ Tự động gửi kết quả về Bàn khám của Bác sĩ chỉ định.
-          </p>
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <button className="secondary" onClick={() => window.print()} title="In phiếu kết quả CLS">
@@ -408,48 +402,30 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                     </span>
                   </div>
                 </div>
-
-                {/* Workflow Progress indicator */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px', fontSize: '11px', color: '#64748b' }}>
-                  <span style={{ color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <CheckCircle2 size={13} /> 1. Bác sĩ ra chỉ định
-                  </span>
-                  <ArrowRight size={12} />
-                  <span style={{ color: ['Đang thực hiện', 'Chờ duyệt', 'Đã phát hành'].includes(row.status) ? '#10b981' : '#64748b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <CheckCircle2 size={13} /> 2. KTV tiếp nhận phòng máy
-                  </span>
-                  <ArrowRight size={12} />
-                  <span style={{ color: ['Chờ duyệt', 'Đã phát hành'].includes(row.status) ? '#10b981' : '#64748b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <CheckCircle2 size={13} /> 3. Nhập kết quả chuyên môn
-                  </span>
-                  <ArrowRight size={12} />
-                  <span style={{ color: row.status === 'Đã phát hành' ? '#10b981' : '#64748b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <CheckCircle2 size={13} /> 4. Duyệt & Gửi Bác sĩ
-                  </span>
-                </div>
               </div>
 
               {/* Card 2: Technician Result Entry or Result Presentation */}
               <div style={{ padding: '20px' }}>
                 {/* Stage A: When Waiting for Check-in */}
                 {row.status === 'Chờ tiếp nhận' && !editing && (
-                  <div style={{ padding: '30px', textAlign: 'center', background: '#fafaf9', borderRadius: '8px', border: '1.5px dashed #cbd5e1' }}>
-                    <Activity size={36} style={{ color: '#0f766e', margin: '0 auto 12px' }} />
-                    <h3 style={{ margin: '0 0 8px', fontSize: '16px', color: '#1e293b' }}>
+                  <div style={{ padding: '24px', textAlign: 'center', background: '#fafaf9', borderRadius: '8px', border: '1.5px dashed #cbd5e1' }}>
+                    <Activity size={32} style={{ color: '#0f766e', margin: '0 auto 8px' }} />
+                    <h3 style={{ margin: '0 0 14px', fontSize: '15px', color: '#1e293b' }}>
                       Bệnh nhân đang ở phòng chờ CLS
                     </h3>
-                    <p style={{ margin: '0 0 16px', fontSize: '13px', color: '#64748b' }}>
-                      Kỹ thuật viên đối chiếu thông tin người bệnh, gọi số vào phòng máy và bấm <b>Tiếp nhận</b> để bắt đầu chụp chiếu / lấy mẫu xét nghiệm.
-                    </p>
-                    {canWrite && (
+                    {canWrite ? (
                       <button
                         className="primary"
-                        style={{ padding: '10px 24px', fontSize: '13px', fontWeight: 600 }}
+                        style={{ padding: '8px 20px', fontSize: '13px', fontWeight: 600 }}
                         disabled={saving}
                         onClick={() => action('accept')}
                       >
                         {saving ? 'Đang xử lý...' : 'Tiếp nhận người bệnh vào phòng máy'}
                       </button>
+                    ) : (
+                      <div style={{ fontStyle: 'italic', color: '#64748b', fontSize: '13px' }}>
+                        Chờ Kỹ thuật viên tiếp nhận phòng máy.
+                      </div>
                     )}
                   </div>
                 )}
@@ -639,20 +615,10 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                   /* Stage C: Viewing Results or Published Report */
                   <div>
                     {row.status === 'Đã phát hành' ? (
-                      <div style={{ padding: '12px 16px', background: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: '6px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <CheckCircle2 size={20} style={{ color: '#059669', flexShrink: 0 }} />
-                        <div style={{ fontSize: '12px', color: '#065f46' }}>
-                          <b>ĐÃ PHÁT HÀNH VÀ GỬI TRẢ KẾT QUẢ VỀ BÀN KHÁM CỦA BÁC SĨ THÀNH CÔNG!</b>
-                          <div style={{ marginTop: '2px', color: '#047857' }}>
-                            Bác sĩ <b>{db.staff.find(s => s.id === row.doctor)?.name || row.doctor}</b> đã nhận được kết quả này trong hồ sơ khám / điều trị để đưa ra chẩn đoán xác định và tiến hành kê đơn thuốc hoặc chuyển tuyến.
-                          </div>
-                        </div>
+                      <div style={{ padding: '8px 12px', background: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: '6px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#065f46', fontWeight: 600 }}>
+                        <CheckCircle2 size={16} /> Phiếu kết quả đã ký duyệt & phát hành liên thông
                       </div>
-                    ) : (
-                      <div style={{ padding: '10px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', marginBottom: '16px', fontSize: '12px', color: '#475569' }}>
-                        Trạng thái phiếu: <b>{row.status}</b>. Kỹ thuật viên nhập kết quả chuyên môn và Bác sĩ CĐHA ký duyệt phát hành.
-                      </div>
-                    )}
+                    ) : null}
 
                     {/* Display Results Table or Findings */}
                     {row.resultRows?.length ? (

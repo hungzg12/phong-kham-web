@@ -438,8 +438,7 @@ export default function Inventory({ role = 'admin', notify }) {
       <section className="panel inventory-panel">
         <div className="panel-heading">
           <div>
-            <h2>{tab === 'dispense' ? 'Quầy cấp phát thuốc ngoại trú (Hàng đợi phòng khám)' : 'Tồn kho theo kho & lô'}</h2>
-            <p>{tab === 'dispense' ? 'Tiếp nhận đơn thuốc trực tiếp từ Bác sĩ khám ➔ Kiểm tra tương tác, liều dùng ➔ Xuất kho theo nguyên tắc FEFO ➔ Bàn giao cho người bệnh.' : 'Quản lý tồn kho theo lô sản xuất, tự động phân bổ hạn dùng theo nguyên tắc FEFO.'}</p>
+            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>{tab === 'dispense' ? 'Quầy cấp phát thuốc ngoại trú' : 'Danh mục thuốc & Tồn kho'}</h2>
           </div>
           <div className="row-actions">
             {tab !== 'dispense' ? (
