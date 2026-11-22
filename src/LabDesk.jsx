@@ -323,7 +323,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
       </div>
 
       {/* 3. Main Split Desk Layout */}
-      <div className="desk-layout" style={{ gridTemplateColumns: '320px minmax(0, 1fr)' }}>
+      <div className="desk-layout" style={{ gridTemplateColumns: 'minmax(350px, 24vw) minmax(0, 1fr)', gap: '18px' }}>
         {/* Left Side: Patient Queue Grouped by Patient */}
         <aside className="desk-queue" style={{ maxHeight: '82vh' }}>
           <div className="desk-queue-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
@@ -421,37 +421,37 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                   }}
                   title={`${g.patientName} — ${g.counts.total} dịch vụ: ${serviceNames}`}
                 >
-                  {/* Line 1: STT + Patient Name + Demographics + Urgent Tag + Status Badge */}
+                  {/* Line 1: STT + Full Patient Name + Demographics + Urgent Tag */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', width: '100%' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
                       <span style={{ background: isSelected ? '#ccfbf1' : '#f1f5f9', color: isSelected ? '#0f766e' : '#475569', fontSize: '11px', fontWeight: 700, padding: '1px 5px', borderRadius: '4px', flexShrink: 0 }}>
                         {String(idx + 1).padStart(2, '0')}
                       </span>
-                      <b style={{ fontSize: '13px', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <b style={{ fontSize: '13.5px', color: '#0f172a', whiteSpace: 'nowrap' }}>
                         {g.patientName}
                       </b>
                       {demo && <span style={{ fontSize: '11px', color: '#64748b', whiteSpace: 'nowrap', flexShrink: 0 }}>({demo})</span>}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                      {g.hasUrgent && (
-                        <span style={{ background: '#fee2e2', color: '#b91c1c', fontSize: '9px', padding: '1px 5px', borderRadius: '3px', fontWeight: 700 }}>
-                          ⚡ CẤP CỨU
-                        </span>
-                      )}
-                      <span className={`badge ${statusClass}`} style={{ fontSize: '10px', padding: '1px 6px' }}>
-                        {statusLabel}
+                    {g.hasUrgent && (
+                      <span style={{ background: '#fee2e2', color: '#b91c1c', fontSize: '9px', padding: '1px 5px', borderRadius: '3px', fontWeight: 700, flexShrink: 0 }}>
+                        ⚡ CẤP CỨU
                       </span>
-                    </div>
+                    )}
                   </div>
 
-                  {/* Line 2: Service count & names summary */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', width: '100%', fontSize: '11px', color: '#64748b' }}>
+                  {/* Line 2: Service count & names summary + Episode ID + Consolidated Status Badge */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', width: '100%', fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
                     <span style={{ color: '#0f766e', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }} title={serviceNames}>
                       {g.counts.total} DV: {serviceNames}
                     </span>
-                    <span style={{ color: '#94a3b8', fontSize: '10.5px', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                      {g.episodeId}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                      <span style={{ color: '#94a3b8', fontSize: '10px', whiteSpace: 'nowrap' }}>
+                        {g.episodeId}
+                      </span>
+                      <span className={`badge ${statusClass}`} style={{ fontSize: '9.5px', padding: '1px 6px', whiteSpace: 'nowrap' }}>
+                        {statusLabel}
+                      </span>
+                    </div>
                   </div>
                 </button>
               );
@@ -500,17 +500,18 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                 </div>
 
                 {/* Clinical Context Box (Bác sĩ chỉ định & Chẩn đoán lâm sàng) */}
-                <div style={{ marginTop: '12px', padding: '10px 14px', background: '#eff6ff', borderRadius: '6px', border: '1px solid #bfdbfe', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px', fontSize: '12px' }}>
-                  <div>
+                <div style={{ marginTop: '12px', padding: '12px 16px', background: '#eff6ff', borderRadius: '8px', border: '1px solid #bfdbfe', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px 24px', fontSize: '12.5px' }}>
+                  <div style={{ whiteSpace: 'nowrap' }}>
                     <span style={{ color: '#1e40af', fontWeight: 600 }}>Bác sĩ chỉ định:</span>{' '}
-                    <b>{db.staff.find(s => s.id === activeGroup.doctor)?.name || activeGroup.doctor}</b> (Khoa Khám bệnh / Nội trú)
+                    <b style={{ color: '#0f172a' }}>{db.staff.find(s => s.id === activeGroup.doctor)?.name || activeGroup.doctor}</b>{' '}
+                    <span style={{ color: '#475569' }}>(Khoa Khám bệnh / Nội trú)</span>
                   </div>
-                  <div>
+                  <div style={{ whiteSpace: 'nowrap' }}>
                     <span style={{ color: '#1e40af', fontWeight: 600 }}>Tổng số chỉ định:</span>{' '}
                     <b style={{ color: '#0f766e' }}>{activeGroup.services.length} dịch vụ kỹ thuật</b>
                   </div>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <span style={{ color: '#1e40af', fontWeight: 600 }}>Chẩn đoán sơ bộ của Bác sĩ:</span>{' '}
+                  <div style={{ width: '100%', display: 'flex', gap: '6px', alignItems: 'baseline', marginTop: '2px' }}>
+                    <span style={{ color: '#1e40af', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>Chẩn đoán sơ bộ:</span>{' '}
                     <span style={{ color: '#b91c1c', fontWeight: 700 }}>
                       {activeGroup.diagnosis || 'Theo dõi lâm sàng và chỉ định cận lâm sàng đánh giá'}
                     </span>
@@ -519,7 +520,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
               </div>
 
               {/* Segmented Service Selector Tabs (Show all services ordered for this patient) */}
-              <div style={{ display: 'flex', gap: '8px', padding: '10px 20px', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', overflowX: 'auto', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '8px', padding: '10px 20px', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', flexWrap: 'wrap', alignItems: 'center' }}>
                 <span style={{ fontSize: '12px', fontWeight: 700, color: '#334155', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '5px' }}>
                   <Activity size={14} style={{ color: '#0f766e' }} /> Chọn dịch vụ:
                 </span>

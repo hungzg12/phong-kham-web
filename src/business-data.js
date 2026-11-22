@@ -39,7 +39,7 @@ export const pageGroups={
  devices:['equipment','incidents'],
  portal:['portal']
 };
-export const extraTitles={clinical:'Cận lâm sàng & CĐHA',care:'Sơ đồ buồng giường & Y lệnh',warehouse:'Kho & kiểm kê',finance:'Quyết toán & báo cáo',archive:'Bệnh án & ủy quyền',admin:'Quản trị hệ thống',devices:'Thiết bị & bảo trì',portal:'Cổng người bệnh'};
+export const extraTitles={clinical:'Cận lâm sàng & CĐHA',care:'Y lệnh & Điều trị',warehouse:'Kho & kiểm kê',finance:'Quyết toán & báo cáo',archive:'Bệnh án & ủy quyền',admin:'Quản trị hệ thống',devices:'Thiết bị & bảo trì',portal:'Cổng người bệnh'};
 export const permissionNames=['Tiếp đón bệnh nhân','Khám và chỉ định','Duyệt kết quả CLS','Kê đơn thuốc','Thực hiện y lệnh','Quản lý kho dược','Thu chi viện phí','Xem hồ sơ bệnh án','Duyệt đính chính','Quản trị hệ thống'];
 export const seeds={
  vitals:[],

@@ -480,66 +480,68 @@ export default function Inventory({ role = 'admin', notify }) {
 
         {/* 2. Specific Search & Filter Toolbar For Active Tab */}
         {tab === 'dispense' ? (
-          <div className="stock-toolbar">
-            <label className="search" style={{ flex: 2 }}>
+          <div className="stock-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0 22px 16px', flexWrap: 'wrap' }}>
+            <label className="search" style={{ flex: '1 1 260px', minWidth: '220px', maxWidth: '380px', margin: 0 }}>
               <Search size={15} />
               <input
                 aria-label="Tìm đơn thuốc"
                 placeholder="Tìm mã đơn, tên người bệnh, mã BN, chẩn đoán, bác sĩ kê..."
                 value={rxSearch}
                 onChange={e => setRxSearch(e.target.value)}
+                style={{ width: '100%', height: '36px', fontSize: '12.5px' }}
               />
             </label>
 
-            <select aria-label="Lọc trạng thái cấp phát" value={rxFilter} onChange={e => setRxFilter(e.target.value)} className="his-select">
+            <select aria-label="Lọc trạng thái cấp phát" value={rxFilter} onChange={e => setRxFilter(e.target.value)} className="his-select" style={{ width: 'auto', minWidth: '160px', maxWidth: '210px', height: '36px' }}>
               <option value="Tất cả">Tất cả trạng thái</option>
               <option value="Chờ cấp phát">Chờ cấp phát ({pendingRxCount})</option>
               <option value="Đã cấp phát">Đã cấp phát ({dispensedRxCount})</option>
             </select>
 
-            <select aria-label="Kho xuất cấp phát" value={dispenseWarehouse} onChange={e => setDispenseWarehouse(e.target.value)} className="his-select">
+            <select aria-label="Kho xuất cấp phát" value={dispenseWarehouse} onChange={e => setDispenseWarehouse(e.target.value)} className="his-select" style={{ width: 'auto', minWidth: '200px', maxWidth: '260px', height: '36px' }}>
               {warehouses.map(w => (
                 <option key={w.id} value={w.id}>{w.name} ({w.id})</option>
               ))}
             </select>
 
-            <button className="icon-button" aria-label="Đồng bộ SQL Server" onClick={fetchSqlBatches} disabled={loading} title="Đồng bộ CSDL SQL Server">
+            <button className="icon-button" aria-label="Đồng bộ SQL Server" onClick={fetchSqlBatches} disabled={loading} title="Đồng bộ CSDL SQL Server" style={{ height: '36px', width: '36px', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
               <RefreshCw size={15} className={loading ? 'spinning' : ''} />
             </button>
           </div>
         ) : (
-          <div className="stock-toolbar">
-            <label className="search">
+          <div className="stock-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0 22px 16px', flexWrap: 'wrap' }}>
+            <label className="search" style={{ flex: '1 1 260px', minWidth: '220px', maxWidth: '380px', margin: 0 }}>
               <Search size={15} />
               <input
                 aria-label="Tìm mặt hàng hoặc lô"
                 placeholder="Tên thuốc, hoạt chất, số lô, hãng SX..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
+                style={{ width: '100%', height: '36px', fontSize: '12.5px' }}
               />
             </label>
 
-            <select aria-label="Lọc theo kho" value={warehouse} onChange={e => setWarehouse(e.target.value)} className="his-select">
+            <select aria-label="Lọc theo kho" value={warehouse} onChange={e => setWarehouse(e.target.value)} className="his-select" style={{ width: 'auto', minWidth: '180px', maxWidth: '240px', height: '36px' }}>
               <option value="all">Tất cả kho</option>
               {warehouseOptions}
             </select>
 
-            <select aria-label="Lọc hãng sản xuất" value={manufacturer} onChange={e => setManufacturer(e.target.value)} className="his-select">
+            <select aria-label="Lọc hãng sản xuất" value={manufacturer} onChange={e => setManufacturer(e.target.value)} className="his-select" style={{ width: 'auto', minWidth: '170px', maxWidth: '220px', height: '36px' }}>
               <option value="all">Tất cả hãng sản xuất</option>
               {availableManufacturers.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
 
-            <select aria-label="Lọc hạn dùng" value={filter} onChange={e => setFilter(e.target.value)} className="his-select">
+            <select aria-label="Lọc hạn dùng" value={filter} onChange={e => setFilter(e.target.value)} className="his-select" style={{ width: 'auto', minWidth: '130px', maxWidth: '170px', height: '36px' }}>
               {['Tất cả', 'Còn hạn', 'Cận date', 'Hết hạn', 'Tồn thấp'].map(f => (
                 <option key={f} value={f}>{f}</option>
               ))}
             </select>
 
-            <button className="secondary" onClick={exportLots}>
+            <button className="secondary" onClick={exportLots} style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', whiteSpace: 'nowrap' }}>
               <Download size={15} />Xuất tồn kho
             </button>
 
-            <button className="icon-button" aria-label="Đồng bộ SQL Server" onClick={fetchSqlBatches} disabled={loading} title="Đồng bộ CSDL SQL Server">
+            <button className="icon-button" aria-label="Đồng bộ SQL Server" onClick={fetchSqlBatches} disabled={loading} title="Đồng bộ CSDL SQL Server" style={{ height: '36px', width: '36px', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
               <RefreshCw size={15} className={loading ? 'spinning' : ''} />
             </button>
           </div>
@@ -548,7 +550,7 @@ export default function Inventory({ role = 'admin', notify }) {
         {tab === 'dispense' && (
           <>
             <div className="table-scroll">
-              <table>
+              <table style={{ minWidth: '1050px' }}>
                 <thead>
                   <tr>
                     <th>MÃ ĐƠN & THỜI ĐIỂM</th>
@@ -635,7 +637,7 @@ export default function Inventory({ role = 'admin', notify }) {
         {tab === 'lots' && (
           <>
             <div className="table-scroll">
-              <table>
+              <table style={{ minWidth: '1050px' }}>
                 <thead>
                   <tr>
                     <th>MẶT HÀNG / HOẠT CHẤT</th>

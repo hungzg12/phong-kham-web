@@ -271,11 +271,68 @@
 }
 @media (max-width: 1366px) {
   .desk-layout {
-    grid-template-columns: 240px minmax(0, 1fr);
-    gap: 14px;
+    grid-template-columns: minmax(330px, 26vw) minmax(0, 1fr);
+    gap: 16px;
   }
   .desk-field-grid {
     grid-template-columns: 1fr 1fr;
     gap: 0 12px;
   }
+}
+
+/* Universal Toolbar & Input Standardization */
+.table-tools,
+.stock-toolbar,
+.data-filter,
+.report-filters,
+.bedmap-toolbar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  flex-wrap: wrap !important;
+}
+
+.table-tools .search,
+.stock-toolbar .search,
+.data-filter .search,
+.bedmap-search {
+  flex: 1 1 240px !important;
+  max-width: 380px !important;
+  min-width: 200px !important;
+  margin: 0 !important;
+}
+
+.table-tools select,
+.stock-toolbar select,
+.data-filter select,
+.report-filters select,
+.table-tools .his-select,
+.stock-toolbar .his-select,
+.data-filter .his-select {
+  width: auto !important;
+  max-width: 260px !important;
+  min-width: 140px !important;
+  flex: 0 1 auto !important;
+  white-space: nowrap !important;
+}
+
+/* Patient card name prominence */
+.desk-pat-name {
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  white-space: nowrap !important;
+}
+
+/* Modal form controls standardization */
+.modal.his-large-modal select,
+.modal.wide-modal select {
+  font-size: 13px !important;
+}
+
+.his-benefit-tag {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  white-space: nowrap !important;
 }

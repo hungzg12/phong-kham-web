@@ -551,16 +551,16 @@ export default function History({role='admin',patientId,navigate,notify}){
           </div>
         </div>
 
-        <div className="table-tools">
-          <label className="search">
+        <div className="table-tools" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <label className="search" style={{ flex: '1 1 260px', minWidth: '220px', maxWidth: '380px', margin: 0 }}>
             <Search size={16}/>
-            <input aria-label="Tìm lịch sử khám" placeholder="Tên, mã hồ sơ, ngày khám..." value={search} onChange={e=>{setSearch(e.target.value);setPage(0)}}/>
+            <input aria-label="Tìm lịch sử khám" placeholder="Tên, mã hồ sơ, ngày khám..." value={search} onChange={e=>{setSearch(e.target.value);setPage(0)}} style={{ height: '36px', fontSize: '12.5px' }}/>
           </label>
-          {!patientId&&<select aria-label="Lọc người bệnh" value={patient} onChange={e=>{setPatient(e.target.value);setPage(0)}} className="his-select">
+          {!patientId&&<select aria-label="Lọc người bệnh" value={patient} onChange={e=>{setPatient(e.target.value);setPage(0)}} className="his-select" style={{ width: 'auto', minWidth: '180px', maxWidth: '240px', height: '36px' }}>
             <option value="">Tất cả người bệnh</option>
             {patients.filter(p=>role!=='doctor'||p.doctor.includes(actor.person)||combined.some(v=>v.patientId===p.id)).map(p=><option key={p.id} value={p.id}>{p.name} · {p.id}</option>)}
           </select>}
-          <select aria-label="Loại hồ sơ" value={kind} onChange={e=>{setKind(e.target.value);setPage(0)}} className="his-select">
+          <select aria-label="Loại hồ sơ" value={kind} onChange={e=>{setKind(e.target.value);setPage(0)}} className="his-select" style={{ width: 'auto', minWidth: '140px', maxWidth: '180px', height: '36px' }}>
             {['Tất cả','Ngoại trú','Nội trú'].map(k=><option key={k}>{k}</option>)}
           </select>
         </div>

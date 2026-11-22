@@ -411,7 +411,7 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
                 <span>2. Chế độ khám & Quyền lợi Bảo hiểm Y tế (BHYT)</span>
               </div>
 
-              <div className="his-grid-3">
+              <div style={{ display: 'grid', gridTemplateColumns: patientType === 'BHYT' ? '1fr 1.25fr 1.55fr' : '1fr 2fr', gap: '12px', alignItems: 'end' }}>
                 <label className="his-label">
                   Loại đối tượng khám *
                   <select
@@ -441,20 +441,20 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
 
                     <div className="his-label">
                       Mức hưởng quyền lợi BHYT
-                      <div className="his-benefit-tag">
-                        <span className={`badge ${insuranceRate === 100 ? 'teal' : insuranceRate === 95 ? 'blue' : 'amber'}`}>
+                      <div className="his-benefit-tag" style={{ whiteSpace: 'nowrap' }}>
+                        <span className={`badge ${insuranceRate === 100 ? 'teal' : insuranceRate === 95 ? 'blue' : 'amber'}`} style={{ whiteSpace: 'nowrap' }}>
                           Quỹ BHYT chi trả {insuranceRate}%
                         </span>
-                        <small>Cùng chi trả: {100 - insuranceRate}%</small>
+                        <small style={{ whiteSpace: 'nowrap', fontWeight: 600 }}>Cùng chi trả: {100 - insuranceRate}%</small>
                       </div>
                     </div>
                   </>
                 ) : (
-                  <div className="his-label his-col-2">
+                  <div className="his-label">
                     Hình thức thanh toán
-                    <div className="his-benefit-tag">
-                      <span className="badge gray">Khám dịch vụ tự chi trả 100%</span>
-                      <small>Thanh toán viện phí tại quầy thu ngân</small>
+                    <div className="his-benefit-tag" style={{ whiteSpace: 'nowrap' }}>
+                      <span className="badge gray" style={{ whiteSpace: 'nowrap' }}>Khám dịch vụ tự chi trả 100%</span>
+                      <small style={{ whiteSpace: 'nowrap' }}>Thanh toán viện phí tại quầy thu ngân</small>
                     </div>
                   </div>
                 )}
@@ -508,7 +508,7 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
                     </div>
                   </div>
                   <div className="his-queue-badge">
-                    <span className="badge teal">Tự động cấp số thứ tự khám (STT)</span>
+                    <span className="badge teal" style={{ whiteSpace: 'nowrap' }}>Tự động cấp số thứ tự khám (STT)</span>
                   </div>
                 </div>
               </div>
