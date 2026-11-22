@@ -44,44 +44,28 @@ export const permissionNames=['Tiếp đón bệnh nhân','Khám và chỉ đị
 export const seeds={
  vitals:[],
  labs:[],
- prescriptions:[
-  {
-   id:'DT-261121-001',
-   patient:'BN-240101-001',
-   episodeId:'LK-261121-01',
-   doctor:'BS. Trần Minh Anh',
-   diagnosis:'J18.9 - Viêm phổi không đặc hiệu / Sốt cao co giật',
-   advice:'Uống thuốc sau ăn no, uống nhiều nước ấm 2-2.5 lít/ngày. Hẹn tái khám sau 5 ngày hoặc ngay khi có dấu hiệu khó thở.',
-   status:'Chờ cấp phát',
-   createdAt:'2026-11-21T09:30:00',
-   lines:[
-    {medicine:'TH_PARA500',quantity:20,unit:'Viên',dose:'1 viên',route:'Uống',frequency:'2 lần/ngày (Sáng 1, Chiều 1)',days:5},
-    {medicine:'TH_AMOX500',quantity:14,unit:'Viên',dose:'1 viên',route:'Uống',frequency:'2 lần/ngày (Sáng 1, Tối 1)',days:7}
-   ]
-  },
-  {
-   id:'DT-261121-002',
-   patient:'BN-173C85AA04BA49F3',
-   episodeId:'LK-120A6D10AD754274',
-   doctor:'BS. Trần Minh Anh',
-   diagnosis:'E11.9 - Đái tháo đường type 2 không có biến chứng',
-   advice:'Uống đều mỗi sáng trước ăn 30 phút, kiêng đồ ngọt và theo dõi đường huyết định kỳ.',
-   status:'Đã cấp phát',
-   createdAt:'2026-11-21T08:15:00',
-   warehouse:'KHO_NGOAI_TRU',
-   reviewer:'DS. Lê Quốc Huy',
-   lines:[
-    {medicine:'TH_PARA500',quantity:10,unit:'Viên',dose:'1 viên',route:'Uống',frequency:'Khi sốt > 38.5°C',days:5}
-   ]
-  }
- ],
+ prescriptions:[],
  referrals:[], rounds:[],consultations:[],discharges:[],
- warehouses:[{id:'KHO_TONG',name:'Kho Dược Tổng Toàn Viện',kind:'Kho tổng',manager:'NV003',location:'Tầng hầm B1 · Khu Dược',status:'Đang hoạt động'},{id:'KHO_NGOAI_TRU',name:'Nhà Thuốc Khám Ngoại Trú',kind:'Kho lẻ',manager:'NV002',location:'Tầng 1 · Cổng chính',status:'Đang hoạt động'},{id:'TU_TRUC_CAP_CUU',name:'Tủ Trực Cấp Cứu 24/7',kind:'Kho khoa',manager:'NV001',location:'Khoa Cấp Cứu',status:'Đang hoạt động'}],movements:[],counts:[],advances:[],shifts:[],
+ warehouses:[
+  {id:'KHO_TONG',name:'Kho Dược Tổng Toàn Viện',kind:'Kho tổng',manager:'NV-DS01',location:'Dãy A - Kệ 01 - Tầng 2',status:'Đang hoạt động'},
+  {id:'KHO_NGOAI_TRU',name:'Nhà Thuốc Khám Ngoại Trú',kind:'Kho lẻ',manager:'NV-DS01',location:'Tủ lẻ 03 - Ngăn 1',status:'Đang hoạt động'},
+  {id:'TU_TRUC_CAP_CUU',name:'Tủ Trực Cấp Cứu 24/7',kind:'Tủ trực khoa',manager:'NV-DS01',location:'Hộp thuốc khẩn',status:'Đang hoạt động'}
+ ],
+ movements:[],counts:[],advances:[],shifts:[],
  archives:[],corrections:[],authorizations:[],
- staff:[{id:'NV001',name:'Trần Minh Anh',title:'Bác sĩ',department:'Nội tổng quát',certificate:'CCHN-001',phone:'0901000001',status:'Đang hoạt động'},{id:'NV002',name:'Phạm Thu Hà',title:'Điều dưỡng',department:'Nội tổng quát',phone:'0901000002',status:'Đang hoạt động'},{id:'NV003',name:'Lê Quốc Huy',title:'Dược sĩ',department:'Nội tổng quát',phone:'0901000003',status:'Đang hoạt động'},{id:'NV004',name:'Nguyễn Hoàng Anh',title:'Thu ngân',department:'Nội tổng quát',phone:'0901000004',status:'Đang hoạt động'}],
+ staff:[
+  {id:'NV-BS01',name:'BS. Trần Minh Anh',title:'Bác sĩ',department:'Nội tổng quát',certificate:'CCHN-001234',phone:'0901234567',status:'Đang hoạt động'},
+  {id:'NV-BS02',name:'BS. Nguyễn Văn Hùng',title:'Bác sĩ',department:'Tim mạch',certificate:'CCHN-001235',phone:'0901234568',status:'Đang hoạt động'},
+  {id:'NV-BS03',name:'BS. Lê Thị Mai',title:'Bác sĩ',department:'Tai Mũi Họng',certificate:'CCHN-001236',phone:'0901234569',status:'Đang hoạt động'},
+  {id:'NV-DD01',name:'ĐD. Hoàng Thị Lan',title:'Điều dưỡng',department:'Nội tổng quát',certificate:'CCHN-002001',phone:'0902345678',status:'Đang hoạt động'},
+  {id:'NV-DS01',name:'DS. Vũ Đức Thắng',title:'Dược sĩ',department:'Nội tổng quát',certificate:'CCHN-003001',phone:'0903456789',status:'Đang hoạt động'},
+  {id:'NV-KTV01',name:'Đỗ Văn Tuấn',title:'Kỹ sư',department:'Nội tổng quát',certificate:'CCHN-009988',phone:'0912345678',status:'Đang hoạt động'},
+  {id:'NV-TC01',name:'CN. Đặng Thu Thảo',title:'Thu ngân',department:'Nội tổng quát',certificate:'',phone:'0904567890',status:'Đang hoạt động'},
+  {id:'NV-QT01',name:'Nguyễn Thu Trang',title:'Quản trị viên',department:'Nội tổng quát',certificate:'CCHN-001122',phone:'0911223344',status:'Đang hoạt động'}
+ ],
  departments:clinics.map((name,i)=>({id:'KP00'+(i+1),name:'Phòng khám '+name,kind:'Phòng khám',department:name,capacity:40,location:'Tầng 1 · P'+(101+i),status:'Đang hoạt động'})),
  services:[{id:'DV001',name:'Khám chuyên khoa',kind:'Khám bệnh',price:150000,unit:'Lượt',status:'Đang hoạt động'},{id:'DV002',name:'Công thức máu',kind:'Xét nghiệm',price:120000,unit:'Lần',status:'Đang hoạt động'},{id:'DV003',name:'X-quang ngực thẳng',kind:'Chẩn đoán hình ảnh',price:80000,unit:'Lần',status:'Đang hoạt động'},{id:'DV004',name:'Siêu âm tổng quát',kind:'Chẩn đoán hình ảnh',price:180000,unit:'Lần',status:'Đang hoạt động'}],
- accounts:[{id:'TK001',name:'Hoàng Anh',username:'hoanganh',email:'admin@medicare.example',role:'VT001',status:'Đang hoạt động'},{id:'TK002',name:'Trần Minh Anh',username:'minhanh',email:'doctor@medicare.example',role:'VT002',status:'Đang hoạt động'}],
+ accounts:[{id:'TK001',name:'Hoàng Anh',username:'hoanganh',email:'admin@medicare.example',role:'VT001',status:'Đang hoạt động'},{id:'TK002',name:'BS. Trần Minh Anh',username:'minhanh',email:'doctor@medicare.example',role:'VT002',status:'Đang hoạt động'}],
  roles:[{id:'VT001',name:'Quản trị viên',description:'Quản lý cấu hình và người dùng',permissions:[...permissionNames],status:'Đang hoạt động'},{id:'VT002',name:'Bác sĩ',description:'Khám bệnh và quản lý hồ sơ chuyên môn',permissions:['Khám và chỉ định','Kê đơn thuốc','Xem hồ sơ bệnh án'],status:'Đang hoạt động'},{id:'VT003',name:'Điều dưỡng',description:'Chăm sóc và thực hiện y lệnh',permissions:['Thực hiện y lệnh','Xem hồ sơ bệnh án'],status:'Đang hoạt động'},{id:'VT004',name:'Thu ngân',description:'Thu chi và đối soát viện phí',permissions:['Thu chi viện phí'],status:'Đang hoạt động'}],
  equipment:[{id:'TB001',name:'Máy điện tim 12 cần',serial:'ECG-2026-001',department:'Tim mạch',nextService:'2026-12-15',status:'Đang hoạt động'},{id:'TB002',name:'Máy siêu âm tổng quát',serial:'US-2026-002',department:'Nội tổng quát',nextService:'2026-12-01',status:'Đang hoạt động'}],incidents:[],settlements:[],audit:[]
 };
