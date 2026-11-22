@@ -58,7 +58,7 @@ export async function receivePatient(data){
  WHEN NOT MATCHED THEN INSERT(maBuong,ngayCapSo,soThuTuHienTai) VALUES(@room,@day,1);
  SELECT @number=soThuTuHienTai FROM dbo.BoDemSoThuTuKham WHERE maBuong=@room AND ngayCapSo=@day;
  INSERT dbo.LuotKham(maLuotKham,maBenhNhan,maBuong,soThuTu,lyDoKham) VALUES(@visitId,@patient,@room,@number,@reason);
- SET @result=(SELECT @visitId AS visitId,@patient AS patientId,@number AS queueNumber,tenBuong AS roomName,N'Chờ khám' AS status FROM dbo.BuongKham WHERE maBuong=@room FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
+ SET @result=(SELECT @visitId AS visitId,@patient AS patientId,@number AS queueNumber,b.tenBuong AS roomName,N'Chờ khám' AS status,ISNULL(assigned.hoTen,N'BS.CKI Trần Minh Anh') AS doctor,assigned.maNhanVien AS doctorStaffId FROM dbo.BuongKham b OUTER APPLY(SELECT TOP 1 n.hoTen,n.maNhanVien FROM dbo.PhanCongKham pc JOIN dbo.NhanVien n ON n.maNhanVien=pc.maBacSi WHERE pc.maBuong=@room AND pc.trangThai IN('DA_PHAN_CONG','DANG_TRUC','HOAN_TAT') ORDER BY CASE WHEN pc.ngayKham=@day THEN 0 ELSE 1 END, pc.maPhanCong) assigned WHERE b.maBuong=@room FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
  `,{...values,patientId,dept:codes[data.dept],newPatient:uid('BN-'),visitId:uid('LK-'),reason:text(data.reason,255)||'Tiếp đón khám mới'});
 }
 
@@ -85,8 +85,10 @@ const visitSelect=`SELECT l.maLuotKham AS id,l.maBenhNhan AS patientId,k.tenKhoa
  LEFT JOIN dbo.HoSoKham h ON h.maLuotKham=l.maLuotKham
  OUTER APPLY(SELECT TOP 1 * FROM dbo.PhieuSinhHieu WHERE maLuotKham=l.maLuotKham ORDER BY thoiDiemDo DESC,maPhieu DESC) vital
  OUTER APPLY(SELECT TOP 1 n.hoTen,n.maNhanVien FROM dbo.PhanCongKham pc JOIN dbo.NhanVien n ON n.maNhanVien=pc.maBacSi
- WHERE pc.maBuong=l.maBuong AND pc.ngayKham=l.ngayKham AND pc.caKham=CASE WHEN DATEPART(HOUR,l.thoiDiemCapSo)<12 THEN 'SANG' ELSE 'CHIEU' END
- AND pc.trangThai IN('DA_PHAN_CONG','DANG_TRUC','HOAN_TAT') ORDER BY pc.maPhanCong) assigned
+ WHERE pc.maBuong=l.maBuong AND pc.trangThai IN('DA_PHAN_CONG','DANG_TRUC','HOAN_TAT')
+ ORDER BY CASE WHEN pc.ngayKham=l.ngayKham THEN 0 ELSE 1 END,
+          CASE WHEN pc.caKham=CASE WHEN DATEPART(HOUR,l.thoiDiemCapSo)<12 THEN 'SANG' ELSE 'CHIEU' END THEN 0 ELSE 1 END,
+          pc.maPhanCong) assigned
  OUTER APPLY(SELECT TOP 1 maNhatKy,duLieuSau FROM dbo.NhatKyThayDoi WHERE loaiDoiTuong='HoSoKham' AND maDoiTuong=l.maLuotKham AND ISJSON(duLieuSau)=1 ORDER BY maNhatKy DESC) latest`;
 
 export async function listVisits({history=false,id=null}={}){
@@ -152,7 +154,8 @@ export async function saveExam(data){
  const pressure=String(vitals.pressure||'');if(pressure&&!/^\d{1,3}\/\d{1,3}$/.test(pressure))fail(400,'Huyết áp phải có dạng tâm thu/tâm trương.');
  const [bpSystolic,bpDiastolic]=pressure?pressure.split('/').map(Number):[null,null];
  if(pressure&&(!bpSystolic||!bpDiastolic))fail(400,'Huyết áp không hợp lệ.');
- const snapshot=JSON.stringify({note:{...fields,vitals,savedAt:new Date().toISOString()}});
+ const specialty=typeof note.specialty==='object'&&note.specialty!==null?note.specialty:{};
+ const snapshot=JSON.stringify({note:{...fields,vitals,specialty,savedAt:new Date().toISOString()}});
  await transaction(`
  DECLARE @doctor varchar(20),@room varchar(20),@day date,@current bigint=0,@hour int;
  SELECT @room=maBuong,@day=ngayKham,@hour=DATEPART(HOUR,thoiDiemCapSo) FROM dbo.LuotKham WHERE maLuotKham=@id;

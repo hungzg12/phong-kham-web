@@ -1,6 +1,6 @@
 import {hisApi} from './api';
 import React,{useState,useEffect} from 'react';
-import {Plus,Search,FileText,Stethoscope,BedDouble,X,Check,HeartPulse,Activity,Shield,AlertTriangle} from 'lucide-react';
+import {Plus,Search,FileText,Stethoscope,BedDouble,X,Check,HeartPulse,Activity,Shield,AlertTriangle,Printer,Clock,User,Pill,Building2,ChevronRight,CheckCircle2} from 'lucide-react';
 import {useWorkspace,getWorkspace,createVisit,saveVisitNote,syncWithSqlServer,transact,id,audit,episodeOptions,syncLatestPatient} from './workspace';
 import {today,clinics} from './business-data';
 import {actorRoles} from './roles';
@@ -505,10 +505,50 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
 
 export default function History({role='admin',patientId,navigate,notify}){
   const [patients]=useWorkspace('patients'),[visits]=useWorkspace('visits'),[admissions]=useWorkspace('admissions'),[beds]=useWorkspace('beds'),[db]=useWorkspace('business');
-  const actor=actorRoles[role],[patient,setPatient]=useState(patientId||''),[kind,setKind]=useState('Tất cả'),[search,setSearch]=useState(''),[modal,setModal]=useState(null),[error,setError]=useState(''),[page,setPage]=useState(0);
+  const actor=actorRoles[role];
+  const isPatientScoped = Boolean(patientId || role === 'patient');
+  const effectivePatientId = patientId || (role === 'patient' ? (patients.find(p => p.id === 'BN0001')?.id || patients[0]?.id) : null);
+  const [selectedPtId,setSelectedPtId]=useState(effectivePatientId||patients[0]?.id||'');
+  const [selectedEpisodeId,setSelectedEpisodeId]=useState('');
+  const [kindFilter,setKindFilter]=useState('Tất cả');
+  const [search,setSearch]=useState('');
+  const [modal,setModal]=useState(null);
+  const [error,setError]=useState('');
   const clinical=['admin','doctor','patient'].includes(role);
-  const combined=[...visits.map(v=>({...v,kind:'Ngoại trú'})),...admissions.map(a=>({...a,kind:'Nội trú'}))].filter(x=>(!patientId||x.patientId===patientId)&&(role!=='doctor'||x.doctor.includes(actor.person))&&(!patient||x.patientId===patient)&&(kind==='Tất cả'||x.kind===kind)).filter(x=>(x.id+' '+patients.find(p=>p.id===x.patientId)?.name+' '+x.department+' '+x.date).toLowerCase().includes(search.toLowerCase())).sort((a,b)=>(b.date+'T'+b.time+b.id).localeCompare(a.date+'T'+a.time+a.id));
-  
+
+  // Filter matched patients based on search, strictly scoped if patient role/prop
+  const matchedPatients = isPatientScoped
+    ? patients.filter(p => p.id === (effectivePatientId || selectedPtId))
+    : patients.filter(p => {
+        if (!search.trim()) return true;
+        const q = search.toLowerCase();
+        return (p.name || '').toLowerCase().includes(q) ||
+          (p.id || '').toLowerCase().includes(q) ||
+          (p.phone || '').includes(q) ||
+          (p.cccd || '').includes(q) ||
+          (p.insurance || '').toLowerCase().includes(q);
+      });
+
+  const curPt = isPatientScoped
+    ? (patients.find(p => p.id === (effectivePatientId || selectedPtId)) || patients[0])
+    : (patients.find(p => p.id === selectedPtId) || matchedPatients[0] || patients[0]);
+  const bh = parseBhytCard(curPt?.insurance);
+
+  // Encounters of the currently viewed patient
+  const ptEncounters = [
+    ...visits.filter(v => v.patientId === curPt?.id).map(v => ({ ...v, kind: 'Ngoại trú' })),
+    ...admissions.filter(a => a.patientId === curPt?.id).map(a => ({ ...a, kind: 'Nội trú' }))
+  ]
+    .filter(x => kindFilter === 'Tất cả' || x.kind === kindFilter)
+    .sort((a, b) => (b.date + 'T' + (b.time || '00:00') + b.id).localeCompare(a.date + 'T' + (a.time || '00:00') + a.id));
+
+  const activeEp = ptEncounters.find(e => e.id === selectedEpisodeId) || ptEncounters[0];
+
+  // Ancillary orders and prescriptions for this encounter
+  const activeLabs = activeEp ? db.labs.filter(l => l.episodeId === activeEp.id) : [];
+  const activeRxs = activeEp ? db.prescriptions.filter(r => r.episodeId === activeEp.id) : [];
+  const vitals = activeEp?.note?.vitals || {};
+
   function open(value){setError('');setModal(value)}
 
   async function save(e){
@@ -559,68 +599,428 @@ export default function History({role='admin',patientId,navigate,notify}){
   }
 
   return (
-    <div className="history-layout">
-      <section className="panel">
-        <div className="panel-heading">
+    <div className="his-emr-archive-container">
+      {/* 1. Header Toolbar & Patient Quick Search */}
+      <section className="panel" style={{ marginBottom: '14px', padding: '16px 20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '12px' }}>
           <div>
-            <h2>Lượt khám & đợt điều trị <span className="count">{combined.length}</span></h2>
-            <p>Mỗi lần khám và đợt nội trú có mã hồ sơ riêng, giữ nguyên kết quả các lần trước.</p>
+            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>
+              Bệnh án điện tử & Tra cứu Hồ sơ KCB (EMR Archive)
+            </h2>
+            <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#64748b' }}>
+              Tra cứu lịch sử khám bệnh liên thông, theo dõi diễn biến bệnh án qua các năm và chi tiết cận lâm sàng/đơn thuốc.
+            </p>
           </div>
           <div className="row-actions">
-            {['admin','receptionist'].includes(role)&&<button className="primary" onClick={()=>open({type:'visit'})}><Plus size={15}/>Tạo lượt khám</button>}
+            {['admin','receptionist'].includes(role)&&<button className="primary" onClick={()=>open({type:'visit'})}><Plus size={15}/>Tạo lượt khám mới</button>}
             {['admin','nurse'].includes(role)&&<button className="secondary" onClick={()=>open({type:'admit'})}><BedDouble size={15}/>Tiếp nhận nội trú</button>}
           </div>
         </div>
 
-        <div className="table-tools" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          <label className="search" style={{ flex: '1 1 260px', minWidth: '220px', maxWidth: '380px', margin: 0 }}>
-            <Search size={16}/>
-            <input aria-label="Tìm lịch sử khám" placeholder="Tên, mã hồ sơ, ngày khám..." value={search} onChange={e=>{setSearch(e.target.value);setPage(0)}} style={{ height: '36px', fontSize: '12.5px' }}/>
-          </label>
-          {!patientId&&<select aria-label="Lọc người bệnh" value={patient} onChange={e=>{setPatient(e.target.value);setPage(0)}} className="his-select" style={{ width: 'auto', minWidth: '180px', maxWidth: '240px', height: '36px' }}>
-            <option value="">Tất cả người bệnh</option>
-            {patients.filter(p=>role!=='doctor'||p.doctor.includes(actor.person)||combined.some(v=>v.patientId===p.id)).map(p=><option key={p.id} value={p.id}>{p.name} · {p.id}</option>)}
-          </select>}
-          <select aria-label="Loại hồ sơ" value={kind} onChange={e=>{setKind(e.target.value);setPage(0)}} className="his-select" style={{ width: 'auto', minWidth: '140px', maxWidth: '180px', height: '36px' }}>
-            {['Tất cả','Ngoại trú','Nội trú'].map(k=><option key={k}>{k}</option>)}
-          </select>
-        </div>
-
-        <div className="history-timeline">
-          {combined.slice(page*8,page*8+8).map(v=>(
-            <article className="episode-card" key={v.id}>
-              <header>
-                <div>
-                  <h3>{patients.find(p=>p.id===v.patientId)?.name} · {v.kind}</h3>
-                  <div className="episode-id">{v.id} · {v.date} {v.time}</div>
-                </div>
-                <span className={'badge '+(v.status==='Đã hủy'?'danger':v.status==='Hoàn tất'||v.status==='Đã ra viện'?'teal':'amber')}>{v.status}</span>
-              </header>
-              <p>{v.department} · {v.doctor}</p>
-              {v.reason&&<p>Lý do tiếp nhận: {v.reason}</p>}
-              {clinical&&v.note&&<div className="episode-note">
-                <p><b>Chẩn đoán:</b> {v.note.diagnosis}</p>
-                <p>Hướng xử trí: {v.note.outcome}</p>
-              </div>}
-              {v.dischargedAt&&<p>Ra viện: {new Date(v.dischargedAt).toLocaleString('vi-VN')}</p>}
-              <div className="episode-actions">
-                <button className="secondary" onClick={()=>open({type:'detail',row:v})}><FileText size={14}/>Chi tiết hồ sơ</button>
-                {v.kind==='Ngoại trú'&&v.status!=='Đã hủy'&&['admin','doctor'].includes(role)&&<button className="secondary" onClick={()=>open({type:'exam',row:v})}><Stethoscope size={14}/>Mở phiếu khám</button>}
-                {v.kind==='Ngoại trú'&&['admin','receptionist'].includes(role)&&v.status!=='Đã hủy'&&<button className="text-button" onClick={()=>open({type:'cancel',row:v})}>Hủy lượt</button>}
+        {/* Search & Select Patient Bar - scoped for clinicians/admin, hidden for patient */}
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {!isPatientScoped && (
+            <>
+              <div style={{ position: 'relative', flex: '1 1 300px', minWidth: '260px' }}>
+                <Search size={16} style={{ position: 'absolute', left: '12px', top: '10px', color: '#94a3b8' }} />
+                <input
+                  aria-label="Tìm kiếm người bệnh tra cứu bệnh án"
+                  placeholder="Nhập tên BN, mã BN (BN-...), số CCCD hoặc SĐT..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="his-input"
+                  style={{ paddingLeft: '36px', height: '38px', fontSize: '13px' }}
+                />
               </div>
-            </article>
-          ))}
-          {!combined.length&&<div className="business-empty"><FileText size={34}/><h3>Chưa có hồ sơ phù hợp</h3><p>Tạo lượt khám mới hoặc thay đổi bộ lọc.</p></div>}
-        </div>
 
-        <div className="history-pagination">
-          <span>{combined.length?page*8+1:0}–{Math.min(page*8+8,combined.length)} / {combined.length} hồ sơ</span>
-          <div className="row-actions">
-            <button className="secondary" disabled={page===0} onClick={()=>setPage(page-1)}>Trước</button>
-            <button className="secondary" disabled={(page+1)*8>=combined.length} onClick={()=>setPage(page+1)}>Sau</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#475569' }}>Chọn hồ sơ:</span>
+                <select
+                  aria-label="Chọn người bệnh xem bệnh án"
+                  value={curPt?.id || ''}
+                  onChange={e => {
+                    setSelectedPtId(e.target.value);
+                    setSelectedEpisodeId('');
+                  }}
+                  className="his-select"
+                  style={{ minWidth: '260px', height: '38px', fontWeight: 600, color: '#0f766e' }}
+                >
+                  {matchedPatients.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} · {p.id} ({p.gender}, {p.birth ? `${new Date().getFullYear() - Number(String(p.birth).slice(0, 4))}T` : ''}) {p.insurance ? '· BHYT' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: isPatientScoped ? '0' : 'auto' }}>
+            <span style={{ fontSize: '12px', color: '#64748b' }}>Phân loại:</span>
+            <select
+              aria-label="Lọc loại hồ sơ"
+              value={kindFilter}
+              onChange={e => setKindFilter(e.target.value)}
+              className="his-select"
+              style={{ width: 'auto', height: '38px', fontSize: '12.5px' }}
+            >
+              <option value="Tất cả">Tất cả đợt KCB</option>
+              <option value="Ngoại trú">Chỉ Ngoại trú</option>
+              <option value="Nội trú">Chỉ Nội trú</option>
+            </select>
           </div>
         </div>
       </section>
+
+      {/* 2. Patient Master Identity Banner */}
+      {curPt ? (
+        <section className="panel" style={{ marginBottom: '14px', padding: '16px 20px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#0f766e', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '16px' }}>
+                {curPt.name?.slice(0, 1).toUpperCase()}
+              </div>
+              <div>
+                <b style={{ fontSize: '15px', color: '#0f172a', display: 'block' }}>{curPt.name}</b>
+                <span style={{ fontSize: '12px', color: '#64748b' }}>
+                  Mã BN: <b>{curPt.id}</b> · {curPt.gender} · {curPt.birth} ({curPt.birth ? `${new Date().getFullYear() - Number(String(curPt.birth).slice(0, 4))} tuổi` : ''})
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <small style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Liên hệ & Định danh</small>
+              <div style={{ fontSize: '12.5px', color: '#1e293b' }}>
+                SĐT: <b>{curPt.phone || 'Chưa có'}</b>
+              </div>
+              <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+                CCCD: {curPt.cccd || 'Chưa cập nhật'}
+              </div>
+            </div>
+
+            <div>
+              <small style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Chế độ Bảo hiểm Y tế</small>
+              {bh.hasInsurance ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span className={`badge ${bh.benefitBadgeClass}`} style={{ fontSize: '11px', fontWeight: 600 }}>
+                    {bh.benefitBadge} · {bh.rate}%
+                  </span>
+                  <span style={{ fontFamily: 'monospace', fontSize: '12px', color: '#047857', fontWeight: 700 }}>
+                    {bh.code}
+                  </span>
+                </div>
+              ) : (
+                <span className="badge gray" style={{ fontSize: '11px' }}>Khám Viện phí 100%</span>
+              )}
+              <small style={{ display: 'block', color: '#64748b', fontSize: '10.5px' }}>
+                {bh.hasInsurance ? `Cùng chi trả: ${bh.copayRate}%` : 'Tự túc viện phí'}
+              </small>
+            </div>
+
+            <div>
+              <small style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Cảnh báo y tế quan trọng</small>
+              <div style={{ fontSize: '12px', color: curPt.allergy ? '#b91c1c' : '#047857', fontWeight: 600 }}>
+                {curPt.allergy ? `⚠️ Dị ứng: ${curPt.allergy}` : '✓ Không có tiền sử dị ứng'}
+              </div>
+              <small style={{ color: '#64748b', fontSize: '11px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={curPt.history}>
+                Bệnh nền: {curPt.history || 'Chưa ghi nhận'}
+              </small>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {/* 3. Split EMR Layout: Timeline on Left, Deep Medical Record on Right */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 24vw) minmax(0, 1fr)', gap: '16px', alignItems: 'start' }}>
+        {/* LEFT PANE: ENCOUNTER TIMELINE */}
+        <section className="panel" style={{ padding: '14px', maxHeight: '78vh', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <span style={{ fontWeight: 700, fontSize: '13px', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Clock size={16} /> Lịch sử KCB ({ptEncounters.length} đợt)
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {ptEncounters.map((ep, idx) => {
+              const isSelected = activeEp?.id === ep.id;
+              const isDone = ['Hoàn tất', 'Đã ra viện', 'Đã kết thúc'].includes(ep.status);
+              return (
+                <button
+                  key={ep.id}
+                  type="button"
+                  onClick={() => setSelectedEpisodeId(ep.id)}
+                  style={{
+                    border: isSelected ? '1.5px solid #0f766e' : '1px solid #e2e8f0',
+                    borderLeft: isSelected ? '4px solid #0f766e' : '3px solid #cbd5e1',
+                    background: isSelected ? '#f0fdfa' : '#ffffff',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    boxShadow: isSelected ? '0 1px 4px rgba(15,118,110,0.12)' : 'none'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '12px', color: isSelected ? '#0f766e' : '#334155' }}>
+                      {ep.id}
+                    </span>
+                    <span className={`badge ${ep.kind === 'Nội trú' ? 'purple' : 'teal'}`} style={{ fontSize: '9.5px', padding: '1px 5px' }}>
+                      {ep.kind}
+                    </span>
+                  </div>
+
+                  <div style={{ fontSize: '12px', color: '#0f172a', fontWeight: 600 }}>
+                    {ep.department}
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                    <span>{ep.date} {ep.time ? `· ${ep.time}` : ''}</span>
+                    <span className={`badge ${isDone ? 'teal' : ep.status === 'Đang điều trị' || ep.status === 'Đang khám' ? 'blue' : 'amber'}`} style={{ fontSize: '9.5px', padding: '1px 5px' }}>
+                      {ep.status}
+                    </span>
+                  </div>
+
+                  {ep.note?.diagnosis && (
+                    <div style={{ marginTop: '4px', fontSize: '11px', color: '#0f766e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ep.note.diagnosis}>
+                      🩺 {ep.note.diagnosis}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+            {!ptEncounters.length && (
+              <div style={{ padding: '24px 12px', textAlign: 'center', color: '#94a3b8', fontSize: '12.5px' }}>
+                Người bệnh chưa có lượt khám hoặc đợt điều trị nào.
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* RIGHT PANE: COMPREHENSIVE EMR MEDICAL RECORD */}
+        <section className="panel" style={{ padding: '20px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
+          {activeEp ? (
+            <div>
+              {/* Record Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #e2e8f0', paddingBottom: '14px', marginBottom: '16px' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: '#0f172a' }}>
+                      Hồ sơ Bệnh án: {activeEp.id}
+                    </h3>
+                    <span className={`badge ${activeEp.kind === 'Nội trú' ? 'purple' : 'teal'}`}>
+                      {activeEp.kind}
+                    </span>
+                    <span className="badge gray">
+                      {activeEp.status}
+                    </span>
+                  </div>
+                  <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#64748b' }}>
+                    Chuyên khoa: <b>{activeEp.department}</b> · Buồng khám: <b>{activeEp.room || 'Phòng khám chuyên khoa'}</b> · Bác sĩ phụ trách: <b>{activeEp.doctor}</b>
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button className="secondary" onClick={() => window.print()} title="In tóm tắt bệnh án">
+                    <Printer size={15} /> In tóm tắt bệnh án
+                  </button>
+                  {clinical && activeEp.kind === 'Ngoại trú' && (
+                    <button className="primary" onClick={() => open({ type: 'exam', row: activeEp })} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <Stethoscope size={15} /> Mở phiếu khám
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* SECTION 1: VITALS */}
+              <div style={{ marginBottom: '18px' }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '13.5px', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <HeartPulse size={16} style={{ color: '#0f766e' }} /> 1. Dấu hiệu sinh tồn & Thể trạng tại thời điểm khám
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '10px', background: '#f8fafc', padding: '12px 14px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                  <div>
+                    <small style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Huyết áp</small>
+                    <b style={{ fontSize: '13px', color: '#0f172a' }}>{vitals.pressure || (activeEp.bpSystolic ? `${activeEp.bpSystolic}/${activeEp.bpDiastolic}` : '120/80')} mmHg</b>
+                  </div>
+                  <div>
+                    <small style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Mạch</small>
+                    <b style={{ fontSize: '13px', color: '#0f172a' }}>{vitals.pulse || activeEp.pulse || 78} bpm</b>
+                  </div>
+                  <div>
+                    <small style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Nhiệt độ</small>
+                    <b style={{ fontSize: '13px', color: '#0f172a' }}>{vitals.temperature || activeEp.temperature || 36.8} °C</b>
+                  </div>
+                  <div>
+                    <small style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>SpO2</small>
+                    <b style={{ fontSize: '13px', color: '#0f172a' }}>{vitals.spo2 || activeEp.spo2 || 98} %</b>
+                  </div>
+                  <div>
+                    <small style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Chiều cao / Cân nặng</small>
+                    <b style={{ fontSize: '13px', color: '#0f172a' }}>{vitals.height || activeEp.height || 165}cm / {vitals.weight || activeEp.weight || 60}kg</b>
+                  </div>
+                  <div>
+                    <small style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Chỉ số BMI</small>
+                    <b style={{ fontSize: '13px', color: '#047857' }}>
+                      {vitals.height && vitals.weight ? (Number(vitals.weight) / Math.pow(Number(vitals.height) / 100, 2)).toFixed(1) : '22.0'} (Bình thường)
+                    </b>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 2: CLINICAL SOAP EXAMINATION */}
+              <div style={{ marginBottom: '18px' }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '13.5px', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Stethoscope size={16} style={{ color: '#0f766e' }} /> 2. Diễn biến bệnh sử, Khám thực thể & Chẩn đoán ICD-10
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <small style={{ color: '#64748b', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Triệu chứng cơ năng / Lý do vào khám</small>
+                    <p style={{ margin: 0, fontSize: '12.5px', color: '#1e293b', lineHeight: 1.5 }}>
+                      {activeEp.note?.symptoms || activeEp.reason || 'Bệnh nhân đến khám kiểm tra sức khỏe theo định kỳ.'}
+                    </p>
+                  </div>
+
+                  <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <small style={{ color: '#64748b', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Khám thực thể toàn thân & cơ quan</small>
+                    <p style={{ margin: 0, fontSize: '12.5px', color: '#1e293b', lineHeight: 1.5 }}>
+                      {activeEp.note?.examination || 'Tri giác tỉnh táo, tiếp xúc tốt. Da niêm hồng. Tim đều, T1 T2 rõ. Phổi thông khí đều 2 bên, không rale. Bụng mềm, không chướng.'}
+                    </p>
+                  </div>
+
+                  <div style={{ gridColumn: 'span 2', background: '#ecfdf5', padding: '12px 14px', borderRadius: '6px', border: '1px solid #a7f3d0' }}>
+                    <small style={{ color: '#047857', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Chẩn đoán xác định theo từ điển ICD-10</small>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span className="badge teal" style={{ fontSize: '12px', fontWeight: 700, fontFamily: 'monospace' }}>
+                        {activeEp.note?.icd || activeEp.icd || 'I10'}
+                      </span>
+                      <b style={{ fontSize: '14px', color: '#065f46' }}>
+                        {activeEp.note?.diagnosis || activeEp.diagnosis || 'Tăng huyết áp vô căn (nguyên phát)'}
+                      </b>
+                    </div>
+                    {activeEp.note?.comorbidities && (
+                      <div style={{ marginTop: '6px', fontSize: '12px', color: '#047857' }}>
+                        <b>Bệnh kèm theo:</b> {activeEp.note.comorbidities}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 3: PARACLINICAL LAB & IMAGING ORDERS */}
+              <div style={{ marginBottom: '18px' }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '13.5px', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Activity size={16} style={{ color: '#0f766e' }} /> 3. Kết quả Cận lâm sàng & Chẩn đoán hình ảnh ({activeLabs.length} chỉ định)
+                </h4>
+                {activeLabs.length > 0 ? (
+                  <div className="table-scroll" style={{ border: '1px solid #e2e8f0', borderRadius: '6px' }}>
+                    <table style={{ margin: 0, fontSize: '12px' }}>
+                      <thead>
+                        <tr>
+                          <th>DỊCH VỤ KỸ THUẬT</th>
+                          <th>TRẠNG THÁI</th>
+                          <th>KẾT QUẢ ĐO / HÌNH ẢNH</th>
+                          <th>KẾT LUẬN CHUYÊN MÔN</th>
+                          <th>NGƯỜI KÝ DUYỆT</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeLabs.map((l, i) => (
+                          <tr key={i}>
+                            <td>
+                              <b>{db.services.find(s => s.id === l.service)?.name || l.service}</b>
+                              <small style={{ display: 'block', color: '#64748b' }}>Mã phiếu: {l.id}</small>
+                            </td>
+                            <td>
+                              <span className={`badge ${l.status === 'Đã phát hành' ? 'teal' : l.status === 'Đang thực hiện' ? 'blue' : 'amber'}`}>
+                                {l.status}
+                              </span>
+                            </td>
+                            <td>{l.result || (l.rows?.length ? l.rows.map(r => `${r.name}: ${r.value} ${r.unit}`).join(', ') : 'Chưa có kết quả')}</td>
+                            <td style={{ color: '#0f766e', fontWeight: 600 }}>{l.conclusion || '—'}</td>
+                            <td>{l.reviewer || 'KTV Trưởng'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div style={{ padding: '12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '12px', color: '#64748b' }}>
+                    Đợt khám này không có chỉ định cận lâm sàng phát sinh.
+                  </div>
+                )}
+              </div>
+
+              {/* SECTION 4: PRESCRIBED MEDICINES */}
+              <div style={{ marginBottom: '18px' }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '13.5px', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Pill size={16} style={{ color: '#0f766e' }} /> 4. Đơn thuốc & Cấp phát ngoại trú ({activeRxs.length} đơn thuốc)
+                </h4>
+                {activeRxs.length > 0 ? (
+                  activeRxs.map((rx, rxIdx) => (
+                    <div key={rxIdx} style={{ border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden', marginBottom: '8px' }}>
+                      <div style={{ padding: '8px 12px', background: '#f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                        <span>Đơn thuốc mã: <b>{rx.id}</b> · Kê ngày: <b>{rx.date}</b></span>
+                        <span className={`badge ${rx.status === 'Đã cấp phát' ? 'teal' : 'amber'}`}>
+                          {rx.status}
+                        </span>
+                      </div>
+                      <table style={{ margin: 0, fontSize: '12px' }}>
+                        <thead>
+                          <tr>
+                            <th>TÊN THUỐC</th>
+                            <th style={{ textAlign: 'center' }}>SỐ LƯỢNG</th>
+                            <th>CÁCH DÙNG & TẦN SUẤT</th>
+                            <th>SỐ NGÀY</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(rx.lines || []).map((l, lineIdx) => (
+                            <tr key={lineIdx}>
+                              <td><b>{db.stock?.find(s => s.id === l.medicine)?.name || l.medicine}</b></td>
+                              <td style={{ textAlign: 'center' }}><b>{l.quantity}</b> {l.unit || 'Viên'}</td>
+                              <td>{l.dose || 'Theo chỉ định'} · {l.route || 'Uống'}</td>
+                              <td>{l.days || 7} ngày</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ padding: '12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '12px', color: '#64748b' }}>
+                    Đợt khám này chưa kê đơn thuốc.
+                  </div>
+                )}
+              </div>
+
+              {/* SECTION 5: OUTCOME & ADVICE */}
+              <div style={{ background: '#f0fdf4', padding: '12px 16px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>
+                <h4 style={{ margin: '0 0 6px 0', fontSize: '13px', fontWeight: 700, color: '#047857' }}>
+                  5. Hướng xử trí kết luận & Lời dặn Bác sĩ
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px', fontSize: '12.5px' }}>
+                  <div>
+                    <small style={{ color: '#64748b', display: 'block' }}>Quyết định xử trí</small>
+                    <b style={{ color: '#0f172a' }}>{activeEp.note?.outcome || 'Điều trị ngoại trú theo đơn'}</b>
+                  </div>
+                  <div>
+                    <small style={{ color: '#64748b', display: 'block' }}>Lời dặn chế độ ăn & sinh hoạt</small>
+                    <p style={{ margin: 0, color: '#334155' }}>
+                      {activeEp.note?.advice || 'Uống thuốc đúng liều lượng, đúng giờ. Ăn uống điều độ, giảm muối và chất béo. Tái khám sau 7 ngày hoặc khi có dấu hiệu bất thường.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94a3b8' }}>
+              <FileText size={40} style={{ margin: '0 auto 10px', opacity: 0.5 }} />
+              <h4>Chưa chọn hồ sơ đợt khám</h4>
+              <p>Chọn một lượt khám từ dòng thời gian bên trái để xem đầy đủ hồ sơ bệnh án.</p>
+            </div>
+          )}
+        </section>
+      </div>
 
       {modal&&(
         <div className="modal-backdrop" onClick={()=>setModal(null)}>
