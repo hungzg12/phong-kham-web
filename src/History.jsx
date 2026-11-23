@@ -1,3 +1,4 @@
+import {currentIdentity} from './session.js';
 import {hisApi} from './api';
 import React,{useState,useEffect} from 'react';
 import {Plus,Search,FileText,Stethoscope,BedDouble,X,Check,HeartPulse,Activity,Shield,AlertTriangle,Printer,Clock,User,Pill,Building2,ChevronRight,CheckCircle2} from 'lucide-react';
@@ -508,18 +509,18 @@ export default function History({role='admin',patientId,navigate,notify}){
   const [patients]=useWorkspace('patients'),[visits]=useWorkspace('visits'),[admissions]=useWorkspace('admissions'),[beds]=useWorkspace('beds'),[db]=useWorkspace('business');
   const actor=actorRoles[role];
   const isPatientScoped = Boolean(patientId || role === 'patient');
-  const effectivePatientId = patientId || (role === 'patient' ? (patients.find(p => p.id === 'BN0001')?.id || patients[0]?.id) : null);
+  const effectivePatientId = role === 'patient' ? (currentIdentity()?.patientId || patientId || actor.patientId) : patientId;
   const [selectedPtId,setSelectedPtId]=useState(effectivePatientId||patients[0]?.id||'');
   const [selectedEpisodeId,setSelectedEpisodeId]=useState('');
   const [kindFilter,setKindFilter]=useState('Tất cả');
   const [search,setSearch]=useState('');
   const [modal,setModal]=useState(null);
   const [error,setError]=useState('');
-  const clinical=['admin','doctor','patient'].includes(role);
+  const clinical=['admin','doctor'].includes(role);
 
   // Filter matched patients based on search, strictly scoped if patient role/prop
   const matchedPatients = isPatientScoped
-    ? patients.filter(p => p.id === (effectivePatientId || selectedPtId))
+    ? patients.filter(p => p.id === effectivePatientId)
     : patients.filter(p => {
         if (!search.trim()) return true;
         const q = search.toLowerCase();
@@ -531,8 +532,8 @@ export default function History({role='admin',patientId,navigate,notify}){
       });
 
   const curPt = isPatientScoped
-    ? (patients.find(p => p.id === (effectivePatientId || selectedPtId)) || patients[0])
-    : (patients.find(p => p.id === selectedPtId) || matchedPatients[0] || patients[0]);
+    ? patients.find(p => p.id === effectivePatientId)
+    : (matchedPatients.find(p => p.id === selectedPtId) || matchedPatients[0]);
   const bh = parseBhytCard(curPt?.insurance);
 
   // Encounters of the currently viewed patient
@@ -549,6 +550,9 @@ export default function History({role='admin',patientId,navigate,notify}){
   const activeLabs = activeEp ? db.labs.filter(l => l.episodeId === activeEp.id) : [];
   const activeRxs = activeEp ? db.prescriptions.filter(r => r.episodeId === activeEp.id) : [];
   const vitals = activeEp?.note?.vitals || {};
+  const recorded=(value,unit='')=>value!==undefined&&value!==null&&value!==''?String(value)+unit:'Chưa ghi nhận';
+  const height=vitals.height??activeEp?.height,weight=vitals.weight??activeEp?.weight;
+  const bmi=Number(height)>0&&Number(weight)>0?(Number(weight)/Math.pow(Number(height)/100,2)).toFixed(1):null;
 
   function open(value){setError('');setModal(value)}
 
@@ -558,31 +562,6 @@ export default function History({role='admin',patientId,navigate,notify}){
       const f=Object.fromEntries(new FormData(e.target));
       if(modal.type==='visit'){
         await createVisit(f);
-      }else if(modal.type==='admit'){
-        transact(d=>{
-          if(d.admissions.some(a=>a.patientId===f.patientId&&a.status==='Đang điều trị'))throw new Error('Người bệnh đang có đợt điều trị chưa ra viện.');
-          const bed=d.beds.find(b=>b.id===Number(f.bedId));
-          if(!bed||bed.patient||bed.cleaning)throw new Error('Giường không còn sẵn sàng.');
-          const admission={
-            id:id('DTNT'),
-            patientId:f.patientId,
-            visitId:f.visitId||null,
-            department:f.department,
-            doctor:f.doctor,
-            date:f.date,
-            time:f.time,
-            reason:f.reason,
-            careLevel:f.careLevel||'Cấp 2',
-            diet:f.diet||'Cơm bệnh lý',
-            status:'Đang điều trị',
-            createdAt:new Date().toISOString(),
-            bedHistory:[{bedId:bed.id,from:f.date+'T'+f.time,to:null}]
-          };
-          d.admissions.unshift(admission);
-          bed.patient=f.patientId;
-          bed.admissionId=admission.id;
-          audit(d,'Tiếp nhận nội trú '+admission.id,actor.person);
-        });
       }else if(modal.type==='cancel'){
         const state=getWorkspace();
         const v=state.visits.find(x=>x.id===modal.row.id);
@@ -614,7 +593,7 @@ export default function History({role='admin',patientId,navigate,notify}){
           </div>
           <div className="row-actions">
             {['admin','receptionist'].includes(role)&&<button className="primary" onClick={()=>open({type:'visit'})}><Plus size={15}/>Tạo lượt khám mới</button>}
-            {['admin','nurse'].includes(role)&&<button className="secondary" onClick={()=>open({type:'admit'})}><BedDouble size={15}/>Tiếp nhận nội trú</button>}
+            {['admin','nurse'].includes(role)&&<button className="secondary" onClick={()=>navigate('inpatient')}><BedDouble size={15}/>Tiếp nhận nội trú</button>}
           </div>
         </div>
 
@@ -841,28 +820,28 @@ export default function History({role='admin',patientId,navigate,notify}){
                 <div className="emr-vitals-grid">
                   <div>
                     <small style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Huyết áp</small>
-                    <b style={{ fontSize: '13px', color: '#0f172a' }}>{vitals.pressure || (activeEp.bpSystolic ? `${activeEp.bpSystolic}/${activeEp.bpDiastolic}` : '120/80')} mmHg</b>
+                    <b style={{ fontSize: '13px', color: '#0f172a' }}>{recorded(vitals.pressure || (activeEp.bpSystolic && activeEp.bpDiastolic ? `${activeEp.bpSystolic}/${activeEp.bpDiastolic}` : null),' mmHg')}</b>
                   </div>
                   <div>
                     <small style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Mạch</small>
-                    <b style={{ fontSize: '13px', color: '#0f172a' }}>{vitals.pulse || activeEp.pulse || 78} bpm</b>
+                    <b style={{ fontSize: '13px', color: '#0f172a' }}>{recorded(vitals.pulse??activeEp.pulse,' bpm')}</b>
                   </div>
                   <div>
                     <small style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Nhiệt độ</small>
-                    <b style={{ fontSize: '13px', color: '#0f172a' }}>{vitals.temperature || activeEp.temperature || 36.8} °C</b>
+                    <b style={{ fontSize: '13px', color: '#0f172a' }}>{recorded(vitals.temperature??activeEp.temperature,' °C')}</b>
                   </div>
                   <div>
                     <small style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>SpO2</small>
-                    <b style={{ fontSize: '13px', color: '#0f172a' }}>{vitals.spo2 || activeEp.spo2 || 98} %</b>
+                    <b style={{ fontSize: '13px', color: '#0f172a' }}>{recorded(vitals.spo2??activeEp.spo2,' %')}</b>
                   </div>
                   <div>
                     <small style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Chiều cao / Cân nặng</small>
-                    <b style={{ fontSize: '13px', color: '#0f172a' }}>{vitals.height || activeEp.height || 165}cm / {vitals.weight || activeEp.weight || 60}kg</b>
+                    <b style={{ fontSize: '13px', color: '#0f172a' }}>{recorded(height,' cm')} / {recorded(weight,' kg')}</b>
                   </div>
                   <div>
                     <small style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Chỉ số BMI</small>
                     <b style={{ fontSize: '13px', color: '#1d4ed8' }}>
-                      {vitals.height && vitals.weight ? (Number(vitals.weight) / Math.pow(Number(vitals.height) / 100, 2)).toFixed(1) : '22.0'} (Bình thường)
+                      {recorded(bmi,' kg/m²')}
                     </b>
                   </div>
                 </div>
@@ -877,14 +856,14 @@ export default function History({role='admin',patientId,navigate,notify}){
                   <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
                     <small style={{ color: '#64748b', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Triệu chứng cơ năng / Lý do vào khám</small>
                     <p style={{ margin: 0, fontSize: '12.5px', color: '#1e293b', lineHeight: 1.5 }}>
-                      {activeEp.note?.symptoms || activeEp.reason || 'Bệnh nhân đến khám kiểm tra sức khỏe theo định kỳ.'}
+                      {activeEp.note?.symptoms || activeEp.reason || 'Chưa ghi nhận'}
                     </p>
                   </div>
 
                   <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
                     <small style={{ color: '#64748b', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Khám thực thể toàn thân & cơ quan</small>
                     <p style={{ margin: 0, fontSize: '12.5px', color: '#1e293b', lineHeight: 1.5 }}>
-                      {activeEp.note?.examination || 'Tri giác tỉnh táo, tiếp xúc tốt. Da niêm hồng. Tim đều, T1 T2 rõ. Phổi thông khí đều 2 bên, không rale. Bụng mềm, không chướng.'}
+                      {activeEp.note?.examination || 'Chưa ghi nhận'}
                     </p>
                   </div>
 
@@ -892,10 +871,10 @@ export default function History({role='admin',patientId,navigate,notify}){
                     <small style={{ color: '#1d4ed8', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Chẩn đoán xác định theo từ điển ICD-10</small>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span className="badge teal" style={{ fontSize: '12px', fontWeight: 700, fontFamily: 'monospace' }}>
-                        {activeEp.note?.icd || activeEp.icd || 'I10'}
+                        {activeEp.note?.icd || activeEp.icd || 'Chưa ghi nhận'}
                       </span>
                       <b style={{ fontSize: '14px', color: '#1e40af' }}>
-                        {activeEp.note?.diagnosis || activeEp.diagnosis || 'Tăng huyết áp vô căn (nguyên phát)'}
+                        {activeEp.note?.diagnosis || activeEp.diagnosis || 'Chưa ghi nhận'}
                       </b>
                     </div>
                     {activeEp.note?.comorbidities && (
@@ -978,9 +957,9 @@ export default function History({role='admin',patientId,navigate,notify}){
                           {(rx.lines || []).map((l, lineIdx) => (
                             <tr key={lineIdx}>
                               <td><b>{db.stock?.find(s => s.id === l.medicine)?.name || l.medicine}</b></td>
-                              <td style={{ textAlign: 'center' }}><b>{l.quantity}</b> {l.unit || 'Viên'}</td>
-                              <td>{l.dose || 'Theo chỉ định'} · {l.route || 'Uống'}</td>
-                              <td>{l.days || 7} ngày</td>
+                              <td style={{ textAlign: 'center' }}><b>{l.quantity}</b> {l.unit || ''}</td>
+                              <td>{l.dose || 'Chưa ghi nhận'} · {l.route || 'Chưa ghi nhận'}</td>
+                              <td>{recorded(l.days,' ngày')}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1002,12 +981,12 @@ export default function History({role='admin',patientId,navigate,notify}){
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px', fontSize: '12.5px' }}>
                   <div>
                     <small style={{ color: '#64748b', display: 'block' }}>Quyết định xử trí</small>
-                    <b style={{ color: '#0f172a' }}>{activeEp.note?.outcome || 'Điều trị ngoại trú theo đơn'}</b>
+                    <b style={{ color: '#0f172a' }}>{activeEp.note?.outcome || 'Chưa ghi nhận'}</b>
                   </div>
                   <div>
                     <small style={{ color: '#64748b', display: 'block' }}>Lời dặn chế độ ăn & sinh hoạt</small>
                     <p style={{ margin: 0, color: '#334155' }}>
-                      {activeEp.note?.advice || 'Uống thuốc đúng liều lượng, đúng giờ. Ăn uống điều độ, giảm muối và chất béo. Tái khám sau 7 ngày hoặc khi có dấu hiệu bất thường.'}
+                      {activeEp.note?.advice || 'Chưa ghi nhận'}
                     </p>
                   </div>
                 </div>
@@ -1043,13 +1022,13 @@ export default function History({role='admin',patientId,navigate,notify}){
                   ...modal.episode,
                   id: modal.episode.id,
                   episodeId: modal.episode.id,
-                  diagnosis: modal.episode.note?.diagnosis || modal.episode.diagnosis || 'Khám kiểm tra sức khỏe tổng quát',
-                  treatment: modal.episode.note?.plan || 'Điều trị ngoại trú theo đơn chỉ định',
-                  outcome: modal.episode.note?.outcome || modal.episode.status || 'Đỡ / Giảm',
-                  advice: modal.episode.note?.advice || 'Tái khám theo hẹn'
+                  diagnosis: modal.episode.note?.diagnosis || modal.episode.diagnosis || 'Chưa ghi nhận',
+                  treatment: modal.episode.note?.plan || 'Chưa ghi nhận',
+                  outcome: modal.episode.note?.outcome || modal.episode.status || 'Chưa ghi nhận',
+                  advice: modal.episode.note?.advice || 'Chưa ghi nhận'
                 }}
                 patient={curPt}
-                doctorStaff={{ name: modal.episode.doctor || 'BS.CKI Trần Minh Anh' }}
+                doctorStaff={{ name: modal.episode.doctor || 'Chưa phân công' }}
                 onClose={() => setModal(null)}
               />
             ) : modal.type==='exam' ? (
@@ -1112,7 +1091,7 @@ export default function History({role='admin',patientId,navigate,notify}){
                       <div className="form-row">
                         <label className="his-field-label">
                           Người bệnh *
-                          <select name="patientId" required defaultValue={patient||''} className="his-select">
+                          <select name="patientId" required defaultValue={curPt?.id||''} className="his-select">
                             <option value="">Chọn người bệnh</option>
                             {patients.map(p=><option key={p.id} value={p.id}>{p.name} · {p.id}</option>)}
                           </select>

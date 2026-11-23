@@ -3,7 +3,7 @@ import { Printer, X, Download, ShieldCheck, FileText, CheckCircle2 } from 'lucid
 import { parseBhytCard } from './bhyt-utils';
 import './medical-paper-forms.css';
 
-const currency = n => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(n) || 0);
+const currency = n => n == null || n === '' || !Number.isFinite(Number(n)) ? 'Chưa ghi nhận' : new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(n));
 
 /**
  * 1. MẪU GIẤY CHUYỂN CƠ SỞ KCB BẢO HIỂM Y TẾ (MẪU SỐ 06)
@@ -42,30 +42,30 @@ export function ReferralPaperForm({ row, patient, doctorStaff }) {
       </div>
 
       <div className="paper-recipient">
-        <b>Kính gửi:</b> <u>{row.destination || 'Bệnh viện Chợ Rẫy TP. Hồ Chí Minh (Tuyến Trung ương)'}</u>
+        <b>Kính gửi:</b> <u>{row.destination || 'Chưa ghi nhận'}</u>
       </div>
 
       {/* Phần I: Thông tin người bệnh */}
       <div className="paper-section-title">I. THÔNG TIN HÀNH CHÍNH NGƯỜI BỆNH:</div>
       <div className="paper-row">
         <span className="paper-label">- Họ và tên người bệnh:</span>
-        <span className="paper-value"><b>{patient?.name || row.patientName || 'NGUYỄN VĂN MINH'}</b></span>
+        <span className="paper-value"><b>{patient?.name || row.patientName || 'Chưa ghi nhận'}</b></span>
         <span className="paper-label" style={{ marginLeft: 20 }}>Nam/Nữ:</span>
-        <span className="paper-value" style={{ maxWidth: 80 }}>{patient?.gender || 'Nam'}</span>
+        <span className="paper-value" style={{ maxWidth: 80 }}>{patient?.gender || 'Chưa ghi nhận'}</span>
         <span className="paper-label" style={{ marginLeft: 20 }}>Tuổi:</span>
         <span className="paper-value" style={{ maxWidth: 60 }}>{age}</span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">- Địa chỉ nơi cư trú:</span>
-        <span className="paper-value">{patient?.address || 'Quận 1, TP. Hồ Chí Minh'}</span>
+        <span className="paper-value">{patient?.address || 'Chưa ghi nhận'}</span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">- Số CCCD / Định danh cá nhân:</span>
-        <span className="paper-value" style={{ maxWidth: 200 }}>{patient?.cccd || '079090123456'}</span>
+        <span className="paper-value" style={{ maxWidth: 200 }}>{patient?.cccd || 'Chưa ghi nhận'}</span>
         <span className="paper-label" style={{ marginLeft: 16 }}>Số điện thoại:</span>
-        <span className="paper-value">{patient?.phone || '0901234567'}</span>
+        <span className="paper-value">{patient?.phone || 'Chưa ghi nhận'}</span>
       </div>
 
       <div className="paper-row">
@@ -82,54 +82,54 @@ export function ReferralPaperForm({ row, patient, doctorStaff }) {
 
       <div className="paper-row">
         <span className="paper-label">- Khám bệnh / Vào điều trị từ:</span>
-        <span className="paper-value">08:00 ngày 21/11/2026 đến 11:30 ngày 23/11/2026</span>
+        <span className="paper-value">{row.admittedAt || row.admissionDate || 'Chưa ghi nhận'} → {row.dischargedAt || row.dischargeDate || 'Chưa ghi nhận'}</span>
       </div>
 
       {/* Phần II: Tóm tắt bệnh án */}
       <div className="paper-section-title" style={{ marginTop: 14 }}>II. TÓM TẮT BỆNH ÁN VÀ QUÁ TRÌNH ĐIỀU TRỊ:</div>
       <div className="paper-row">
         <span className="paper-label">1. Dấu hiệu lâm sàng:</span>
-        <span className="paper-value">{row.symptoms || row.note || 'Bệnh nhân đau ngực trái từng cơn lan lên vai, khó thở khi gắng sức độ II-III theo NYHA.'}</span>
+        <span className="paper-value">{row.symptoms || row.note || 'Chưa ghi nhận'}</span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">2. Kết quả cận lâm sàng chính:</span>
         <span className="paper-value">
-          {row.labSummary || 'ECG: ST chênh xuống 1.5mm ở V4-V6. Troponin I tăng nhẹ (0.08 ng/mL). Siêu âm tim: Giảm động thành dưới thất trái, EF = 52%.'}
+          {row.labSummary || 'Chưa ghi nhận'}
         </span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">3. Chẩn đoán chuyển tuyến:</span>
         <span className="paper-value">
-          <b>{row.diagnosis || 'Hội chứng mạch vành cấp - Cơn đau thắt ngực không ổn định (I20.0)'}</b>
+          <b>{row.diagnosis || 'Chưa ghi nhận'}</b>
         </span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">4. Phương pháp / thuốc đã dùng:</span>
         <span className="paper-value">
-          {row.treatment || 'Aspirin 81mg x 01 viên, Clopidogrel 75mg x 01 viên, Nitroglycerin ngậm dưới lưỡi, thở oxy kính 2L/phút.'}
+          {row.treatment || 'Chưa ghi nhận'}
         </span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">5. Tình trạng lúc chuyển tuyến:</span>
         <span className="paper-value">
-          {row.condition || 'Tri giác tỉnh táo, tiếp xúc tốt. Mạch: 82 l/p, HA: 135/85 mmHg, SpO2: 97% có thở oxy. Giảm đau ngực.'}
+          {row.condition || 'Chưa ghi nhận'}
         </span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">6. Lý do chuyển tuyến:</span>
         <span className="paper-value">
-          {row.reason || 'Vượt quá năng lực chuyên môn kỹ thuật can thiệp tim mạch của bệnh viện; cần chụp và can thiệp mạch vành khẩn.'}
+          {row.reason || 'Chưa ghi nhận'}
         </span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">7. Phương tiện vận chuyển:</span>
-        <span className="paper-value">{row.transport || 'Xe cứu thương chuyên dụng của bệnh viện (có Bác sĩ và Điều dưỡng đi cùng hỗ trợ cấp cứu)'}</span>
+        <span className="paper-value">{row.transport || 'Chưa ghi nhận'}</span>
       </div>
 
       {/* Phần ký duyệt */}
@@ -141,18 +141,18 @@ export function ReferralPaperForm({ row, patient, doctorStaff }) {
         <div className="paper-sign-col">
           <span className="sign-title">BÁC SĨ CHỈ ĐỊNH</span>
           <span className="sign-hint">(Ký, ghi rõ họ tên và CCHN)</span>
-          <span className="sign-name">{doctorStaff?.name || row.doctor || 'BS.CKI Trần Minh Anh'}</span>
+          <span className="sign-name">{doctorStaff?.name || row.doctor || 'Chưa ghi nhận'}</span>
         </div>
         <div className="paper-sign-col">
           <span className="sign-title">TRƯỞNG PHÒNG KHTH</span>
           <span className="sign-hint">(Ký, ghi rõ họ tên)</span>
-          <span className="sign-name">BS.CKII Lê Thị Mai</span>
+          <span className="sign-name">Chưa ghi nhận</span>
         </div>
         <div className="paper-sign-col">
           <span className="sign-title">GIÁM ĐỐC BỆNH VIỆN</span>
           <span className="sign-hint">(Ký, đóng dấu cơ sở KCB)</span>
           <span className="sign-name">
-            PGS.TS.BS Đặng Quốc Tuấn
+            Chưa ghi nhận
             <span className="paper-badge-stamp">ĐÃ DUYỆT BHYT</span>
           </span>
         </div>
@@ -205,26 +205,26 @@ export function ConsultationPaperForm({ row, patient, doctorStaff }) {
       <div className="paper-section-title">I. THÀNH PHẦN HỘI CHẨN:</div>
       <div className="paper-row">
         <span className="paper-label">1. Chủ tọa:</span>
-        <span className="paper-value"><b>{row.chairperson || doctorStaff?.name || row.doctor || 'BS.CKII Lê Thị Mai'}</b> (Phó Giám đốc chuyên môn / Trưởng khoa)</span>
+        <span className="paper-value"><b>{row.chairperson || doctorStaff?.name || row.doctor || 'Chưa ghi nhận'}</b> (Phó Giám đốc chuyên môn / Trưởng khoa)</span>
       </div>
       <div className="paper-row">
         <span className="paper-label">2. Thư ký:</span>
-        <span className="paper-value"><b>{row.secretary || 'BS Đỗ Hoàng Long'}</b> (Bác sĩ điều trị)</span>
+        <span className="paper-value"><b>{row.secretary || 'Chưa ghi nhận'}</b> (Bác sĩ điều trị)</span>
       </div>
       <div className="paper-row">
         <span className="paper-label">3. Thành viên tham gia:</span>
-        <span className="paper-value">{row.participants || 'ThS.BS Nguyễn Văn An (Tim mạch), BS.CKI Trần Minh Anh (Nội tổng quát), ThS.BS Đặng Quốc Tuấn (Ngoại - Gây mê hồi sức)'}</span>
+        <span className="paper-value">{row.participants || 'Chưa ghi nhận'}</span>
       </div>
 
       {/* Thông tin bệnh nhân */}
       <div className="paper-section-title" style={{ marginTop: 14 }}>II. THÔNG TIN NGƯỜI BỆNH:</div>
       <div className="paper-row">
         <span className="paper-label">- Họ và tên:</span>
-        <span className="paper-value"><b>{patient?.name || row.patientName || 'LÊ THỊ THU HƯƠNG'}</b></span>
+        <span className="paper-value"><b>{patient?.name || row.patientName || 'Chưa ghi nhận'}</b></span>
         <span className="paper-label" style={{ marginLeft: 16 }}>Mã BN:</span>
         <span className="paper-value" style={{ maxWidth: 120 }}>{patient?.id || row.patient}</span>
         <span className="paper-label" style={{ marginLeft: 16 }}>Mã lượt/đợt:</span>
-        <span className="paper-value" style={{ maxWidth: 140 }}>{row.episodeId || 'BA-261121-EA9A'}</span>
+        <span className="paper-value" style={{ maxWidth: 140 }}>{row.episodeId || 'Chưa ghi nhận'}</span>
       </div>
 
       {/* Diễn biến & Thảo luận */}
@@ -232,28 +232,28 @@ export function ConsultationPaperForm({ row, patient, doctorStaff }) {
       <div className="paper-row">
         <span className="paper-label">1. Tóm tắt bệnh cảnh & CLS:</span>
         <span className="paper-value">
-          {row.progress || 'Bệnh nhân 50 tuổi vào viện vì sốt cao, ho đờm mủ, đau ngực sườn phải. X-quang phổi: Đông đặc thùy dưới phổi phải. Bạch cầu tăng cao 14.8 G/L (Neu 82.5%). Có tiền sử đái tháo đường type 2 đang điều trị insulin.'}
+          {row.progress || 'Chưa ghi nhận'}
         </span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">2. Ý kiến thảo luận:</span>
         <span className="paper-value">
-          {row.discussion || 'Các thành viên thống nhất tình trạng nhiễm trùng hô hấp nặng trên nền bệnh nhân đái tháo đường kiểm soát kém, nguy cơ suy hô hấp tiến triển hoặc áp xe hóa. Cần điều chỉnh kháng sinh tĩnh mạch phổ rộng và kiểm soát đường huyết tích cực.'}
+          {row.discussion || 'Chưa ghi nhận'}
         </span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">3. Chẩn đoán xác định:</span>
         <span className="paper-value">
-          <b>{row.diagnosis || row.conclusion || 'Viêm phổi thùy phải nặng do vi khuẩn (J18.1) / Đái tháo đường type 2 (E11)'}</b>
+          <b>{row.diagnosis || row.conclusion || 'Chưa ghi nhận'}</b>
         </span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">4. Phác đồ thống nhất:</span>
         <span className="paper-value">
-          {row.plan || 'Chuyển Khoa Hồi sức Tích cực (ICU). Kháng sinh Ceftriaxone 2g/ngày phối hợp Levofloxacin 750mg/ngày. Khí dung Corticosteroid. Phác đồ Insulin tiêm dưới da 4 mũi theo dõi đường huyết mao mạch 4 lần/ngày.'}
+          {row.plan || 'Chưa ghi nhận'}
         </span>
       </div>
 
@@ -266,17 +266,17 @@ export function ConsultationPaperForm({ row, patient, doctorStaff }) {
         <div className="paper-sign-col">
           <span className="sign-title">THƯ KÝ BIÊN BẢN</span>
           <span className="sign-hint">(Ký, ghi rõ họ tên)</span>
-          <span className="sign-name">{row.secretary || 'BS Đỗ Hoàng Long'}</span>
+          <span className="sign-name">{row.secretary || 'Chưa ghi nhận'}</span>
         </div>
         <div className="paper-sign-col">
           <span className="sign-title">BÁC SĨ ĐIỀU TRỊ CHÍNH</span>
           <span className="sign-hint">(Ký, ghi rõ họ tên)</span>
-          <span className="sign-name">{doctorStaff?.name || row.doctor || 'BS.CKI Trần Minh Anh'}</span>
+          <span className="sign-name">{doctorStaff?.name || row.doctor || 'Chưa ghi nhận'}</span>
         </div>
         <div className="paper-sign-col">
           <span className="sign-title">CHỦ TỌA HỘI CHẨN</span>
           <span className="sign-hint">(Ký, ghi rõ họ tên)</span>
-          <span className="sign-name">{row.chairperson || 'BS.CKII Lê Thị Mai'}</span>
+          <span className="sign-name">{row.chairperson || 'Chưa ghi nhận'}</span>
         </div>
       </div>
     </div>
@@ -316,9 +316,9 @@ export function DischargePaperForm({ row, patient, doctorStaff }) {
 
       <div className="paper-row">
         <span className="paper-label">1. Họ và tên người bệnh:</span>
-        <span className="paper-value"><b>{patient?.name || row.patientName || 'NGUYỄN VĂN AN'}</b></span>
+        <span className="paper-value"><b>{patient?.name || row.patientName || 'Chưa ghi nhận'}</b></span>
         <span className="paper-label" style={{ marginLeft: 20 }}>2. Giới tính:</span>
-        <span className="paper-value" style={{ maxWidth: 80 }}>{patient?.gender || 'Nam'}</span>
+        <span className="paper-value" style={{ maxWidth: 80 }}>{patient?.gender || 'Chưa ghi nhận'}</span>
         <span className="paper-label" style={{ marginLeft: 20 }}>3. Tuổi:</span>
         <span className="paper-value" style={{ maxWidth: 60 }}>{age}</span>
       </div>
@@ -333,12 +333,12 @@ export function DischargePaperForm({ row, patient, doctorStaff }) {
 
       <div className="paper-row">
         <span className="paper-label">5. Địa chỉ cư trú:</span>
-        <span className="paper-value">{patient?.address || 'TP. Hồ Chí Minh'}</span>
+        <span className="paper-value">{patient?.address || 'Chưa ghi nhận'}</span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">6. Vào viện lúc:</span>
-        <span className="paper-value">08 giờ 15 phút, ngày 18 tháng 11 năm 2026</span>
+        <span className="paper-value">{row.admittedAt || row.admissionDate || 'Chưa ghi nhận'}</span>
         <span className="paper-label" style={{ marginLeft: 16 }}>7. Ra viện lúc:</span>
         <span className="paper-value">10 giờ 30 phút, {todayStr}</span>
       </div>
@@ -346,26 +346,26 @@ export function DischargePaperForm({ row, patient, doctorStaff }) {
       <div className="paper-row">
         <span className="paper-label">8. Chẩn đoán khi ra viện:</span>
         <span className="paper-value">
-          <b>{row.diagnosis || 'Viêm phế quản phổi cấp thể vừa (J18.0) - Tăng huyết áp nguyên phát (I10)'}</b>
+          <b>{row.diagnosis || 'Chưa ghi nhận'}</b>
         </span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">9. Phương pháp điều trị:</span>
         <span className="paper-value">
-          {row.summary || row.treatment || 'Kháng sinh Augmentin tĩnh mạch, khí dung giãn phế quản, kiểm soát huyết áp bằng Amlodipine, bù điện giải.'}
+          {row.summary || row.treatment || 'Chưa ghi nhận'}
         </span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">10. Kết quả điều trị:</span>
-        <span className="paper-value"><b>{row.outcome || 'Đỡ / Giảm nhiều — Đủ tiêu chuẩn xuất viện'}</b></span>
+        <span className="paper-value"><b>{row.outcome || 'Chưa ghi nhận'}</b></span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">11. Ghi chú / Lời dặn của bác sĩ:</span>
         <span className="paper-value">
-          {row.advice || 'Uống thuốc theo đơn ra viện đủ 07 ngày. Tránh gió lạnh, kiêng thuốc lá bia rượu. Tái khám sau 01 tuần hoặc ngay khi sốt tái phát.'}
+          {row.advice || 'Chưa ghi nhận'}
         </span>
       </div>
 
@@ -382,13 +382,13 @@ export function DischargePaperForm({ row, patient, doctorStaff }) {
         <div className="paper-sign-col">
           <span className="sign-title">NGƯỜI HÀNH NGHỀ KHÁM CHỮA BỆNH</span>
           <span className="sign-hint">(Bác sĩ điều trị ký, ghi rõ họ tên)</span>
-          <span className="sign-name">{doctorStaff?.name || row.doctor || 'BS.CKI Trần Minh Anh'}</span>
+          <span className="sign-name">{doctorStaff?.name || row.doctor || 'Chưa ghi nhận'}</span>
         </div>
         <div className="paper-sign-col">
           <span className="sign-title">THỦ TRƯỞNG ĐƠN VỊ</span>
           <span className="sign-hint">(Ký, ghi rõ họ tên và đóng dấu)</span>
           <span className="sign-name">
-            PGS.TS.BS Đặng Quốc Tuấn
+            Chưa ghi nhận
             <span className="paper-badge-stamp">BỆNH VIỆN MEDICARE</span>
           </span>
         </div>
@@ -405,19 +405,13 @@ export function MedicalBillPaperForm({ row, patient, cashierStaff }) {
   const bh = parseBhytCard(patient?.insurance);
   const now = new Date();
   const todayStr = `ngày ${now.getDate()} tháng ${now.getMonth() + 1} năm ${now.getFullYear()}`;
-  const gross = Number(row.gross) || 475000;
-  const insuranceCovered = Number(row.insurance) || (bh.hasInsurance ? Math.round(gross * bh.rate / 100) : 0);
-  const copay = bh.hasInsurance ? (gross - insuranceCovered) : gross;
-  const advance = Number(row.advance) || 0;
-  const balance = copay - advance;
+  const gross = row.gross == null ? null : Number(row.gross);
+  const insuranceCovered = row.insurance == null ? null : Number(row.insurance);
+  const copay = gross == null || insuranceCovered == null ? null : gross - insuranceCovered;
+  const advance = row.advance == null ? null : Number(row.advance);
+  const balance = copay == null || advance == null ? null : copay - advance;
 
-  const lines = row.lines && row.lines.length > 0 ? row.lines : [
-    { name: 'Khám chuyên khoa Nội tổng quát', category: 'Tiền khám bệnh', qty: 1, unit: 'Lượt', price: 150000, bhytRate: bh.rate },
-    { name: 'Tổng phân tích tế bào máu ngoại vi (24 thông số)', category: 'Cận lâm sàng', qty: 1, unit: 'Lần', price: 110000, bhytRate: bh.rate },
-    { name: 'Chụp X-quang ngực thẳng kỹ thuật số', category: 'Chẩn đoán hình ảnh', qty: 1, unit: 'Lần', price: 150000, bhytRate: bh.rate },
-    { name: 'Nexium 40mg (Esomeprazole)', category: 'Thuốc BHYT', qty: 14, unit: 'Viên', price: 25000, bhytRate: bh.rate },
-    { name: 'Panadol Extra 500mg/65mg', category: 'Thuốc BHYT', qty: 10, unit: 'Viên', price: 1500, bhytRate: bh.rate }
-  ];
+  const lines = Array.isArray(row.lines) ? row.lines : [];
 
   return (
     <div className="paper-sheet">
@@ -444,11 +438,11 @@ export function MedicalBillPaperForm({ row, patient, cashierStaff }) {
       {/* Thông tin bệnh nhân */}
       <div className="paper-row">
         <span className="paper-label">Họ và tên người bệnh:</span>
-        <span className="paper-value"><b>{patient?.name || row.patientName || 'LÊ THỊ THU HƯƠNG'}</b></span>
+        <span className="paper-value"><b>{patient?.name || row.patientName || 'Chưa ghi nhận'}</b></span>
         <span className="paper-label" style={{ marginLeft: 16 }}>Mã BN:</span>
         <span className="paper-value" style={{ maxWidth: 120 }}>{patient?.id || row.patient}</span>
         <span className="paper-label" style={{ marginLeft: 16 }}>Mã đợt/lượt:</span>
-        <span className="paper-value" style={{ maxWidth: 140 }}>{row.episodeId || 'BA-261121-EA9A'}</span>
+        <span className="paper-value" style={{ maxWidth: 140 }}>{row.episodeId || 'Chưa ghi nhận'}</span>
       </div>
 
       <div className="paper-row">
@@ -479,14 +473,15 @@ export function MedicalBillPaperForm({ row, patient, cashierStaff }) {
         </thead>
         <tbody>
           {lines.map((item, idx) => {
-            const amount = item.qty * item.price;
+            const quantity = item.quantity ?? item.qty;
+            const amount = quantity == null || item.price == null ? null : Number(quantity) * Number(item.price);
             return (
               <tr key={idx}>
                 <td className="text-center">{idx + 1}</td>
                 <td><b>{item.name || item.description}</b></td>
-                <td>{item.category || 'DV Kỹ thuật'}</td>
-                <td className="text-center">{item.unit || 'Lần'}</td>
-                <td className="text-center">{item.qty || 1}</td>
+                <td>{item.category || 'Chưa ghi nhận'}</td>
+                <td className="text-center">{item.unit || 'Chưa ghi nhận'}</td>
+                <td className="text-center">{quantity ?? 'Chưa ghi nhận'}</td>
                 <td className="text-right">{currency(item.price)}</td>
                 <td className="text-right"><b>{currency(amount)}</b></td>
                 <td className="text-center">{bh.hasInsurance ? `${bh.rate}%` : '0%'}</td>
@@ -534,12 +529,12 @@ export function MedicalBillPaperForm({ row, patient, cashierStaff }) {
         <div className="paper-sign-col">
           <span className="sign-title">NGƯỜI BỆNH / THÂN NHÂN</span>
           <span className="sign-hint">(Ký và ghi rõ họ tên)</span>
-          <span className="sign-name">{row.signedBy || patient?.name || 'Lê Thị Thu Hương'}</span>
+          <span className="sign-name">{row.signedBy || patient?.name || 'Chưa ghi nhận'}</span>
         </div>
         <div className="paper-sign-col">
           <span className="sign-title">KẾ TOÁN VIỆN PHÍ</span>
           <span className="sign-hint">(Ký và ghi rõ họ tên)</span>
-          <span className="sign-name">{cashierStaff?.name || 'CN. Đặng Thu Thảo'}</span>
+          <span className="sign-name">{cashierStaff?.name || 'Chưa ghi nhận'}</span>
         </div>
         <div className="paper-sign-col">
           <span className="sign-title">ĐẠI DIỆN BỆNH VIỆN</span>
@@ -564,10 +559,7 @@ export function PrescriptionPaperForm({ row, patient, doctorStaff }) {
   const todayStr = `ngày ${now.getDate()} tháng ${now.getMonth() + 1} năm ${now.getFullYear()}`;
   const age = patient?.birth ? (now.getFullYear() - Number(String(patient.birth).slice(0, 4))) : '—';
 
-  const lines = row.lines && row.lines.length > 0 ? row.lines : [
-    { medicine: 'Nexium 40mg (Esomeprazole)', quantity: 14, unit: 'Viên', dose: '1 viên', route: 'Uống', frequency: 'Sáng 1 viên trước ăn 30 phút', days: 14 },
-    { medicine: 'Panadol Extra 500mg/65mg', quantity: 10, unit: 'Viên', dose: '1 viên', route: 'Uống', frequency: 'Uống khi đau đầu hoặc sốt > 38.5°C', days: 5 }
-  ];
+  const lines = Array.isArray(row.lines) ? row.lines : [];
 
   return (
     <div className="paper-sheet">
@@ -576,7 +568,7 @@ export function PrescriptionPaperForm({ row, patient, doctorStaff }) {
           <span>SỞ Y TẾ TP. HỒ CHÍ MINH</span>
           <strong>BỆNH VIỆN ĐA KHOA MEDICARE</strong>
           <span>Khoa Khám bệnh · Phòng khám chuyên khoa</span>
-          <div className="paper-doc-id">Mã đơn thuốc điện tử: <b>{row.id || 'DT-261122-002'}</b></div>
+          <div className="paper-doc-id">Mã đơn thuốc điện tử: <b>{row.id || 'Chưa ghi nhận'}</b></div>
         </div>
         <div className="paper-header-right">
           <strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong>
@@ -592,9 +584,9 @@ export function PrescriptionPaperForm({ row, patient, doctorStaff }) {
 
       <div className="paper-row">
         <span className="paper-label">Họ và tên người bệnh:</span>
-        <span className="paper-value"><b>{patient?.name || row.patientName || 'NGUYỄN VĂN MINH'}</b></span>
+        <span className="paper-value"><b>{patient?.name || row.patientName || 'Chưa ghi nhận'}</b></span>
         <span className="paper-label" style={{ marginLeft: 20 }}>Giới tính:</span>
-        <span className="paper-value" style={{ maxWidth: 80 }}>{patient?.gender || 'Nam'}</span>
+        <span className="paper-value" style={{ maxWidth: 80 }}>{patient?.gender || 'Chưa ghi nhận'}</span>
         <span className="paper-label" style={{ marginLeft: 20 }}>Tuổi:</span>
         <span className="paper-value" style={{ maxWidth: 60 }}>{age}</span>
       </div>
@@ -609,13 +601,13 @@ export function PrescriptionPaperForm({ row, patient, doctorStaff }) {
 
       <div className="paper-row">
         <span className="paper-label">Địa chỉ nơi cư trú:</span>
-        <span className="paper-value">{patient?.address || 'Quận 1, TP. Hồ Chí Minh'}</span>
+        <span className="paper-value">{patient?.address || 'Chưa ghi nhận'}</span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">Chẩn đoán bệnh (Mã ICD-10):</span>
         <span className="paper-value">
-          <b>{row.diagnosis || 'K29.7 - Viêm dạ dày, không đặc hiệu / K21.0 - Trào ngược dạ dày thực quản'}</b>
+          <b>{row.diagnosis || 'Chưa ghi nhận'}</b>
         </span>
       </div>
 
@@ -629,11 +621,11 @@ export function PrescriptionPaperForm({ row, patient, doctorStaff }) {
                 {i + 1}. {med.medicine || med.name}
               </span>
               <span style={{ fontSize: 13.5, fontWeight: 700 }}>
-                Số lượng: {med.quantity} {med.unit || 'Viên'}
+                Số lượng: {med.quantity} {med.unit || 'Chưa ghi nhận'}
               </span>
             </div>
             <div style={{ fontSize: 12.5, color: '#374151', marginTop: 3, paddingLeft: 16 }}>
-              <span>Cách dùng: <i>{med.frequency || med.dose || 'Uống ngày 2 lần'} · {med.route || 'Đường uống'} · Liệu trình {med.days || 7} ngày</i></span>
+              <span>Cách dùng: <i>{med.frequency || med.dose || 'Chưa ghi nhận'} · {med.route || 'Chưa ghi nhận'} · Liệu trình {med.days ?? 'Chưa ghi nhận'} ngày</i></span>
               {med.beforeFood && <span> · ({med.beforeFood})</span>}
             </div>
           </div>
@@ -643,7 +635,7 @@ export function PrescriptionPaperForm({ row, patient, doctorStaff }) {
       {/* Lời dặn */}
       <div className="paper-section-title" style={{ marginTop: 12 }}>LỜI DẶN CỦA BÁC SĨ (CHẾ ĐỘ SINH HOẠT & DINH DƯỠNG):</div>
       <div style={{ fontSize: 13, background: '#f9fafb', padding: '10px 14px', borderRadius: 4, border: '1px solid #e5e7eb', fontStyle: 'italic' }}>
-        {row.advice || 'Kiêng đồ cay nóng, bia rượu, cà phê và chất kích thích. Ăn uống đúng giờ, không thức khuya, không nằm ngay sau ăn. Tái khám sau 14 ngày hoặc ngay khi có dấu hiệu nôn ra máu, đi ngoài phân đen.'}
+        {row.advice || 'Chưa ghi nhận'}
       </div>
 
       <div style={{ textAlign: 'right', fontStyle: 'italic', marginTop: 20, fontSize: 12.5 }}>
@@ -654,12 +646,12 @@ export function PrescriptionPaperForm({ row, patient, doctorStaff }) {
         <div className="paper-sign-col">
           <span className="sign-title">BỆNH NHÂN / THÂN NHÂN</span>
           <span className="sign-hint">(Đã nhận đơn và hiểu rõ hướng dẫn dùng)</span>
-          <span className="sign-name">{patient?.name || 'Nguyễn Văn Minh'}</span>
+          <span className="sign-name">{patient?.name || 'Chưa ghi nhận'}</span>
         </div>
         <div className="paper-sign-col">
           <span className="sign-title">BÁC SĨ KÊ ĐƠN</span>
           <span className="sign-hint">(Ký, ghi rõ họ tên và CCHN)</span>
-          <span className="sign-name">{doctorStaff?.name || row.doctor || 'BS.CKI Trần Minh Anh'}</span>
+          <span className="sign-name">{doctorStaff?.name || row.doctor || 'Chưa ghi nhận'}</span>
         </div>
       </div>
     </div>
@@ -683,7 +675,7 @@ export function MedicalRecordSummaryPaperForm({ row, patient, doctorStaff }) {
           <span>SỞ Y TẾ TP. HỒ CHÍ MINH</span>
           <strong>BỆNH VIỆN ĐA KHOA MEDICARE</strong>
           <span>Phòng Kế hoạch tổng hợp & Lưu trữ EMR</span>
-          <div className="paper-doc-id">Mã bệnh án: <b>{row.episodeId || row.id || 'BA-2026-001'}</b></div>
+          <div className="paper-doc-id">Mã bệnh án: <b>{row.episodeId || row.id || 'Chưa ghi nhận'}</b></div>
         </div>
         <div className="paper-header-right">
           <strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong>
@@ -701,9 +693,9 @@ export function MedicalRecordSummaryPaperForm({ row, patient, doctorStaff }) {
       <div className="paper-section-title">I. PHẦN HÀNH CHÍNH:</div>
       <div className="paper-row">
         <span className="paper-label">- Họ và tên người bệnh:</span>
-        <span className="paper-value"><b>{patient?.name || row.patientName || 'NGUYỄN VĂN AN'}</b></span>
+        <span className="paper-value"><b>{patient?.name || row.patientName || 'Chưa ghi nhận'}</b></span>
         <span className="paper-label" style={{ marginLeft: 20 }}>Nam/Nữ:</span>
-        <span className="paper-value" style={{ maxWidth: 80 }}>{patient?.gender || 'Nam'}</span>
+        <span className="paper-value" style={{ maxWidth: 80 }}>{patient?.gender || 'Chưa ghi nhận'}</span>
         <span className="paper-label" style={{ marginLeft: 20 }}>Tuổi:</span>
         <span className="paper-value" style={{ maxWidth: 60 }}>{age}</span>
       </div>
@@ -718,57 +710,57 @@ export function MedicalRecordSummaryPaperForm({ row, patient, doctorStaff }) {
 
       <div className="paper-row">
         <span className="paper-label">- Địa chỉ nơi cư trú:</span>
-        <span className="paper-value">{patient?.address || 'TP. Hồ Chí Minh'}</span>
+        <span className="paper-value">{patient?.address || 'Chưa ghi nhận'}</span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">- Thời gian điều trị:</span>
-        <span className="paper-value">Từ ngày 15/11/2026 đến ngày 22/11/2026</span>
+        <span className="paper-value">{row.admittedAt || row.admissionDate || 'Chưa ghi nhận'} → {row.dischargedAt || row.dischargeDate || 'Chưa ghi nhận'}</span>
       </div>
 
       <div className="paper-section-title" style={{ marginTop: 14 }}>II. TÓM TẮT QUÁ TRÌNH CHUYÊN MÔN:</div>
       <div className="paper-row">
         <span className="paper-label">1. Lý do vào viện:</span>
-        <span className="paper-value">{row.reason || 'Đau thắt ngực lan ra sau lưng, mệt mỏi khó thở.'}</span>
+        <span className="paper-value">{row.reason || 'Chưa ghi nhận'}</span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">2. Tiền sử bệnh:</span>
-        <span className="paper-value">{patient?.history || 'Tăng huyết áp 5 năm, đái tháo đường type 2 điều trị thường xuyên. Không dị ứng.'}</span>
+        <span className="paper-value">{patient?.history || 'Chưa ghi nhận'}</span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">3. Tóm tắt kết quả CLS có giá trị:</span>
         <span className="paper-value">
-          {row.labSummary || 'ECG thiếu máu cơ tim vùng dưới. Siêu âm tim chức năng thất trái EF 50%. Công thức máu: WBC 7.2 G/L, Hb 135 g/L. Đường huyết đói 6.8 mmol/L.'}
+          {row.labSummary || 'Chưa ghi nhận'}
         </span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">4. Chẩn đoán ra viện:</span>
         <span className="paper-value">
-          <b>{row.diagnosis || 'Bệnh tim thiếu máu cục bộ mạn tính (I25.9) - Tăng huyết áp độ 2 (I10) - ĐTĐ type 2 (E11)'}</b>
+          <b>{row.diagnosis || 'Chưa ghi nhận'}</b>
         </span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">5. Quá trình và phương pháp điều trị:</span>
         <span className="paper-value">
-          {row.treatment || 'Nội khoa tối ưu: Chống kết tập tiểu cầu kép, Statin liều cao, chẹn thụ thể beta, ức chế men chuyển và kiểm soát đường huyết chặt chẽ.'}
+          {row.treatment || 'Chưa ghi nhận'}
         </span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">6. Tình trạng người bệnh khi ra viện:</span>
         <span className="paper-value">
-          {row.outcome || 'Đỡ nhiều, hết đau ngực, huyết áp ổn định 125/80 mmHg, ăn ngủ tốt. Tự đi lại sinh hoạt bình thường.'}
+          {row.outcome || 'Chưa ghi nhận'}
         </span>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">7. Hướng điều trị tiếp theo:</span>
         <span className="paper-value">
-          {row.advice || 'Duy trì thuốc theo đơn ra viện, tái khám chuyên khoa tim mạch định kỳ mỗi tháng.'}
+          {row.advice || 'Chưa ghi nhận'}
         </span>
       </div>
 
@@ -780,18 +772,18 @@ export function MedicalRecordSummaryPaperForm({ row, patient, doctorStaff }) {
         <div className="paper-sign-col">
           <span className="sign-title">BÁC SĨ ĐIỀU TRỊ</span>
           <span className="sign-hint">(Ký, ghi rõ họ tên)</span>
-          <span className="sign-name">{doctorStaff?.name || row.doctor || 'BS.CKI Trần Minh Anh'}</span>
+          <span className="sign-name">{doctorStaff?.name || row.doctor || 'Chưa ghi nhận'}</span>
         </div>
         <div className="paper-sign-col">
           <span className="sign-title">TRƯỞNG PHÒNG KHTH</span>
           <span className="sign-hint">(Ký, ghi rõ họ tên)</span>
-          <span className="sign-name">BS.CKII Lê Thị Mai</span>
+          <span className="sign-name">Chưa ghi nhận</span>
         </div>
         <div className="paper-sign-col">
           <span className="sign-title">GIÁM ĐỐC BỆNH VIỆN</span>
           <span className="sign-hint">(Ký và đóng dấu)</span>
           <span className="sign-name">
-            PGS.TS.BS Đặng Quốc Tuấn
+            Chưa ghi nhận
             <span className="paper-badge-stamp">TRÍCH SAO BỆNH ÁN</span>
           </span>
         </div>
@@ -845,7 +837,7 @@ export default function MedicalPaperFormViewer({ tab, row, patient, doctorStaff,
           <div>
             <b style={{ color: '#0f172a', fontSize: 14 }}>{formTitle}</b>
             <div style={{ fontSize: 11.5, color: '#64748b' }}>
-              Biểu mẫu nghiệp vụ y tế chuẩn Bộ Y tế & BHXH Việt Nam · Liên thông CSDL SQL Server
+              Bản xem trước từ dữ liệu hồ sơ · Chưa xác minh tính phù hợp pháp lý của biểu mẫu
             </div>
           </div>
         </div>
@@ -862,7 +854,7 @@ export default function MedicalPaperFormViewer({ tab, row, patient, doctorStaff,
         </div>
       </div>
 
-      {/* Trang giấy hiển thị nội dung mẫu chuẩn */}
+      <p className="no-print" style={{color:'#64748b',fontSize:12,marginBottom:12}}>Chỉ in sau khi đối chiếu đúng người bệnh, hồ sơ và nội dung đã lưu. Trường trống không được tự bổ sung dữ liệu mẫu.</p>
       <FormComponent
         row={row}
         patient={patient}

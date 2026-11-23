@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {adminFixture} from './admin-fixture.mjs';
 import {querySql} from '../server/admin-store.mjs';
+import {financeAction,financeState} from '../server/finance.mjs';
 import {inpatientCare,dischargeCase} from '../server/inpatient-care.mjs';
 import {ancillaryState,performCare,bedAction} from '../server/ancillary.mjs';
 import {createApiMiddleware} from '../server/api-router.mjs';
@@ -52,10 +53,32 @@ test('admission API isolates QA database, rejects repeated occupancy and seriali
  assert.equal(Number(await querySql("SELECT COUNT(*) FROM dbo.PhanGiuong WHERE maGiuong='QA_TEST_BED' AND trangThai='DANG_SU_DUNG'")),1);
  await assert.rejects(bedAction({...allocation,patientId:'QA_TEST_PAT2'}),e=>e.status===409);
  await assert.rejects(dischargeCase({role:'nurse',staffId:'QA_TEST_NURSE',admissionId:saved.admissionId}),e=>e.status===403);
+
+ const doctorCall=d=>inpatientCare({role:'doctor',staffId:'QA_TEST_DOC',episodeId:saved.admissionId,requestId:randomUUID(),...d});
+ const sheet=await doctorCall({action:'sheet',note:{symptoms:'QA_TEST_INPATIENT_PROGRESS',diagnosis:'QA_TEST_DIAGNOSIS',plan:'QA_TEST_CARE'}});
+ const order=await doctorCall({action:'order',sheetId:sheet.id,order:{kind:'Chăm sóc',dose:'QA_TEST_CARE',scheduled:'2026-11-23T15:00'}});
+ const discharge={role:'doctor',staffId:'QA_TEST_DOC',admissionId:saved.admissionId};
+ await assert.rejects(dischargeCase(discharge),e=>e.status===409);
+ assert.equal(await querySql('SELECT trangThai FROM dbo.DotDieuTri WHERE maDotDieuTri=@id',{id:saved.admissionId}),'DANG_DIEU_TRI');
+ await performCare({id:order.id,revision:0,role:'nurse',staffId:'QA_TEST_NURSE',patientCheck:'QA_TEST_PAT',check_patient:true,check_medicine:true,check_dose:true,check_route:true,check_time:true,note:'QA_TEST_DONE'});
+ await querySql("INSERT dbo.NhanVien(maNhanVien,hoTen,maKhoa,chucDanh,chuyenMon) VALUES('QA_TEST_CASH',N'QA_TEST_CASH','QA_TEST_K',N'QA_TEST','THU_NGAN');SELECT 'ok';");
+ const cash=(action,data={})=>financeAction({action,role:'cashier',staffId:'QA_TEST_CASH',requestId:randomUUID(),...data});
+ await cash('openShift',{name:'QA_TEST_INPATIENT_SHIFT',opening:0});
+ const bill=await cash('createSettlement',{patient:'QA_TEST_PAT',episodeId:saved.admissionId,insurance:0,lines:[{description:'QA_TEST_INPATIENT_COST',quantity:1,price:1000}]});
+ await assert.rejects(dischargeCase(discharge),e=>e.status===409);
+ const due=(await financeState()).settlements.find(q=>q.id===bill.id);
+ await cash('settle',{id:bill.id,signedBy:'QA_TEST_SIGNER',expectedBalance:due.balance});
+ assert.equal((await financeState()).settlements.find(q=>q.id===bill.id).status,'Đã thanh toán');
  await dischargeCase({role:'doctor',staffId:'QA_TEST_DOC',admissionId:saved.admissionId,bedId:'QA_TEST_BED2'});
  await dischargeCase({role:'doctor',staffId:'QA_TEST_DOC',admissionId:saved.admissionId});
  assert.equal(await querySql('SELECT trangThai FROM dbo.DotDieuTri WHERE maDotDieuTri=@id',{id:saved.admissionId}),'DA_XUAT_VIEN');
  assert.equal(await querySql("SELECT trangThaiHienTai FROM dbo.GiuongBenh WHERE maGiuong='QA_TEST_BED'"),'DANG_VE_SINH');
  assert.equal(await querySql("SELECT trangThaiHienTai FROM dbo.GiuongBenh WHERE maGiuong='QA_TEST_BED2'"),'DANG_SU_DUNG');
+ const clean={action:'clean',id:'QA_TEST_BED',role:'nurse',staffId:'QA_TEST_NURSE'};
+ await bedAction(clean);
+ assert.equal(await querySql("SELECT trangThaiHienTai FROM dbo.GiuongBenh WHERE maGiuong='QA_TEST_BED'"),'TRONG');
+ await assert.rejects(bedAction(clean),e=>e.status===409);
+ assert.equal(Number(await querySql("SELECT COUNT(*) FROM dbo.NhatKyThayDoi WHERE loaiDoiTuong='DotDieuTri' AND hanhDong='DISCHARGE' AND maDoiTuong=@id",{id:saved.admissionId})),1);
+
  }finally{if(server)await new Promise(r=>server.close(r));await f.close();}
 });
