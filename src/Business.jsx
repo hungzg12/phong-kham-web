@@ -271,7 +271,7 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
       
       {dialog.type==='action'&&<ActionForm key={dialog.action} dialog={dialog} stock={stock} optionsFor={optionsFor} onSave={values=>perform(dialog.row,dialog.action,values)}/>}
       
-      {dialog.type==='settlement'&&<SettlementForm scope={scope} initialLines={scope?[...(db.labs||[]),...(db.clinicalCharges||[])].filter(r=>r.episodeId===scope.episodeId&&r.status!=='Đã hủy').map(r=>({description:db.services.find(s=>s.id===r.service)?.name||r.service,category:'Dịch vụ kỹ thuật',quantity:Number(r.quantity)||1,price:Number(r.price??db.services.find(s=>s.id===r.service)?.price)||0,insuranceRate:80,sourceId:r.id})):null} patients={scope?patients.filter(p=>p.id===scope.patientId):patients} services={db.services} availableAdvance={availableAdvance} onSave={saveSettlement}/>}
+      {dialog.type==='settlement'&&<SettlementForm scope={scope} patients={scope?patients.filter(p=>p.id===scope.patientId):patients} services={db.services} availableAdvance={availableAdvance} onSave={saveSettlement}/>}
       
       {dialog.type==='settle'&&<SimpleForm title={dialog.row.balance<0?'Hoàn tiền tạm ứng thừa':dialog.row.balance===0?'Xác nhận đủ tiền':'Thu thêm viện phí'} description={`${display('patient',dialog.row.patient)} · ${currency(Math.abs(dialog.row.balance))}${dialog.row.balance<0?' cần hoàn trả người bệnh':dialog.row.balance===0?' · Đã cấn trừ đủ':' cần thu thêm'}`} fields={[{key:'signedBy',label:'Họ tên người nộp / nhận tiền (Người bệnh hoặc Thân nhân)',required:true}]} submit="Xác nhận giao dịch viện phí" onSave={values=>settle(dialog.row,values)}><div className="inline-notice">Giao dịch được ghi nhận trực tiếp vào CSDL SQL Server và đối soát trong ca trực hiện hành.</div></SimpleForm>}
       
@@ -730,16 +730,16 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
         const m = stock.find(s => s.id === line.medicine);
         const medName = m?.name || line.medicine;
         const el = isBhytEligibleItem(medName);
-        // Strict statutory compliance: Panadol Extra or Caffeine is NEVER BHYT eligible under TT 20/2022/TT-BYT
-        const isCovered = el.eligible && (m?.coBHYT === 1 || m?.giaBHYT > 0 || /paracetamol 500mg|augmentin|zinnat|nexium/i.test(medName));
+        const isPanadolExtra = /panadol extra|caffeine/i.test(medName);
+        const isCovered = !isPanadolExtra && el.eligible && (m?.insurancePrice > 0 || m?.coBHYT === 1 || m?.giaBHYT > 0 || /paracetamol|augmentin|zinnat|nexium|ceftriaxone|berberin/i.test(medName) || m?.inBhyt !== false);
         return {
           category: '5. Thuốc & Dịch truyền',
           description: medName,
           quantity: Number(line.quantity) || 1,
-          price: Number(m?.price || m?.cost || 2500),
+          price: Number(m?.price || m?.cost || line.price || 2500),
           insuranceCovered: isCovered,
           inBhyt: isCovered,
-          nonBhytReason: !isCovered ? (el.reason || 'Ngoài danh mục thuốc BHYT') : undefined,
+          nonBhytReason: isPanadolExtra ? 'Thuốc phối hợp chứa Caffeine không thuộc danh mục TT 20/2022/TT-BYT (Nghiêm cấm quyết toán BHYT)' : (!isCovered ? (el.reason || 'Ngoài danh mục thuốc BHYT') : undefined),
           sourceId: rx.id
         };
       }));
@@ -757,12 +757,19 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
     setLines(prev => prev.map((l, j) => {
       if (j !== i) return l;
       const updated = { ...l, [key]: val };
+      if (key === 'insuranceCovered') {
+        updated.inBhyt = val;
+      }
       if (key === 'description') {
         const el = isBhytEligibleItem(val);
         if (!el.eligible) {
           updated.insuranceCovered = false;
           updated.inBhyt = false;
           updated.nonBhytReason = el.reason;
+        } else {
+          updated.insuranceCovered = true;
+          updated.inBhyt = true;
+          updated.nonBhytReason = undefined;
         }
       }
       return updated;
@@ -780,7 +787,7 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
     const lineGross = qty * price;
     const el = isBhytEligibleItem(l.description);
     // Strict statutory rule: If drug is legally ineligible (e.g. Panadol Extra containing Caffeine), it is ALWAYS false
-    const isCovered = el.eligible && !!l.insuranceCovered && l.inBhyt !== false && insuranceRate > 0;
+    const isCovered = el.eligible && l.insuranceCovered !== false && l.inBhyt !== false && insuranceRate > 0;
     const lineBHYT = isCovered ? Math.round((lineGross * insuranceRate) / 100) : 0;
     const lineCopay = isCovered ? (lineGross - lineBHYT) : 0;
     const lineOutOfPocket = !isCovered ? lineGross : 0;
@@ -794,7 +801,7 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
       lineGross,
       isCovered,
       isEligible: el.eligible,
-      nonBhytReason: !el.eligible ? el.reason : l.nonBhytReason,
+      nonBhytReason: !el.eligible ? el.reason : (l.nonBhytReason || (!isCovered ? (insuranceRate === 0 ? 'Khám tự nguyện / Chưa áp dụng thẻ BHYT' : 'Người bệnh tự chi trả (Ngoài BHYT)') : undefined)),
       lineBHYT,
       lineCopay,
       lineOutOfPocket,
@@ -961,7 +968,8 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
                   const m = stock.find(x => x.id === e.target.value);
                   if (m) {
                     const el = isBhytEligibleItem(m.name);
-                    const isCovered = el.eligible && (m.coBHYT === 1 || m.giaBHYT > 0);
+                    const isPanadolExtra = /panadol extra|caffeine/i.test(m.name);
+                    const isCovered = !isPanadolExtra && el.eligible && (m.insurancePrice > 0 || m.coBHYT === 1 || m.giaBHYT > 0 || /paracetamol|augmentin|zinnat|nexium|ceftriaxone|berberin/i.test(m.name) || m.inBhyt !== false);
                     setLines(prev => [
                       ...prev,
                       {
@@ -971,7 +979,7 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
                         price: Number(m.price || m.cost || 2000),
                         insuranceCovered: isCovered,
                         inBhyt: isCovered,
-                        nonBhytReason: !isCovered ? (el.reason || 'Ngoài danh mục thuốc BHYT') : undefined
+                        nonBhytReason: isPanadolExtra ? 'Thuốc phối hợp chứa Caffeine không thuộc danh mục TT 20/2022/TT-BYT (Nghiêm cấm quyết toán BHYT)' : (!isCovered ? (el.reason || 'Ngoài danh mục thuốc BHYT') : undefined)
                       }
                     ]);
                   }
@@ -1092,9 +1100,15 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
                           </td>
                           <td>
                             <div><b>{l.description}</b></div>
-                            <span className="his-tag-bhyt-forbidden" title={l.nonBhytReason}>
-                              <ShieldAlert size={11} /> {l.nonBhytReason || 'Ngoài DM BHYT (TT 20/2022/TT-BYT)'}
-                            </span>
+                            {!l.isEligible ? (
+                              <span className="his-tag-bhyt-forbidden" title={l.nonBhytReason}>
+                                <Lock size={11} /> {l.nonBhytReason || 'Ngoài danh mục BHYT theo quy định'}
+                              </span>
+                            ) : (
+                              <span className="his-tag-bhyt-selfpay" title="Dịch vụ/thuốc thuộc danh mục BHYT nhưng người bệnh tự chi trả">
+                                <ShieldAlert size={11} /> {insuranceRate === 0 ? 'Khám tự nguyện / Chưa áp dụng thẻ BHYT' : (l.nonBhytReason || 'Người bệnh tự chi trả (Ngoài BHYT)')}
+                              </span>
+                            )}
                           </td>
                           <td style={{ textAlign: 'center' }}>
                             <input
@@ -1110,9 +1124,23 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
                             {currency(l.price)}
                           </td>
                           <td style={{ textAlign: 'center' }}>
-                            <span className="his-rate-locked" title="Khóa BHYT theo quy định Bộ Y tế - Người bệnh tự chi trả">
-                              <Lock size={10} style={{ verticalAlign: 'middle', marginRight: 2 }} /> 0% (Khóa)
-                            </span>
+                            {!l.isEligible ? (
+                              <span className="his-rate-locked" title="Khóa BHYT theo quy định Bộ Y tế - Người bệnh tự chi trả 100%">
+                                <Lock size={10} style={{ verticalAlign: 'middle', marginRight: 2 }} /> 0% (Khóa)
+                              </span>
+                            ) : (
+                              <label className="his-checkbox-label" title="Nhấn để đưa lại vào danh mục BHYT thanh toán">
+                                <input
+                                  type="checkbox"
+                                  checked={false}
+                                  onChange={() => {
+                                    changeLine(l.idx, 'insuranceCovered', true);
+                                    changeLine(l.idx, 'inBhyt', true);
+                                  }}
+                                />
+                                <span className="his-rate-inactive">0%</span>
+                              </label>
+                            )}
                           </td>
                           <td style={{ textAlign: 'right', color: '#94a3b8', fontWeight: 600 }}>
                             0 ₫

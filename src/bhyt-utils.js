@@ -103,7 +103,7 @@ export function isBhytEligibleItem(itemOrName) {
 
   // 4. Nếu đối tượng có thuộc tính BHYT xác định từ CSDL (dbo.HangHoaYTe / dbo.DichVuKyThuat)
   if (typeof itemOrName === 'object' && itemOrName !== null) {
-    if (itemOrName.inBhyt === false || itemOrName.insuranceCovered === false || itemOrName.coBHYT === 0 || itemOrName.coBHYT === false) {
+    if (itemOrName.inBhyt === false || itemOrName.coBHYT === 0 || itemOrName.coBHYT === false || itemOrName.isStatutoryNonBhyt === true) {
       return {
         eligible: false,
         reason: 'Hàng hóa / Dịch vụ ngoài danh mục thanh toán BHYT của cơ sở KCB',
