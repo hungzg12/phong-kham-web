@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Printer, X, Download, ShieldCheck, FileText, CheckCircle2, Save, Edit3, AlertCircle } from 'lucide-react';
-import { parseBhytCard } from './bhyt-utils';
+import { parseBhytCard, isBhytEligibleItem } from './bhyt-utils';
 import './medical-paper-forms.css';
 
 const currency = n => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(n) || 0);
@@ -601,19 +601,55 @@ export function MedicalBillPaperForm({ row, patient, cashierStaff, compact = fal
   const bh = parseBhytCard(patient?.insurance || row.insurance);
   const now = new Date();
   const todayStr = `ngày ${now.getDate()} tháng ${now.getMonth() + 1} năm ${now.getFullYear()}`;
-  const gross = Number(row.gross) || 475000;
-  const insuranceCovered = Number(row.insurance) || (bh.hasInsurance ? Math.round(gross * bh.rate / 100) : 0);
-  const copay = bh.hasInsurance ? (gross - insuranceCovered) : gross;
   const advance = Number(row.advance) || 0;
-  const balance = copay - advance;
 
-  const lines = row.lines && row.lines.length > 0 ? row.lines : [
-    { name: 'Khám chuyên khoa Nội tổng quát', category: 'Tiền khám bệnh', qty: 1, unit: 'Lượt', price: 150000, bhytRate: bh.rate },
-    { name: 'Tổng phân tích tế bào máu ngoại vi (24 thông số)', category: 'Cận lâm sàng', qty: 1, unit: 'Lần', price: 110000, bhytRate: bh.rate },
-    { name: 'Chụp X-quang ngực thẳng kỹ thuật số', category: 'Chẩn đoán hình ảnh', qty: 1, unit: 'Lần', price: 150000, bhytRate: bh.rate },
-    { name: 'Nexium 40mg (Esomeprazole)', category: 'Thuốc BHYT', qty: 14, unit: 'Viên', price: 25000, bhytRate: bh.rate },
-    { name: 'Panadol Extra 500mg/65mg', category: 'Thuốc BHYT', qty: 10, unit: 'Viên', price: 1500, bhytRate: bh.rate }
+  const rawLines = row.lines && row.lines.length > 0 ? row.lines : [
+    { name: 'Khám chuyên khoa Nội tổng quát', category: '1. Tiền khám bệnh', qty: 1, unit: 'Lượt', price: 150000, inBhyt: true, insuranceCovered: true },
+    { name: 'Tổng phân tích tế bào máu ngoại vi (24 thông số)', category: '2. Xét nghiệm', qty: 1, unit: 'Lần', price: 110000, inBhyt: true, insuranceCovered: true },
+    { name: 'Chụp X-quang ngực thẳng kỹ thuật số', category: '3. Chẩn đoán hình ảnh', qty: 1, unit: 'Lần', price: 150000, inBhyt: true, insuranceCovered: true },
+    { name: 'Paracetamol 500mg (Viên nén)', category: '5. Thuốc & Dịch truyền', qty: 10, unit: 'Viên', price: 1200, inBhyt: true, insuranceCovered: true },
+    { name: 'Panadol Extra 500mg/65mg (Chứa Caffeine)', category: '5. Thuốc & Dịch truyền', qty: 10, unit: 'Viên', price: 1500, inBhyt: false, insuranceCovered: false, nonBhytReason: 'Ngoài danh mục TT 20/2022/TT-BYT (chứa Caffeine)' }
   ];
+
+  const processedLines = rawLines.map(l => {
+    const qty = Number(l.qty || l.quantity || 1);
+    const price = Number(l.price || 0);
+    const lineTotal = qty * price;
+    const eligibility = isBhytEligibleItem(l);
+    const isEligible = eligibility.eligible && l.insuranceCovered !== false && l.inBhyt !== false && bh.hasInsurance;
+    const lineRate = isEligible ? (l.bhytRate !== undefined ? Number(l.bhytRate) : bh.rate) : 0;
+    const lineBHYT = isEligible ? Math.round((lineTotal * lineRate) / 100) : 0;
+    const lineCopay = isEligible ? (lineTotal - lineBHYT) : 0;
+    const lineOutOfPocket = !isEligible ? lineTotal : 0;
+    const lineBN = lineCopay + lineOutOfPocket;
+
+    return {
+      ...l,
+      name: l.name || l.description || l.medicine || '',
+      category: l.category || 'Dịch vụ KCB',
+      unit: l.unit || 'Lần',
+      qty,
+      price,
+      lineTotal,
+      isEligible,
+      nonBhytReason: !eligibility.eligible ? eligibility.reason : (l.nonBhytReason || (!isEligible ? 'Ngoài phạm vi chi trả BHYT' : undefined)),
+      lineRate,
+      lineBHYT,
+      lineCopay,
+      lineOutOfPocket,
+      lineBN
+    };
+  });
+
+  const inBhytLines = processedLines.filter(l => l.isEligible);
+  const outBhytLines = processedLines.filter(l => !l.isEligible);
+
+  const gross = processedLines.reduce((s, l) => s + l.lineTotal, 0);
+  const insuranceCovered = processedLines.reduce((s, l) => s + l.lineBHYT, 0);
+  const copay = processedLines.reduce((s, l) => s + l.lineCopay, 0);
+  const outOfPocket = processedLines.reduce((s, l) => s + l.lineOutOfPocket, 0);
+  const totalPatientDue = copay + outOfPocket;
+  const balance = totalPatientDue - advance;
 
   return (
     <div className={`paper-sheet ${compact ? 'paper-sheet-compact' : ''}`}>
@@ -653,55 +689,94 @@ export function MedicalBillPaperForm({ row, patient, cashierStaff, compact = fal
         <span className="paper-label">- Thẻ BHYT số:</span>
         <span className="paper-value">
           <code style={{ fontSize: 13, fontWeight: 700 }}>{bh.code || 'CHƯA ĐĂNG KÝ BHYT'}</code>
-          <span style={{ marginLeft: 12 }}>Mức hưởng: <b>{bh.rate}%</b></span>
+          <span style={{ marginLeft: 12 }}>
+            Mức hưởng: <b>{bh.rate}%</b> {bh.hasInsurance ? `(${bh.groupName})` : ''}
+          </span>
         </span>
       </div>
 
-      {/* Bảng chi tiết dịch vụ Mẫu 01/BV */}
+      {/* Bảng chi tiết dịch vụ Mẫu 01/BV tách bạch Mục I và Mục II theo QĐ 130/QĐ-BYT */}
       <table className="paper-table">
         <thead>
           <tr>
-            <th style={{ width: 40 }}>STT</th>
+            <th style={{ width: 36 }}>STT</th>
             <th>NỘI DUNG DỊCH VỤ / THUỐC</th>
-            <th style={{ width: 60 }}>ĐVT</th>
-            <th style={{ width: 45 }}>SL</th>
+            <th style={{ width: 55 }}>ĐVT</th>
+            <th style={{ width: 40 }}>SL</th>
             <th style={{ width: 85 }}>ĐƠN GIÁ (đ)</th>
             <th style={{ width: 95 }}>THÀNH TIỀN (đ)</th>
             <th style={{ width: 95 }}>QUỸ BHYT (đ)</th>
-            <th style={{ width: 95 }}>BN CÙNG TRẢ (đ)</th>
+            <th style={{ width: 95 }}>BN PHẢI TRẢ (đ)</th>
           </tr>
         </thead>
         <tbody>
-          {lines.map((l, i) => {
-            const lineTotal = Number(l.price || 0) * Number(l.qty || l.quantity || 1);
-            const lineBHYT = bh.hasInsurance ? Math.round(lineTotal * (l.bhytRate || bh.rate) / 100) : 0;
-            const lineBN = lineTotal - lineBHYT;
-            return (
-              <tr key={i}>
+          {/* MỤC I: CHI PHÍ TRONG PHẠM VI BHYT */}
+          <tr style={{ background: '#f0fdf4', fontWeight: 700 }}>
+            <td colSpan={8} style={{ padding: '6px 8px', color: '#166534', borderTop: '2px solid #86efac' }}>
+              I. CHI PHÍ TRONG PHẠM VI QUỸ BHYT THANH TOÁN (Mức hưởng {bh.rate}%)
+            </td>
+          </tr>
+          {inBhytLines.length === 0 ? (
+            <tr><td colSpan={8} style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b' }}>Không có chi phí trong phạm vi BHYT</td></tr>
+          ) : (
+            inBhytLines.map((l, i) => (
+              <tr key={'in_' + i}>
                 <td className="text-center">{i + 1}</td>
                 <td>
-                  <b>{l.name || l.description || l.medicine}</b>
-                  {l.category && <div style={{ fontSize: 11, color: '#64748b' }}>{l.category}</div>}
+                  <b>{l.name}</b>
+                  <div style={{ fontSize: 10.5, color: '#047857' }}>
+                    {l.category} · <span style={{ color: '#15803d' }}>Trong danh mục BHYT</span>
+                  </div>
                 </td>
-                <td className="text-center">{l.unit || 'Lần'}</td>
-                <td className="text-center">{l.qty || l.quantity || 1}</td>
-                <td className="text-right">{(l.price || 0).toLocaleString('vi-VN')}</td>
-                <td className="text-right font-bold">{lineTotal.toLocaleString('vi-VN')}</td>
-                <td className="text-right" style={{ color: '#065f46' }}>{lineBHYT.toLocaleString('vi-VN')}</td>
-                <td className="text-right" style={{ color: '#1e40af' }}>{lineBN.toLocaleString('vi-VN')}</td>
+                <td className="text-center">{l.unit}</td>
+                <td className="text-center">{l.qty}</td>
+                <td className="text-right">{l.price.toLocaleString('vi-VN')}</td>
+                <td className="text-right font-bold">{l.lineTotal.toLocaleString('vi-VN')}</td>
+                <td className="text-right" style={{ color: '#065f46', fontWeight: 600 }}>{l.lineBHYT.toLocaleString('vi-VN')}</td>
+                <td className="text-right" style={{ color: '#1e40af', fontWeight: 600 }}>{l.lineCopay.toLocaleString('vi-VN')}</td>
               </tr>
-            );
-          })}
+            ))
+          )}
+
+          {/* MỤC II: CHI PHÍ NGOÀI DANH MỤC BHYT */}
+          <tr style={{ background: '#fffbeb', fontWeight: 700 }}>
+            <td colSpan={8} style={{ padding: '6px 8px', color: '#92400e', borderTop: '2px solid #fde68a' }}>
+              II. CHI PHÍ NGOÀI DANH MỤC BHYT THANH TOÁN (Người bệnh tự chi trả 100%)
+            </td>
+          </tr>
+          {outBhytLines.length === 0 ? (
+            <tr><td colSpan={8} style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b' }}>Không có chi phí ngoài danh mục BHYT</td></tr>
+          ) : (
+            outBhytLines.map((l, i) => (
+              <tr key={'out_' + i} style={{ background: '#fffdf5' }}>
+                <td className="text-center">{inBhytLines.length + i + 1}</td>
+                <td>
+                  <b>{l.name}</b>
+                  <div style={{ fontSize: 10.5, color: '#b45309' }}>
+                    {l.category} · <b>{l.nonBhytReason || 'Ngoài danh mục BHYT - Người bệnh tự chi trả'}</b>
+                  </div>
+                </td>
+                <td className="text-center">{l.unit}</td>
+                <td className="text-center">{l.qty}</td>
+                <td className="text-right">{l.price.toLocaleString('vi-VN')}</td>
+                <td className="text-right font-bold">{l.lineTotal.toLocaleString('vi-VN')}</td>
+                <td className="text-right" style={{ color: '#94a3b8', fontWeight: 600 }}>0</td>
+                <td className="text-right" style={{ color: '#b45309', fontWeight: 600 }}>{l.lineOutOfPocket.toLocaleString('vi-VN')}</td>
+              </tr>
+            ))
+          )}
+
+          {/* DÒNG TỔNG CỘNG */}
           <tr className="paper-total-row">
-            <td colSpan={5} className="text-right">TỔNG CỘNG PHÁT SINH:</td>
-            <td className="text-right">{currency(gross)}</td>
-            <td className="text-right" style={{ color: '#065f46' }}>{currency(insuranceCovered)}</td>
-            <td className="text-right" style={{ color: '#1e40af' }}>{currency(copay)}</td>
+            <td colSpan={5} className="text-right" style={{ fontWeight: 700 }}>TỔNG CỘNG PHÁT SINH:</td>
+            <td className="text-right" style={{ fontWeight: 700 }}>{currency(gross)}</td>
+            <td className="text-right" style={{ color: '#065f46', fontWeight: 700 }}>{currency(insuranceCovered)}</td>
+            <td className="text-right" style={{ color: '#1e40af', fontWeight: 700 }}>{currency(totalPatientDue)}</td>
           </tr>
         </tbody>
       </table>
 
-      {/* Cân đối tạm ứng & Viện phí */}
+      {/* Cân đối tạm ứng & Viện phí theo chuẩn QĐ 130/QĐ-BYT */}
       <div className="paper-row" style={{ marginTop: 10 }}>
         <span className="paper-label">1. Tổng chi phí đợt KCB:</span>
         <span className="paper-value"><b>{currency(gross)}</b></span>
@@ -710,22 +785,29 @@ export function MedicalBillPaperForm({ row, patient, cashierStaff, compact = fal
       </div>
 
       <div className="paper-row">
-        <span className="paper-label">3. Số tiền người bệnh cùng chi trả:</span>
+        <span className="paper-label">3. Người bệnh cùng chi trả BHYT:</span>
         <span className="paper-value" style={{ color: '#1e40af' }}><b>{currency(copay)}</b></span>
-        <span className="paper-label" style={{ marginLeft: 20 }}>4. Đã tạm ứng trước:</span>
+        <span className="paper-label" style={{ marginLeft: 20 }}>4. Chi phí ngoài danh mục BHYT (BN tự trả):</span>
+        <span className="paper-value" style={{ color: '#b45309' }}><b>{currency(outOfPocket)}</b></span>
+      </div>
+
+      <div className="paper-row">
+        <span className="paper-label">5. Tổng số tiền người bệnh phải nộp (3 + 4):</span>
+        <span className="paper-value" style={{ color: '#1e40af', fontWeight: 700 }}><b>{currency(totalPatientDue)}</b></span>
+        <span className="paper-label" style={{ marginLeft: 20 }}>6. Đã tạm ứng trước:</span>
         <span className="paper-value"><b>{currency(advance)}</b></span>
       </div>
 
       <div className="paper-row">
-        <span className="paper-label" style={{ fontSize: 14 }}>
-          {balance > 0 ? '5. Số tiền người bệnh PHẢI NỘP THÊM:' : balance < 0 ? '5. Số tiền bệnh viện HOÀN TRẢ NGƯỜI BỆNH:' : '5. Số tiền chênh lệch (Cân bằng):'}
+        <span className="paper-label" style={{ fontSize: 13.5 }}>
+          {balance > 0 ? '7. Số tiền người bệnh PHẢI NỘP THÊM:' : balance < 0 ? '7. Số tiền bệnh viện HOÀN TRẢ NGƯỜI BỆNH:' : '7. Số tiền chênh lệch (Cân bằng):'}
         </span>
-        <span className="paper-value" style={{ fontSize: 14, fontWeight: 700, color: balance > 0 ? '#b91c1c' : '#047857' }}>
+        <span className="paper-value" style={{ fontSize: 13.5, fontWeight: 700, color: balance > 0 ? '#b91c1c' : balance < 0 ? '#047857' : '#0284c7' }}>
           {currency(Math.abs(balance))}
         </span>
       </div>
 
-      <div className="paper-row" style={{ alignItems: 'flex-start', marginTop: 8 }}>
+      <div className="paper-row" style={{ alignItems: 'flex-start', marginTop: 6 }}>
         <span className="paper-label" style={{ marginTop: 4 }}>Ghi chú / Xác nhận:</span>
         <textarea
           className="paper-textarea"
@@ -735,7 +817,7 @@ export function MedicalBillPaperForm({ row, patient, cashierStaff, compact = fal
         />
       </div>
 
-      <div style={{ textAlign: 'right', fontStyle: 'italic', marginTop: 18, fontSize: 12.5 }}>
+      <div style={{ textAlign: 'right', fontStyle: 'italic', marginTop: 14, fontSize: 12 }}>
         TP. Hồ Chí Minh, {todayStr}
       </div>
 
@@ -754,6 +836,11 @@ export function MedicalBillPaperForm({ row, patient, cashierStaff, compact = fal
           <span className="sign-title">KẾ TOÁN VIỆN PHÍ</span>
           <span className="sign-hint">(Ký, ghi rõ họ tên)</span>
           <span className="sign-name">CN. Phạm Thu Thủy</span>
+        </div>
+        <div className="paper-sign-col">
+          <span className="sign-title">BÁC SĨ ĐIỀU TRỊ</span>
+          <span className="sign-hint">(Ký, ghi rõ họ tên)</span>
+          <span className="sign-name">BS.CKI Trần Minh Anh</span>
         </div>
       </div>
     </div>
