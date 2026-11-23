@@ -466,7 +466,15 @@ function RecordForm({tab,definition,initial,defaults={},episodeTab=false,inpatie
               <div className="form-row form-row-3">
                 <label className="his-field-label">
                   Liều lượng & Cữ dùng trong ngày *
-                  <input required value={l.frequency} placeholder="Sáng 1v - Trưa 1v - Tối 1v" onChange={e=>lineChange(i,'frequency',e.target.value)} className="his-input"/>
+                  <input required list="biz-rx-schedules" value={l.frequency} placeholder="Sáng 1v - Trưa 1v - Tối 1v" onChange={e=>lineChange(i,'frequency',e.target.value)} className="his-input"/>
+                  <datalist id="biz-rx-schedules">
+                    <option value="Sáng 1v - Tối 1v (sau ăn)" />
+                    <option value="Sáng 1v - Trưa 1v - Tối 1v (sau ăn)" />
+                    <option value="Sáng 1v (trước ăn 30p)" />
+                    <option value="Tối 1v trước khi đi ngủ" />
+                    <option value="Uống khi sốt ≥ 38.5°C cách 4-6 giờ" />
+                    <option value="1 gói x 2 lần/ngày (hòa tan nước)" />
+                  </datalist>
                 </label>
                 <label className="his-field-label">
                   Thời điểm uống

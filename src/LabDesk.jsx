@@ -680,10 +680,32 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                     {/* Form for Diagnostic Imaging (X-Quang, Siêu âm, ECG, Nội soi) */}
                     {isImaging ? (
                       <div style={{ display: 'grid', gap: '12px' }}>
+                        <datalist id="survey-areas">
+                          <option value="Lồng ngực và nhu mô phổi hai bên" />
+                          <option value="Cột sống thắt lưng thẳng và nghiêng" />
+                          <option value="Khớp gối hai bên (thẳng và nghiêng)" />
+                          <option value="Toàn bộ ổ bụng và hệ tiết niệu" />
+                          <option value="Xoang hàm mặt và vòm họng" />
+                        </datalist>
+                        <datalist id="imaging-techniques">
+                          <option value="Chụp X-quang kỹ thuật số thẳng thế đứng PA" />
+                          <option value="Chụp X-quang kỹ thuật số thẳng và nghiêng" />
+                          <option value="Siêu âm màu Doppler 2D/4D tổng quát" />
+                          <option value="Nội soi huỳnh quang độ nét cao" />
+                          <option value="Điện tâm đồ 12 chuyển đạo chuẩn tại giường" />
+                        </datalist>
+                        <datalist id="imaging-proposals">
+                          <option value="Đề nghị chụp lại kiểm tra sau 7-10 ngày điều trị nội khoa" />
+                          <option value="Đề nghị chụp cắt lớp vi tính (CT-Scanner) ngực để đánh giá chi tiết" />
+                          <option value="Đề nghị kết hợp siêu âm ổ bụng tổng quát kiểm tra" />
+                          <option value="Chưa phát hiện tổn thương bất thường cần can thiệp ngoại khoa" />
+                        </datalist>
+
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                           <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
                             Vùng khảo sát
                             <input
+                              list="survey-areas"
                               value={editing.surveyArea || ''}
                               placeholder="VD: Lồng ngực và nhu mô phổi 2 bên"
                               onChange={e => setEditing({ ...editing, surveyArea: e.target.value })}
@@ -693,6 +715,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                           <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
                             Kỹ thuật chụp / thực hiện
                             <input
+                              list="imaging-techniques"
                               value={editing.technique || ''}
                               placeholder="VD: Chụp X-quang tim phổi thẳng số hóa thế PA"
                               onChange={e => setEditing({ ...editing, technique: e.target.value })}
@@ -728,6 +751,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                         <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
                           Đề nghị chuyên môn (nếu có)
                           <input
+                            list="imaging-proposals"
                             value={editing.proposal || ''}
                             placeholder="VD: Đề nghị chụp lại sau điều trị hoặc làm thêm CT-Scanner"
                             onChange={e => setEditing({ ...editing, proposal: e.target.value })}

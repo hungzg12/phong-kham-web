@@ -384,14 +384,24 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
 
                 <label className="his-label his-col-2">
                   Tiền sử bệnh lý bản thân
-                  <input
-                    name="history"
-                    maxLength={500}
+                  <MedicalSuggestInput
+                    type="history"
                     value={patientHistory}
-                    onChange={e => setPatientHistory(e.target.value)}
+                    onChange={val => setPatientHistory(val)}
                     placeholder="Tăng huyết áp, đái tháo đường, hen suyễn, bệnh lý mạn tính..."
-                    className="his-input"
                   />
+                  <div style={{display:'flex',gap:'6px',flexWrap:'wrap',marginTop:'4px'}}>
+                    {['Chưa ghi nhận tiền sử mạn tính', 'Tăng huyết áp vô căn', 'Đái tháo đường type 2', 'Hen phế quản'].map(tag => (
+                      <button
+                        type="button"
+                        key={tag}
+                        onClick={() => setPatientHistory(prev => prev ? `${prev}; ${tag}` : tag)}
+                        style={{background:'#f8fafc',border:'1px solid #cbd5e1',borderRadius:'4px',padding:'2px 6px',fontSize:'10.5px',color:'#475569',cursor:'pointer'}}
+                      >
+                        + {tag}
+                      </button>
+                    ))}
+                  </div>
                 </label>
 
                 <label className="his-label">
@@ -404,6 +414,18 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
                     placeholder="Penicillin, NSAIDs, Paracetamol..."
                     className="his-input"
                   />
+                  <div style={{display:'flex',gap:'6px',flexWrap:'wrap',marginTop:'4px'}}>
+                    {['Không ghi nhận dị ứng', 'Penicillin', 'Aspirin / NSAIDs', 'Paracetamol'].map(tag => (
+                      <button
+                        type="button"
+                        key={tag}
+                        onClick={() => setAllergyNote(tag)}
+                        style={{background:'#f8fafc',border:'1px solid #cbd5e1',borderRadius:'4px',padding:'2px 6px',fontSize:'10.5px',color:'#b91c1c',cursor:'pointer'}}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
                 </label>
               </div>
             </div>
@@ -505,14 +527,25 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
 
                   <label className="his-label">
                     Lý do khám / Triệu chứng ban đầu *
-                    <input
+                    <MedicalSuggestInput
+                      type="reason"
                       value={intakeReason}
-                      onChange={e => setIntakeReason(e.target.value)}
+                      onChange={val => setIntakeReason(val)}
                       placeholder="Đau đầu, ho kéo dài, đau ngực, kiểm tra sức khỏe..."
-                      className="his-input"
                       required
-                      maxLength={255}
                     />
+                    <div style={{display:'flex',gap:'6px',flexWrap:'wrap',marginTop:'4px'}}>
+                      {['Khám sức khỏe định kỳ', 'Tái khám theo hẹn', 'Sốt cao, mệt mỏi', 'Đau đầu, chóng mặt', 'Ho, đau rát họng', 'Đau ngực', 'Đau bụng'].map(tag => (
+                        <button
+                          type="button"
+                          key={tag}
+                          onClick={() => setIntakeReason(tag)}
+                          style={{background:'#f1f5f9',border:'1px solid #cbd5e1',borderRadius:'4px',padding:'2px 6px',fontSize:'10.5px',color:'#0f766e',cursor:'pointer'}}
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
                   </label>
                 </div>
 

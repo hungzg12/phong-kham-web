@@ -192,6 +192,19 @@ export default function SpecialtyExamModule({ roomCode, department, specialtyDat
         {/* 2. TIM MẠCH */}
         {code === 'PK-TIM' && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
+            <datalist id="tim-heart-sounds">
+              <option value="T1, T2 đều rõ, không âm thổi bệnh lý, không tiếng tim thứ 3 (T3/T4)" />
+              <option value="T1, T2 rõ, âm thổi tâm thu 2/6 ở mỏm tim lan nách" />
+              <option value="Tim loạn nhịp hoàn toàn, T1 thay đổi cường độ (Nghi rung nhĩ)" />
+              <option value="Âm thổi tâm thu 3/6 ở liên sườn 2 bờ phải xương ức (Hẹp van ĐMC)" />
+            </datalist>
+            <datalist id="tim-ecg-notes">
+              <option value="Nhịp xoang đều 75 bpm, không biến đổi đoạn ST-T. EF ước tính > 55%" />
+              <option value="Nhịp nhanh xoang 105 bpm, không thiếu máu cơ tim cấp" />
+              <option value="Rung nhĩ đáp ứng thất trung bình 85 bpm, không có sóng f lớn" />
+              <option value="Dày thất trái theo tiêu chuẩn Sokolow-Lyon (Sv1 + Rv5 > 35mm)" />
+            </datalist>
+
             <label className="his-label" style={{ gridColumn: 'span 2' }}>
               Phân độ Suy tim theo NYHA
               <select
@@ -228,6 +241,7 @@ export default function SpecialtyExamModule({ roomCode, department, specialtyDat
               Khám Tiếng tim & Âm thổi bệnh lý
               <input
                 type="text"
+                list="tim-heart-sounds"
                 disabled={disabled}
                 className="his-input"
                 value={specialtyData.heartSounds || ''}
@@ -268,6 +282,7 @@ export default function SpecialtyExamModule({ roomCode, department, specialtyDat
               Ghi chú Điện tâm đồ (ECG) & Siêu âm tim tại chỗ
               <input
                 type="text"
+                list="tim-ecg-notes"
                 disabled={disabled}
                 className="his-input"
                 value={specialtyData.ecgNotes || ''}
@@ -353,10 +368,24 @@ export default function SpecialtyExamModule({ roomCode, department, specialtyDat
         {/* 4. DA LIỄU */}
         {code === 'PK-DA' && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
+            <datalist id="da-primary-lesions">
+              <option value="Dát đỏ hình tròn, sẩn phù mề đay rải rác, ngứa nhiều" />
+              <option value="Mụn nước nhỏ li ti mọc thành chùm trên nền dát đỏ, rát buốt" />
+              <option value="Mảng đỏ bong vảy trắng bạc, dấu cạo vỏ hành (+)" />
+              <option value="Sẩn sừng nang lông, da khô ráp dày sừng vùng duỗi" />
+            </datalist>
+            <datalist id="da-distribution">
+              <option value="Đối xứng hai bên cẳng tay và cẳng chân" />
+              <option value="Vùng nếp gấp khuỷu tay, khoeo chân và vùng cổ" />
+              <option value="Vùng da hở phơi bày ánh sáng mặt trời" />
+              <option value="Dọc theo đường đi tiết đoạn thần kinh một bên cơ thể" />
+            </datalist>
+
             <label className="his-label" style={{ gridColumn: 'span 2' }}>
               Tổn thương da cơ bản & Tính chất
               <input
                 type="text"
+                list="da-primary-lesions"
                 disabled={disabled}
                 className="his-input"
                 value={specialtyData.primaryLesions || ''}
@@ -386,6 +415,7 @@ export default function SpecialtyExamModule({ roomCode, department, specialtyDat
               Vị trí & Phân bố tổn thương
               <input
                 type="text"
+                list="da-distribution"
                 disabled={disabled}
                 className="his-input"
                 value={specialtyData.lesionDistribution || ''}
@@ -478,10 +508,21 @@ export default function SpecialtyExamModule({ roomCode, department, specialtyDat
               />
             </label>
 
+            <datalist id="san-cervix-presets">
+              <option value="Âm đạo không viêm, CTC trơn láng, đóng kín, không chảy máu" />
+              <option value="CTC lộ tuyến độ I, tiết dịch nhầy trong, không đau" />
+              <option value="Âm đạo nhiều huyết trắng dạng vón cục, CTC viêm đỏ nhẹ" />
+            </datalist>
+            <datalist id="san-uterus-presets">
+              <option value="Tử cung tư thế trung gian, kích thước bình thường, hai phần phụ mềm không đau" />
+              <option value="Tử cung ngả trước, kích thước tương đương tuổi thai, hai phần phụ mềm" />
+            </datalist>
+
             <label className="his-label" style={{ gridColumn: 'span 2' }}>
               Khám Mỏ vịt & Cổ tử cung (CTC)
               <input
                 type="text"
+                list="san-cervix-presets"
                 disabled={disabled}
                 className="his-input"
                 value={specialtyData.cervixExam || ''}
@@ -494,6 +535,7 @@ export default function SpecialtyExamModule({ roomCode, department, specialtyDat
               Khám Tử cung & 2 Phần phụ (Bimanual Exam)
               <input
                 type="text"
+                list="san-uterus-presets"
                 disabled={disabled}
                 className="his-input"
                 value={specialtyData.uterusExam || ''}

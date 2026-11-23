@@ -12,14 +12,6 @@ const DEFAULT_DOCTORS = [
   { id: 'NV-BS03', name: 'BS. Lê Thị Mai (Bác sĩ CKI)' }
 ];
 
-const COMMON_DIAGNOSES = [
-  'Viêm phổi thùy cấp - Theo dõi biến chứng suy hô hấp',
-  'Viêm phế quản cấp bội nhiễm vi khuẩn',
-  'Cơn tăng huyết áp kịch phát trên nền tăng huyết áp vô căn',
-  'Viêm dạ dày ruột cấp mất nước độ I',
-  'Đợt cấp bệnh phổi tắc nghẽn mạn tính (COPD)'
-];
-
 export default function InpatientAdmissionModal({
   bed,
   role,
@@ -380,16 +372,8 @@ export default function InpatientAdmissionModal({
               value={diagnosis}
               onChange={e => setDiagnosis(e.target.value)}
               required
-              placeholder="Nhập chẩn đoán lâm sàng đầy đủ..."
+              placeholder="Nhập chẩn đoán lâm sàng đầy đủ hoặc chọn từ mã ICD-10 phía trên..."
             />
-            <div className="quick-presets">
-              <small>Gợi ý nhanh:</small>
-              {COMMON_DIAGNOSES.slice(0, 3).map((d, idx) => (
-                <button type="button" key={idx} className="preset-pill" onClick={() => setDiagnosis(d)}>
-                  {d.split(' - ')[0]}
-                </button>
-              ))}
-            </div>
           </label>
 
           <label className="his-field col-span-2">
