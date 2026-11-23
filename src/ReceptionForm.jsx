@@ -494,7 +494,7 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
                     >
                       {CLINIC_ROOMS.map(room => (
                         <option key={room.code} value={room.code}>
-                          {room.name} ({room.doctor})
+                          {room.dept}
                         </option>
                       ))}
                     </select>
@@ -519,7 +519,7 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
                     <UserCheck size={18} className="his-room-icon" />
                     <div>
                       <strong>{chosenRoom.name}</strong>
-                      <span>Bác sĩ trực khám: <b>{chosenRoom.doctor}</b></span>
+                      <span>Bác sĩ được xác định theo phân công ca khi tiếp nhận.</span>
                     </div>
                   </div>
                   <div className="his-queue-badge">
@@ -541,7 +541,7 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
             disabled={saving || (mode === 'route' && !ownVisits.length)}
           >
             {saving ? (
-              'Đang xử lý giao dịch SQL Server...'
+              'Đang lưu thông tin…'
             ) : mode === 'register' ? (
               <>
                 <Check size={18} /> Đăng ký khám & Cấp số thứ tự (STT)

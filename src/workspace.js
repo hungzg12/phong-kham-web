@@ -88,7 +88,7 @@ export function initializeWorkspace(){
 export async function syncWithSqlServer(){
   const epoch=workspaceEpoch;
   try{
-    const [pRes,qRes,bRes,mRes,sRes,batchRes,aRes,doctorRes,ancillaryRes,financeRes,pharmacyRes]=await Promise.allSettled([
+    const [pRes,qRes,bRes,mRes,sRes,batchRes,aRes,doctorRes,ancillaryRes,financeRes,pharmacyRes,equipmentRes]=await Promise.allSettled([
       hisApi.getPatients(),
       hisApi.getQueue('',true),
       hisApi.getBeds(),
@@ -99,12 +99,24 @@ export async function syncWithSqlServer(){
       hisApi.getDoctors(),
       hisApi.getAncillary(),
       hisApi.getFinance(),
-      hisApi.getPharmacyState()
+      hisApi.getPharmacyState(),
+      hisApi.getEquipment()
     ]);
 
     if(!state||epoch!==workspaceEpoch) return;
     let hasChanges=false;
+    if(equipmentRes.status==='fulfilled'){
+      for(const key of ['equipment','incidents'])if(Array.isArray(equipmentRes.value[key]))state.business[key]=equipmentRes.value[key];
+      state.business.equipmentError='';
+      hasChanges=true;
+    }else if(currentIdentity()?.role==='admin'){
+      state.business.equipment=[];state.business.incidents=[];
+      state.business.equipmentError='Không tải được dữ liệu thiết bị. Vui lòng tải lại trước khi thao tác.';
+      hasChanges=true;
+    }
     if(financeRes.status==='fulfilled'){
+      if(currentIdentity()?.role==='cashier'){state.visits=(financeRes.value.visits||[]).map(v=>({doctor:'',note:{},...v}));state.admissions=financeRes.value.admissions||[];}
+      if(Array.isArray(financeRes.value.billingCharges))state.business.billingCharges=financeRes.value.billingCharges;
       for(const key of ['advances','settlements','shifts'])if(Array.isArray(financeRes.value[key]))state.business[key]=financeRes.value[key];
       hasChanges=true;
     }
@@ -112,8 +124,9 @@ export async function syncWithSqlServer(){
       const incoming=ancillaryRes.value;
       if(Array.isArray(incoming.labs))state.business.labs=incoming.labs;
       if(Array.isArray(incoming.vitals))state.business.vitals=incoming.vitals;
+      if(Array.isArray(incoming.careSheets))state.business.careSheets=incoming.careSheets;
       if(Array.isArray(incoming.rounds))state.business.rounds=incoming.rounds;
-      if(Array.isArray(incoming.admissions))state.admissions=incoming.admissions;
+      if(Array.isArray(incoming.admissions)&&currentIdentity()?.role!=='cashier')state.admissions=incoming.admissions;
       if(Array.isArray(incoming.staff)){
         state.business.staff=incoming.staff;
         for(const [role,specialty]of [['nurse','DIEU_DUONG'],['technician','KY_THUAT_VIEN'],['cashier','THU_NGAN'],['pharmacist','DUOC_SI']]){
@@ -512,30 +525,7 @@ export function addLot(d,lot,event){
   d.ledger.unshift({id:id('NK'),date:today,time:new Date().toISOString(),medicineId:lot.medicineId,warehouseId:lot.warehouseId,lot:lot.lot,delta:Number(lot.qty),event});
 }
 
-export function dischargeAdmission(admissionId,actor,dischargeId){
-  transact(d=>{
-    const admission=d.admissions.find(a=>a.id===admissionId);
-    if(!admission||admission.status!=='Đang điều trị') throw new Error('Đợt điều trị không còn hoạt động.');
-    if(d.business.rounds.some(r=>r.episodeId===admissionId&&r.status==='Chờ thực hiện')) throw new Error('Đợt điều trị còn y lệnh chưa thực hiện. Hãy hoàn tất hoặc hủy trước khi ra viện.');
-    admission.status='Đã ra viện';
-    admission.dischargedAt=new Date().toISOString();
-    admission.bedHistory.filter(h=>!h.to).forEach(h=>h.to=admission.dischargedAt);
-    for(const bed of d.beds.filter(b=>b.admissionId===admissionId)){
-      bed.patient=null;
-      bed.cleaning=true;
-      delete bed.admissionId;
-    }
-    if(dischargeId){
-      const row=d.business.discharges.find(r=>r.id===dischargeId);
-      if(row){
-        row.status='Đã ra viện';
-        row.reviewer=actor;
-        admission.summary=row.summary;
-      }
-    }
-    audit(d,'Hoàn tất đợt nội trú '+admissionId,actor);
-  });
-
-  // Call SQL Server API
-  hisApi.dischargeInpatient({admissionId}).catch(err=>console.warn('SQL discharge notice:', err));
+export async function dischargeAdmission(admissionId,actor,dischargeId){
+  await hisApi.dischargeInpatient({admissionId});
+  await syncWithSqlServer();
 }

@@ -1,3 +1,6 @@
+import {equipmentState,equipmentAction} from './equipment.mjs';
+import {inpatientCare,dischargeCase} from './inpatient-care.mjs';
+import {ensureNotifications,processNotifications,notificationList,notificationAction} from './notifications.mjs';
 import {protectWorkspaceRequest} from './workspace-access.mjs';
 import {pharmacyState,pharmacyAction} from './pharmacy.mjs';
 import {querySql} from './admin-store.mjs';
@@ -7,7 +10,7 @@ import {financeState,financeAction} from './finance.mjs';
 import {portalState,portalAppointment} from './patient-portal.mjs';
 import { listAppointments, saveAppointment, cancelAppointment, checkInAppointment } from './appointments.mjs';
 import { spawn } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { randomUUID,createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -44,6 +47,10 @@ export function runSqlScript(relativeFile, data) {
 }
 
 export function createApiMiddleware({trustedTest=false}={}) {
+  const notificationDb=process.env.MEDICARE_SQL_CONNECTION||'';
+  let processing=false;
+  const tick=async()=>{if(trustedTest||processing||notificationDb!==(process.env.MEDICARE_SQL_CONNECTION||''))return;processing=true;try{await processNotifications();}catch(e){console.error('Notification worker:',e.message);}finally{processing=false;}};
+  const timer=setInterval(tick,15000);timer.unref();
   if(trustedTest&&!/Database=MediCareQA_Admin_[a-f0-9]{16}(?:;|$)/i.test(process.env.MEDICARE_SQL_CONNECTION||''))throw new Error('Test bypass requires an isolated MediCareQA database');
   return async (req, res, next) => {
     const url = req.url.split('?')[0];
@@ -56,14 +63,29 @@ export function createApiMiddleware({trustedTest=false}={}) {
 
     try {
       const access=trustedTest?{}:await protectWorkspaceRequest(req);
+      if(!trustedTest&&access.identity)await ensureNotifications();
+      if(url==='/api/notifications'&&!trustedTest){
+        if(req.method==='GET'){await tick();return respond(200,await notificationList(access.identity,new URL(req.url,'http://localhost').searchParams.get('id')));}
+        let raw='';for await(const part of req)raw+=part;
+        return respond(200,await notificationAction(access.identity,JSON.parse(raw)));
+      }
       if(Object.hasOwn(access,'answer'))return respond(200,access.answer);
+      if(url==='/api/equipment'&&req.method==='GET')return respond(200,await equipmentState());
+      if(url==='/api/equipment/action'&&req.method==='POST'){
+        let raw='';for await(const part of req)raw+=part;
+        return respond(200,await equipmentAction(access.identity,JSON.parse(raw)));
+      }
       if(!trustedTest&&url==='/api/patients'&&req.method==='POST')return respond(410,{error:'Dùng tiếp đón để tạo bệnh nhân và lượt khám cùng giao dịch.'});
+      if(url==='/api/clinical/care'&&req.method==='POST'){
+        let raw='';for await(const part of req)raw+=part;
+        return respond(200,await inpatientCare(JSON.parse(raw)));
+      }
       if(url==='/api/pharmacy/state'&&req.method==='GET')return respond(200,await pharmacyState());
       if(url==='/api/pharmacy/action'&&req.method==='POST'){
         let body='';for await(const part of req){body+=part;if(body.length>60000)return respond(413,{error:'Dữ liệu quá dài.'});}
         return respond(200,await pharmacyAction(JSON.parse(body)));
       }
-      if(['/api/prescriptions','/api/prescriptions/dispense','/api/pharmacy/product','/api/pharmacy/transfer'].includes(url)&&req.method==='POST')return respond(410,{error:'Sử dụng API dược hiện tại /api/pharmacy/action để kiểm tra vai trò, nhân viên và lưu đúng database.'});
+      if(['/api/prescriptions','/api/prescriptions/dispense','/api/pharmacy/import','/api/pharmacy/product','/api/pharmacy/transfer'].includes(url)&&req.method==='POST')return respond(410,{error:'Sử dụng API dược hiện tại /api/pharmacy/action để kiểm tra vai trò, nhân viên và lưu đúng database.'});
       if(url==='/api/finance'&&req.method==='GET')return respond(200,await financeState());
       if(url==='/api/portal'&&req.method==='GET')return respond(200,await portalState());
       if(['/api/finance/action','/api/portal/appointments'].includes(url)&&req.method==='POST'){
@@ -444,43 +466,58 @@ export function createApiMiddleware({trustedTest=false}={}) {
         const {
           patientId,
           bedId,
-          doctor = 'NV-BS01',
-          diagnosis = 'Viêm phổi thùy cấp',
-          icdCode = 'J18.1',
+          doctor: requestedDoctor,
+          diagnosis,
+          icdCode,
           reason = 'Tiếp nhận điều trị nội trú',
           admissionTime,
           advanceAmount = 0,
           paymentMethod = 'TIEN_MAT',
-          staffId = 'NV-DD01',
+          staffId,
           note = ''
         } = data;
 
-        if (!patientId || !bedId) {
+        const doctor=access.identity?.role==='doctor'?access.identity.staffId:requestedDoctor;
+        if (!patientId) {
           return respond(400, { error: 'Thiếu mã bệnh nhân hoặc mã buồng giường.' });
         }
 
-        const advanceNum = Number(advanceAmount) || 0;
+        if(!diagnosis?.trim()||!doctor||!staffId||!reason?.trim()||!/^[-a-zA-Z0-9]{16,80}$/.test(data.requestId||''))return respond(400,{error:'Nhập bác sĩ, chẩn đoán, lý do và mã thao tác hợp lệ.'});
+        const advanceNum = Number(advanceAmount);
+        if(!Number.isFinite(advanceNum)||advanceNum<0)return respond(400,{error:'Số tiền tạm ứng không hợp lệ.'});
+        if(advanceNum>0&&!['cashier','admin'].includes(access.identity?.role))return respond(403,{error:'Tạm ứng phải do thu ngân ghi nhận theo ca thu hiện có.'});
         const pMethod = ['TIEN_MAT', 'CHUYEN_KHOAN', 'VIETQR', 'THE_POS'].includes(paymentMethod) ? paymentMethod : 'TIEN_MAT';
 
         const sql = `
           SET QUOTED_IDENTIFIER ON;
           SET ANSI_NULLS ON;
           BEGIN TRY
-            BEGIN TRANSACTION;
+            SET XACT_ABORT ON;BEGIN TRANSACTION;
+            DECLARE @admitLock int,@previous nvarchar(max),@previousHash nvarchar(max);
+            EXEC @admitLock=sys.sp_getapplock @Resource=N'MediCareAncillary',@LockMode='Exclusive',@LockOwner='Transaction',@LockTimeout=10000;
+            IF @admitLock<0 THROW 51000,'ADMIT_BUSY',1;
+            SELECT TOP 1 @previous=duLieuSau,@previousHash=duLieuTruoc FROM dbo.NhatKyThayDoi WHERE loaiDoiTuong='Admission' AND maTuongQuan=@requestKey;
+            IF @previous IS NOT NULL BEGIN IF @previousHash<>@fingerprint THROW 51000,'ADMIT_CONFLICT',1;COMMIT;SELECT @previous;RETURN;END
+            IF NOT EXISTS(SELECT 1 FROM dbo.BenhNhan WHERE maBenhNhan=@patientId) THROW 51000,'ADMIT_PATIENT',1;
+            IF NOT EXISTS(SELECT 1 FROM dbo.NhanVien WHERE maNhanVien=@doctor AND chuyenMon='BAC_SI' AND dangLamViec=1) THROW 51000,'ADMIT_DOCTOR',1;
+            IF EXISTS(SELECT 1 FROM dbo.DotDieuTri WHERE maBenhNhan=@patientId AND trangThai IN('DANG_DIEU_TRI','CHO_XUAT_VIEN')) THROW 51000,'ADMIT_DUPLICATE',1;
 
             -- 1. Check bed status
             DECLARE @currentStatus VARCHAR(30), @bedRate DECIMAL(18,2), @bedDept VARCHAR(30);
             SELECT @currentStatus = g.trangThaiHienTai, @bedRate = g.donGiaNgay, @bedDept = b.maKhoa
-            FROM dbo.GiuongBenh g
+            FROM dbo.GiuongBenh g WITH(UPDLOCK,HOLDLOCK)
             JOIN dbo.BuongBenh b ON b.maBuongBenh = g.maBuongBenh
             WHERE g.maGiuong = @bedId;
 
-            IF @currentStatus IS NULL
+            IF @bedId IS NOT NULL AND @currentStatus IS NULL
               THROW 50001, N'Không tìm thấy thông tin buồng giường.', 1;
 
-            IF @currentStatus <> 'TRONG'
+            IF @bedId IS NOT NULL AND @currentStatus <> 'TRONG'
               THROW 50002, N'Giường bệnh hiện không ở trạng thái sẵn sàng tiếp nhận.', 1;
 
+            IF @bedId IS NULL SELECT @bedDept=maKhoa FROM dbo.Khoa WHERE tenKhoa=@department AND dangHoatDong=1;
+            IF @bedDept IS NULL THROW 51000,'ADMIT_DOCTOR',1;
+            IF @visit IS NOT NULL AND NOT EXISTS(SELECT 1 FROM dbo.LuotKham WHERE maLuotKham=@visit AND maBenhNhan=@patientId) THROW 51000,'ADMIT_PATIENT',1;
             -- 2. Generate unique IDs
             DECLARE @now DATETIME2 = SYSDATETIME();
             DECLARE @datePrefix VARCHAR(10) = FORMAT(@now, 'yyMMdd');
@@ -503,6 +540,7 @@ export function createApiMiddleware({trustedTest=false}={}) {
             );
 
             -- 4. Insert PhanGiuong
+            IF @bedId IS NOT NULL BEGIN
             INSERT INTO dbo.PhanGiuong (
                 maPhanGiuong, maDotDieuTri, maGiuong,
                 tuThoiDiem, donGiaApDung, trangThai,
@@ -518,6 +556,7 @@ export function createApiMiddleware({trustedTest=false}={}) {
             SET trangThaiHienTai = 'DANG_SU_DUNG'
             WHERE maGiuong = @bedId;
 
+            END
             -- 6. Insert Advance Payment if > 0
             IF @advanceNum > 0
             BEGIN
@@ -532,6 +571,8 @@ export function createApiMiddleware({trustedTest=false}={}) {
                 );
             END
 
+            DECLARE @savedAdmission nvarchar(max)=(SELECT @maDot admissionId,@maPG bedAssignmentId,@bedId bedId,@patientId patientId FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
+            INSERT dbo.NhatKyThayDoi(loaiDoiTuong,maDoiTuong,hanhDong,loaiTacNhan,maNguoiThucHien,ketQua,maTuongQuan,duLieuTruoc,duLieuSau) VALUES('Admission',@maDot,'ADMIT','NHAN_VIEN',@staffId,'THANH_CONG',@requestKey,@fingerprint,@savedAdmission);
             COMMIT TRANSACTION;
 
             SELECT 
@@ -550,11 +591,13 @@ export function createApiMiddleware({trustedTest=false}={}) {
         `;
 
         const resultJson = await querySql(sql, {
+          visit:data.visitId||null,department:data.department||null,
+          requestKey:data.requestId,fingerprint:createHash('sha256').update(JSON.stringify(data)).digest('hex'),
           patientId,
-          bedId,
+          bedId:bedId||null,
           doctor,
           diagnosis,
-          icdCode,
+          icdCode:icdCode||null,
           reason,
           admissionTime: admissionTime ? new Date(admissionTime).toISOString().replace('T', ' ').slice(0, 19) : null,
           advanceNum,
@@ -567,112 +610,19 @@ export function createApiMiddleware({trustedTest=false}={}) {
         return respond(201, { success: true, ...parsed });
       }
 
-      // 29. Discharge Inpatient & Release Bed (POST /api/inpatient/discharge)
-      if (url === '/api/inpatient/discharge' && req.method === 'POST') {
-        let body = '';
-        for await (const part of req) { body += part; }
-        const data = JSON.parse(body);
-        const {
-          admissionId,
-          bedId,
-          dischargeDiagnosis = 'Viêm phổi điều trị ổn định',
-          dischargeIcd = 'J18.1',
-          treatmentResult = 'KHOI',
-          advice = 'Uống nhiều nước, tái khám sau 7 ngày'
-        } = data;
-
-        const sql = `
-          SET QUOTED_IDENTIFIER ON;
-          SET ANSI_NULLS ON;
-          BEGIN TRY
-            BEGIN TRANSACTION;
-            DECLARE @now DATETIME2 = SYSDATETIME();
-
-            -- 1. Update DotDieuTri
-            UPDATE dbo.DotDieuTri
-            SET trangThai = 'CHO_XUAT_VIEN',
-                thoiDiemRaVien = @now,
-                chanDoanRaVien = ISNULL(@dischargeDiagnosis, chanDoanVaoVien),
-                maICDRaVien = ISNULL(@dischargeIcd, maICDVaoVien),
-                ketQuaDieuTri = @treatmentResult,
-                loiDanRaVien = @advice
-            WHERE maDotDieuTri = @admissionId;
-
-            -- 2. Update PhanGiuong
-            UPDATE dbo.PhanGiuong
-            SET denThoiDiem = @now,
-                trangThai = 'DA_KET_THUC',
-                lyDoKetThuc = N'Bác sĩ duyệt ra viện'
-            WHERE maDotDieuTri = @admissionId AND trangThai = 'DANG_SU_DUNG';
-
-            -- 3. Update GiuongBenh to DANG_VE_SINH
-            IF @bedId IS NOT NULL
-            BEGIN
-              UPDATE dbo.GiuongBenh
-              SET trangThaiHienTai = 'DANG_VE_SINH'
-              WHERE maGiuong = @bedId;
-            END
-            ELSE
-            BEGIN
-              UPDATE g
-              SET trangThaiHienTai = 'DANG_VE_SINH'
-              FROM dbo.GiuongBenh g
-              JOIN dbo.PhanGiuong p ON p.maGiuong = g.maGiuong
-              WHERE p.maDotDieuTri = @admissionId;
-            END
-
-            COMMIT TRANSACTION;
-
-            SELECT 
-                @admissionId AS admissionId,
-                'DANG_VE_SINH' AS bedStatus,
-                N'Đã xác nhận duyệt ra viện và chuyển buồng giường sang trạng thái chờ khử khuẩn.' AS message
-            FOR JSON PATH, WITHOUT_ARRAY_WRAPPER;
-          END TRY
-          BEGIN CATCH
-            IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-            THROW;
-          END CATCH;
-        `;
-
-        const resultJson = await querySql(sql, {
-          admissionId,
-          bedId: bedId || null,
-          dischargeDiagnosis,
-          dischargeIcd,
-          treatmentResult: ['KHOI', 'DO_GIAM', 'KHONG_THAY_DOI', 'NANG_HON'].includes(treatmentResult) ? treatmentResult : 'KHOI',
-          advice
-        });
-
-        const parsed = JSON.parse(resultJson);
-        return respond(200, { success: true, ...parsed });
+      if(url==='/api/inpatient/discharge'&&req.method==='POST'){
+        let raw='';for await(const part of req)raw+=part;return respond(200,await dischargeCase(JSON.parse(raw)));
       }
-
-      // 30. Confirm Bed Disinfection (POST /api/inpatient/clean)
-      if (url === '/api/inpatient/clean' && req.method === 'POST') {
-        let body = '';
-        for await (const part of req) { body += part; }
-        const data = JSON.parse(body);
-        const { bedId } = data;
-        if (!bedId) return respond(400, { error: 'Thiếu mã buồng giường.' });
-
-        const sql = `
-          SET QUOTED_IDENTIFIER ON;
-          SET ANSI_NULLS ON;
-          UPDATE dbo.GiuongBenh
-          SET trangThaiHienTai = 'TRONG'
-          WHERE maGiuong = @bedId;
-
-          SELECT @bedId AS bedId, 'TRONG' AS bedStatus, N'Giường đã hoàn tất khử khuẩn và sẵn sàng tiếp nhận.' AS message
-          FOR JSON PATH, WITHOUT_ARRAY_WRAPPER;
-        `;
-        const resultJson = await querySql(sql, { bedId });
-        return respond(200, { success: true, ...JSON.parse(resultJson) });
+      if(url==='/api/inpatient/clean'&&req.method==='POST'){
+        let raw='';for await(const part of req)raw+=part;const data=JSON.parse(raw);return respond(200,await bedAction({...data,id:data.bedId,action:'clean'}));
       }
 
       next();
     } catch (err) {
       if (err instanceof SyntaxError) return respond(400,{error:'Dữ liệu JSON không hợp lệ.'});
+      if(/ADMIT_(BUSY|CONFLICT|DUPLICATE)/.test(err.message))return respond(409,{error:'Người bệnh đã có đợt điều trị hoặc yêu cầu đã được xử lý. Tải lại trước khi tiếp tục.'});
+      if(/ADMIT_(PATIENT|DOCTOR)/.test(err.message))return respond(400,{error:'Không tìm thấy người bệnh hoặc bác sĩ đang hoạt động.'});
+      if(err.message.includes('Giường bệnh hiện không ở trạng thái sẵn sàng tiếp nhận.'))return respond(409,{error:'Giường không còn sẵn sàng. Tải lại và chọn giường khác.'});
       if (err.status) return respond(err.status, {error:err.message});
       console.error('API Error:', err.message);
       respond(503, { error: 'Lỗi xử lý yêu cầu CSDL SQL Server.', details: err.message });

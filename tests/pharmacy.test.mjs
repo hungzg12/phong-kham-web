@@ -114,6 +114,19 @@ test('approved conversion applies the actual base quantity and rejects unknown o
  state=await pharmacyState();row=state.prescriptions.find(x=>x.id===r.id);assert.equal(row.lines[0].dispensed,2);assert.equal(row.allocations[0].quantity,6);assert.equal(Number(state.inventory.find(x=>x.id==='QA_TEST_USTOCK').qty),4);
 });
 
+test('multi-item shipment uses configured QA database, rolls back all rows, and replays exactly once',async()=>{
+ const shipment=body('importShipment',{warehouseId:'QA_TEST_STORE',shipmentName:'QA_TEST Shipment',manufacturer:'QA_TEST maker',supplier:'QA_TEST supplier',invoiceNumber:'QA_TEST_INV',importDate:'2026-11-23',lines:[{medicineId:'QA_TEST_DRUG',lot:'QA_TEST_BATCH_A',expiry:'2098-01-01',qty:300,unitPrice:100},{medicineId:'QA_TEST_SHORT',lot:'QA_TEST_BATCH_B',expiry:'2098-02-01',qty:500,unitPrice:200}]});
+ const before=await count('DotNhapHang');
+ const result=await pharmacyAction(shipment);assert.equal((await pharmacyAction(shipment)).id,result.id);
+ assert.equal(await count('DotNhapHang'),before+1);
+ assert.equal(Number(await querySql('SELECT SUM(t.soLuongTon) FROM dbo.LoTonKho t JOIN dbo.LoHang h ON h.maLoHang=t.maLoHang WHERE h.maDotNhap=@id',{id:result.id})),800);
+ const bad={...shipment,requestId:randomUUID(),lines:[{...shipment.lines[0],lot:'QA_TEST_ROLLBACK'}, {...shipment.lines[1],medicineId:'QA_TEST_MISSING'}]};
+ await assert.rejects(pharmacyAction(bad),e=>e.status===400);assert.equal(await count('DotNhapHang'),before+1);
+ assert.equal(Number(await querySql("SELECT COUNT(*) FROM dbo.LoHang WHERE soLoNhaSanXuat='QA_TEST_ROLLBACK'")),0);
+ await assert.rejects(pharmacyAction({...shipment,requestId:randomUUID(),lines:[{...shipment.lines[0],expiry:'2099-01-01'}]}),e=>e.status===409);
+ assert.equal(Number(await querySql('SELECT COUNT(*) FROM dbo.SoKho WHERE soLuongSau<>soLuongTruoc+bienDong')),0);
+});
+
 test('returns require original dispensing line; concurrent returns never exceed issued quantity and preserve lot ledger',async()=>{
  const state=await pharmacyState(),r=state.prescriptions.find(x=>x.lines.some(l=>l.medicine==='QA_TEST_UNIT')),line=r.allocations[0];
  const values=movement({kind:'Hoàn trả',medicine:'QA_TEST_UNIT',warehouse:'QA_TEST_STORE',sourceLine:line.sourceLine,lot:line.lot,expiry:line.expiry,quantity:2});

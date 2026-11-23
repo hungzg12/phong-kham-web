@@ -30,12 +30,24 @@ before(async()=>{
 });
 after(async()=>{if(server)await new Promise(r=>server.close(r));if(fixture)await fixture.close();});
 
+ test('equipment API keeps existing admin-only permissions and rejects forged identities and CSRF',async()=>{
+  assert.equal((await get('/api/equipment')).status,401);
+  for(const role of actors)assert.equal((await get('/api/equipment',role)).status,403);
+  const draft={action:'saveEquipment',name:'QA_TEST HTTP device',serial:'QA_TEST_HTTP_SERIAL',department:'Nội tổng quát',nextService:'2027-01-01',requestId:randomUUID()};
+  assert.equal((await post('/api/equipment/action','admin',draft,{'x-csrf-token':'invalid'})).status,403);
+  assert.equal((await post('/api/equipment/action','nurse',draft)).status,403);
+  assert.equal((await post('/api/equipment/action','admin',{...draft,senderId:'QA_TEST_OTHER'})).status,400);
+  const response=await post('/api/equipment/action','admin',draft);assert.equal(response.status,200,await response.clone().text());
+  const saved=await response.json();const retry=await post('/api/equipment/action','admin',draft);assert.equal((await retry.json()).id,saved.id);
+  assert.ok((await (await get('/api/equipment','admin')).json()).equipment.some(e=>e.id===saved.id));
+ });
+
 test('anonymous requests cannot read clinical, pharmacy, finance, legacy APIs or spoof session fields',async()=>{
  for(const route of ['/api/patients','/api/queue','/api/ancillary','/api/finance','/api/pharmacy/state','/api/portal','/api/inpatient/beds','/api/workspace/session','/api/billing/statement','/api/clinical/orders'])assert.equal((await get(route)).status,401,route);
  assert.equal((await get('/api/health')).status,200);
 });
 test('all eight roles restore their identity from SQL session and enforce read API matrix',async()=>{
- const allowed={admin:[],receptionist:['/api/appointments'],doctor:['/api/queue','/api/pharmacy/state'],nurse:['/api/queue','/api/inpatient/beds','/api/pharmacy/state'],technician:['/api/ancillary'],pharmacist:['/api/pharmacy/state'],cashier:['/api/finance'],patient:['/api/portal','/api/appointments']};
+ const allowed={admin:['/api/appointments','/api/finance','/api/pharmacy/state'],receptionist:['/api/appointments'],doctor:['/api/queue','/api/pharmacy/state'],nurse:['/api/queue','/api/inpatient/beds','/api/pharmacy/state'],technician:['/api/ancillary'],pharmacist:['/api/pharmacy/state'],cashier:['/api/finance'],patient:['/api/portal','/api/appointments']};
  for(const role of ['admin',...actors]){
   let r=await get('/api/workspace/session?role=admin&staffId=QA_TEST_DOC2',role);assert.equal(r.status,200);const who=await r.json();assert.equal(who.role,role);if(role==='patient')assert.equal(who.patientId,'QA_TEST_PAT_A');
   for(const path of ['/api/appointments','/api/finance','/api/portal','/api/pharmacy/state']){r=await get(path,role);const expected=allowed[role].includes(path)?200:403;assert.equal(r.status,expected,role+' '+path);}

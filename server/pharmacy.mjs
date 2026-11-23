@@ -35,7 +35,39 @@ export async function pharmacyAction(d){
  let sql='';
  const warehouse=`IF NOT EXISTS(SELECT 1 FROM dbo.KhoDuoc WITH(UPDLOCK,HOLDLOCK) WHERE maKho=@warehouse AND dangHoatDong=1 AND maKiemKeDangMo IS NULL) THROW 51000,'P_WAREHOUSE',1;`;
  const auditDraft=`INSERT dbo.NhatKyThayDoi(loaiDoiTuong,maDoiTuong,hanhDong,loaiTacNhan,maNguoiThucHien,ketQua,duLieuSau) VALUES('PharmacyDraft',@id,'SAVE','NHAN_VIEN',@staff,'THANH_CONG',@payload);`;
- if(d.action==='savePrescription'){
+ if(d.action==='importShipment'){
+  if(!text(d.shipmentName,200)||!text(d.manufacturer,150)||!text(d.importDate,10)||!/^\d{4}-\d{2}-\d{2}$/.test(d.importDate)||!Array.isArray(d.lines)||!d.lines.length||d.lines.length>50)fail(400,'Điền thông tin đợt nhập và từ 1 đến 50 dòng hàng.');
+  p.lines=JSON.stringify(d.lines.map(l=>{if(!text(l.medicineId,20)||!text(l.lot,50)||!/^\d{4}-\d{2}-\d{2}$/.test(l.expiry||''))fail(400,'Thuốc, số lô hoặc hạn dùng không hợp lệ.');return {medicine:l.medicineId,lot:l.lot.trim(),expiry:l.expiry,quantity:number(l.qty,1),price:number(l.unitPrice),shelf:text(l.shelfLocation,100)};}));
+  Object.assign(p,{warehouse:d.warehouseId,name:d.shipmentName,manufacturer:d.manufacturer,supplier:text(d.supplier,150),invoice:text(d.invoiceNumber,50),importDate:d.importDate});
+  sql=warehouse+`INSERT dbo.DotNhapHang(maDotNhap,tenDotNhap,hangSanXuat,nhaCungCap,soHoaDon,ngayNhapKho,maKhoNhap,nguoiNhanHang) VALUES(@id,@name,@manufacturer,@supplier,@invoice,CONVERT(date,@importDate),@warehouse,@staff);
+  INSERT dbo.PhieuKho(maPhieu,loaiPhieu,maKhoDich,maNguoiLap,maNguoiDuyet,thoiDiemDuyet,trangThai,ghiChu) VALUES(@voucher,'NHAP_KHO',@warehouse,@staff,@staff,SYSDATETIME(),'DA_NHAP',@name);
+  DECLARE @items TABLE(n int IDENTITY,medicine varchar(20),lot varchar(50),expiry date,quantity decimal(18,4),price decimal(18,2),shelf nvarchar(100));
+  INSERT @items SELECT medicine,lot,expiry,quantity,price,shelf FROM OPENJSON(@lines) WITH(medicine varchar(20),lot varchar(50),expiry date,quantity decimal(18,4),price decimal(18,2),shelf nvarchar(100));
+  DECLARE @i int=1,@count int=(SELECT COUNT(*) FROM @items),@item varchar(20),@lotName varchar(50),@expiry date,@qty decimal(18,4),@cost decimal(18,2),@shelf nvarchar(100),@unit nvarchar(30),@batch varchar(20),@target varchar(20),@before decimal(18,4),@line varchar(20);
+  WHILE @i<=@count BEGIN
+   SELECT @item=medicine,@lotName=lot,@expiry=expiry,@qty=quantity,@cost=price,@shelf=shelf FROM @items WHERE n=@i;
+   SET @unit=NULL;SELECT @unit=donViCoSo FROM dbo.HangHoaYTe WHERE maHang=@item AND dangKinhDoanh=1;
+   IF @unit IS NULL THROW 51000,'P_MEDICINE',1;
+   IF @expiry<=CONVERT(date,SYSDATETIME()) OR @expiry<CONVERT(date,@importDate) THROW 51000,'P_EXPIRY',1;
+   IF EXISTS(SELECT 1 FROM dbo.LoHang WHERE maHang=@item AND soLoNhaSanXuat=@lotName AND hanSuDung<>@expiry) THROW 51000,'P_LOT_CONFLICT',1;
+   SET @batch=NULL;SET @target=NULL;
+   SELECT TOP 1 @batch=maLoHang FROM dbo.LoHang WHERE maHang=@item AND soLoNhaSanXuat=@lotName AND hanSuDung=@expiry AND donGiaNhap=@cost;
+   IF @batch IS NULL BEGIN
+    SET @batch='LH-'+LEFT(REPLACE(CONVERT(varchar(36),NEWID()),'-',''),16);
+    INSERT dbo.LoHang(maLoHang,maDotNhap,maHang,soLoNhaSanXuat,ngaySanXuat,hanSuDung,soLuongNhap,donGiaNhap,hangSanXuat,nhaCungCap)
+    VALUES(@batch,@id,@item,@lotName,CONVERT(date,@importDate),@expiry,@qty,@cost,@manufacturer,@supplier);
+   END
+   SELECT @target=maLoTon FROM dbo.LoTonKho WITH(UPDLOCK,HOLDLOCK) WHERE maKho=@warehouse AND maLoHang=@batch;
+   IF @target IS NULL BEGIN SET @target='LT-'+LEFT(REPLACE(CONVERT(varchar(36),NEWID()),'-',''),16);INSERT dbo.LoTonKho(maLoTon,maKho,maLoHang,viTriDayKe) VALUES(@target,@warehouse,@batch,@shelf);END
+   IF EXISTS(SELECT 1 FROM dbo.LoTonKho WHERE maLoTon=@target AND trangThaiKhoa=1) THROW 51000,'P_STOCK',1;
+   SELECT @before=soLuongTon FROM dbo.LoTonKho WHERE maLoTon=@target;
+   UPDATE dbo.LoTonKho SET soLuongTon=soLuongTon+@qty,soLuongKhaDung=soLuongKhaDung+@qty WHERE maLoTon=@target;
+   SET @line='CK-'+LEFT(REPLACE(CONVERT(varchar(36),NEWID()),'-',''),16);
+   INSERT dbo.ChiTietPhieuKho(maChiTietKho,maPhieu,maLoTon,soLuong,donViXuat,soLuongCoSo,donGiaVatLy) VALUES(@line,@voucher,@target,@qty,@unit,@qty,@cost);
+   INSERT dbo.SoKho(maSoKho,maChiTietKho,maLoTon,soLuongTruoc,bienDong,soLuongSau) VALUES('SK-'+LEFT(REPLACE(CONVERT(varchar(36),NEWID()),'-',''),16),@line,@target,@before,@qty,@before+@qty);
+   SET @i=@i+1;
+  END`;
+ }else if(d.action==='savePrescription'){
   if(!text(d.diagnosis)||!Array.isArray(d.lines)||!d.lines.length||d.lines.length>50||new Set(d.lines.map(l=>l.medicine)).size!==d.lines.length)fail(400,'Nhập chẩn đoán và các thuốc khác nhau trong đơn.');
   p.lines=JSON.stringify(d.lines.map(l=>{if(!text(l.medicine,20)||!text(l.dose,100)||!text(l.route,50)||!text(l.frequency,100))fail(400,'Điền đủ thuốc, liều, đường dùng và tần suất.');return {...l,quantity:number(l.quantity,1),days:number(l.days,1),usage:[l.dose,l.route,l.frequency].join(' ')};}));
   if(JSON.parse(p.lines).some(l=>l.usage.length>255))fail(400,'Hướng dẫn dùng thuốc quá dài.');
@@ -179,7 +211,7 @@ export async function pharmacyAction(d){
  SET @result=(SELECT @id id FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
  INSERT dbo.NhatKyThayDoi(loaiDoiTuong,maDoiTuong,hanhDong,loaiTacNhan,maNguoiThucHien,ketQua,maTuongQuan,duLieuTruoc,duLieuSau) VALUES('Pharmacy',@id,@action,'NHAN_VIEN',@staff,'THANH_CONG',@key,@fingerprint,@result);
  COMMIT;SELECT @result;END TRY BEGIN CATCH IF @@TRANCOUNT>0 ROLLBACK;THROW;END CATCH`,p));}
- catch(e){for(const [k,s,m]of [['P_STAFF',403,'Nhân viên không đúng chuyên môn hoặc đã ngừng làm việc.'],['P_ASSIGNED',403,'Bác sĩ không thuộc phân công hồ sơ.'],['P_PATIENT',409,'Hồ sơ không khớp bệnh nhân.'],['P_STATE',409,'Chứng từ đã xử lý hoặc không còn cho phép thao tác.'],['P_UNIT',409,'Đơn vị hoặc quy tắc quy đổi không hợp lệ, hết hiệu lực hay không biểu diễn chính xác được lượng tồn.'],['P_RETURN',409,'Dòng cấp gốc không khớp lô/kho hoặc số lượng hoàn vượt lượng đã cấp còn được trả.'],['P_MEDICINE',400,'Thuốc không tồn tại hoặc đã ngừng kinh doanh.'],['P_WAREHOUSE',409,'Kho không hoạt động hoặc đang kiểm kê.'],['P_STOCK',409,'Không đủ tồn khả dụng hoặc lô đang bị khóa.'],['P_EXPIRY',400,'Hạn dùng không hợp lệ hoặc đã hết hạn.'],['P_KEY',409,'Mã thao tác đã dùng cho nội dung khác.']])if(e.message.includes(k))fail(s,m);throw e;}
+ catch(e){for(const [k,s,m]of [['P_LOT_CONFLICT',409,'Số lô đã có hạn dùng khác. Kiểm tra lại thông tin trên bao bì.'],['P_STAFF',403,'Nhân viên không đúng chuyên môn hoặc đã ngừng làm việc.'],['P_ASSIGNED',403,'Bác sĩ không thuộc phân công hồ sơ.'],['P_PATIENT',409,'Hồ sơ không khớp bệnh nhân.'],['P_STATE',409,'Chứng từ đã xử lý hoặc không còn cho phép thao tác.'],['P_UNIT',409,'Đơn vị hoặc quy tắc quy đổi không hợp lệ, hết hiệu lực hay không biểu diễn chính xác được lượng tồn.'],['P_RETURN',409,'Dòng cấp gốc không khớp lô/kho hoặc số lượng hoàn vượt lượng đã cấp còn được trả.'],['P_MEDICINE',400,'Thuốc không tồn tại hoặc đã ngừng kinh doanh.'],['P_WAREHOUSE',409,'Kho không hoạt động hoặc đang kiểm kê.'],['P_STOCK',409,'Không đủ tồn khả dụng hoặc lô đang bị khóa.'],['P_EXPIRY',400,'Hạn dùng không hợp lệ hoặc đã hết hạn.'],['P_KEY',409,'Mã thao tác đã dùng cho nội dung khác.']])if(e.message.includes(k))fail(s,m);throw e;}
 }
 
 const takeStockSql=`

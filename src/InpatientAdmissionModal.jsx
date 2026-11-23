@@ -1,15 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { BedDouble, User, AlertTriangle, ShieldCheck, Stethoscope, Clock, CreditCard, CheckCircle2, X, FileText, ChevronRight } from 'lucide-react';
 import { hisApi } from './api';
-import { getWorkspace } from './workspace';
+import { getWorkspace, syncWithSqlServer } from './workspace';
 import Icd10Search from './Icd10Search';
 import { parseBhytCard } from './bhyt-utils';
 
-const DEFAULT_DOCTORS = [
-  { id: 'NV-BS01', name: 'BS. Trần Minh Anh (Nội tổng quát)' },
-  { id: 'NV-BS02', name: 'BS. Nguyễn Văn Hùng (Trưởng khoa Tim mạch)' },
-  { id: 'NV-BS03', name: 'BS. Lê Thị Mai (Bác sĩ CKI)' }
-];
+const DEFAULT_DOCTORS = [];
 
 const COMMON_DIAGNOSES = [
   'Viêm phổi thùy cấp - Theo dõi biến chứng suy hô hấp',
@@ -31,20 +27,21 @@ export default function InpatientAdmissionModal({
   navigate
 }) {
   const pId = bed?.patient || initialPatientId || '';
-  const waitingAdm = (getWorkspace().admissions || []).find(a => a.patientId === pId);
+  const waitingAdm = (getWorkspace().admissions || []).find(a => a.patientId === pId && a.status === 'Đang điều trị');
   const [selectedPatientId, setSelectedPatientId] = useState(pId);
-  const [doctor, setDoctor] = useState(waitingAdm?.doctor || 'NV-BS01');
-  const [diagnosis, setDiagnosis] = useState(waitingAdm?.diagnosis || 'Viêm phổi thùy cấp - Theo dõi biến chứng suy hô hấp');
-  const [icdCode, setIcdCode] = useState('J18.1');
-  const [reason, setReason] = useState(waitingAdm?.reason || 'Sốt cao 39°C liên tục 3 ngày, khó thở tăng dần khi gắng sức, ho đờm đục, đáp ứng kém với điều trị ngoại trú');
+  const [doctor, setDoctor] = useState(waitingAdm?.doctorStaffId || '');
+  const [diagnosis, setDiagnosis] = useState(waitingAdm?.diagnosis || '');
+  const [icdCode, setIcdCode] = useState(waitingAdm?.icdCode || '');
+  const [reason, setReason] = useState(waitingAdm?.reason || '');
+  const [requestId] = useState(()=>crypto.randomUUID());
   const [admissionTime, setAdmissionTime] = useState(() => {
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     return now.toISOString().slice(0, 16);
   });
-  const [advanceAmount, setAdvanceAmount] = useState(2000000);
+  const [advanceAmount, setAdvanceAmount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState('TIEN_MAT');
-  const [note, setNote] = useState('Bệnh nhân nằm buồng theo dõi hô hấp, kiểm tra sinh hiệu mỗi 4 giờ');
+  const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [doctorsList, setDoctorsList] = useState(DEFAULT_DOCTORS);
@@ -57,7 +54,7 @@ export default function InpatientAdmissionModal({
           setDoctorsList(res.map(d => ({ id: d.id, name: d.name })));
         }
       })
-      .catch(() => {});
+      .catch(() => setError('Không tải được danh sách bác sĩ. Vui lòng thử lại.'));
   }, []);
 
   const selectedPatient = patients.find(p => p.id === selectedPatientId || p.maBenhNhan === selectedPatientId);
@@ -73,7 +70,14 @@ export default function InpatientAdmissionModal({
     setError('');
 
     try {
+      if (waitingAdm) {
+        const assigned = await hisApi.bedAction({action:'assign',id:bed.id,patientId:selectedPatientId,role,staffId:actor?.staffId});
+        await syncWithSqlServer();
+        onSuccess?.({bedId:bed.id,patientId:selectedPatientId,admissionId:assigned.admissionId});
+        notify('Đã xếp giường cho đợt điều trị hiện có');onClose();return;
+      }
       const payload = {
+        requestId,
         patientId: selectedPatientId,
         bedId: bed.id,
         doctor,
@@ -83,7 +87,7 @@ export default function InpatientAdmissionModal({
         admissionTime,
         advanceAmount: Number(advanceAmount) || 0,
         paymentMethod,
-        staffId: actor?.staffId || 'NV-DD01',
+        staffId: actor?.staffId,
         note
       };
 
@@ -167,7 +171,7 @@ export default function InpatientAdmissionModal({
           <button type="button" className="secondary" onClick={onClose} disabled={submitting}>Đóng</button>
           <button type="button" className="primary" onClick={handleConfirmClean} disabled={submitting}>
             <CheckCircle2 size={16} />
-            {submitting ? 'Đang cập nhật CSDL...' : 'Xác nhận đã khử khuẩn & Sẵn sàng đón bệnh nhân (SQL Server)'}
+            {submitting ? 'Đang cập nhật…' : 'Xác nhận đã khử khuẩn'}
           </button>
         </div>
       </div>
@@ -248,6 +252,7 @@ export default function InpatientAdmissionModal({
   }
 
   // CASE 3: ADMIT INPATIENT (EMPTY BED)
+  if (waitingAdm && !bed.patient && !bed.cleaning) return <form className="his-form-container" onSubmit={handleAdmit}><h2>Xếp giường nội trú</h2><p>{selectedPatient?.name} · {waitingAdm.id}</p><p>{waitingAdm.department} · {waitingAdm.doctor}</p><p>{bed.roomName} · Giường {bed.bedNumber}</p><p>Giữ nguyên thông tin điều trị đã được bác sĩ lưu.</p>{error&&<p className="form-error" role="alert">{error}</p>}<div className="his-modal-actions"><button type="button" className="secondary" onClick={onClose}>Đóng</button><button className="primary" disabled={submitting}>Xác nhận xếp giường</button></div></form>;
   return (
     <form className="his-form-container" onSubmit={handleAdmit}>
       {/* HEADER CARD */}
@@ -255,15 +260,13 @@ export default function InpatientAdmissionModal({
         <div className="his-header-title">
           <div className="his-pill-group">
             <span className="badge teal">TIẾP NHẬN NỘI TRÚ</span>
-            <span className="badge gray">QUY CHUẨN BỘ Y TẾ</span>
-            <span className="badge green">KHOA ĐIỀU TRỊ</span>
           </div>
-          <h2>Phiếu Tiếp nhận Nội trú & Xếp buồng giường</h2>
-          <p>Quy trình tiếp nhận nội trú, quản lý buồng bệnh và phân bổ y lệnh theo đợt điều trị</p>
+          <h2>Tiếp nhận nội trú</h2>
+          <p>Chọn người bệnh và hoàn tất thông tin nhập viện.</p>
         </div>
         <div className="his-header-specs">
           <div><span>Vị trí:</span> <b>{bed.roomName || 'Buồng 301 - Nội tổng quát'}</b></div>
-          <div><span>Số giường:</span> <b className="highlight-tag">G{bed.bedNumber || bed.id}</b></div>
+          <div><span>Số giường:</span> <b className="highlight-tag">{bed.bedNumber || bed.id}</b></div>
           <div><span>Đơn giá ngày giường:</span> <b className="text-teal">{(bed.dailyRate || 250000).toLocaleString('vi-VN')} ₫</b></div>
         </div>
       </div>
@@ -274,7 +277,7 @@ export default function InpatientAdmissionModal({
       <div className="his-card">
         <div className="his-card-title">
           <User size={18} />
-          <h3>Khối 1: Thông tin Người bệnh tiếp nhận</h3>
+          <h3>1. Người bệnh</h3>
         </div>
         <div className="his-form-grid">
           <label className="his-field col-span-2">
@@ -346,12 +349,12 @@ export default function InpatientAdmissionModal({
       <div className="his-card">
         <div className="his-card-title">
           <Stethoscope size={18} />
-          <h3>Khối 2: Thiết lập Đợt điều trị & Chuyên môn vào viện</h3>
+          <h3>2. Thông tin điều trị</h3>
         </div>
         <div className="his-form-grid">
           <label className="his-field">
             <span>Bác sĩ điều trị chính <small className="required-star">*</small></span>
-            <select value={doctor} onChange={e => setDoctor(e.target.value)} required>
+            <select value={doctor} onChange={e => setDoctor(e.target.value)} required><option value="">Chọn bác sĩ</option>
               {doctorsList.map(d => (
                 <option key={d.id} value={d.id}>{d.name} ({d.id})</option>
               ))}
@@ -360,7 +363,7 @@ export default function InpatientAdmissionModal({
 
           <div className="his-field">
             <span style={{ display: 'block', marginBottom: 6, fontSize: 12, fontWeight: 500, color: '#334155' }}>
-              Mã bệnh ICD-10 vào viện (Tra cứu CSDL) <small className="required-star">*</small>
+              Chẩn đoán ICD-10 <small className="required-star">*</small>
             </span>
             <Icd10Search
               valueCode={icdCode}
@@ -418,7 +421,7 @@ export default function InpatientAdmissionModal({
       <div className="his-card">
         <div className="his-card-title">
           <CreditCard size={18} />
-          <h3>Khối 3: Phân buồng giường & Tạm ứng viện phí ban đầu</h3>
+          <h3>3. Tạm ứng và ghi chú</h3>
         </div>
         <div className="his-form-grid">
           <label className="his-field">
@@ -439,7 +442,7 @@ export default function InpatientAdmissionModal({
           </label>
 
           <label className="his-field">
-            <span>Hình thức thanh toán tạm ứng (phuongThuc)</span>
+            <span>Hình thức thanh toán</span>
             <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
               <option value="TIEN_MAT">Tiền mặt tại quầy thu ngân</option>
               <option value="CHUYEN_KHOAN">Chuyển khoản ngân hàng</option>
@@ -449,7 +452,7 @@ export default function InpatientAdmissionModal({
           </label>
 
           <label className="his-field col-span-2">
-            <span>Dặn dò chăm sóc & Ghi chú buồng bệnh (ghiChu)</span>
+            <span>Dặn dò chăm sóc và ghi chú</span>
             <input
               type="text"
               value={note}
@@ -467,7 +470,7 @@ export default function InpatientAdmissionModal({
         </button>
         <button type="submit" className="primary" disabled={submitting || !selectedPatientId}>
           <CheckCircle2 size={16} />
-          {submitting ? 'Đang ghi nhận vào SQL Server...' : 'Xác nhận Tiếp nhận & Xếp giường (SQL Server)'}
+          {submitting ? 'Đang lưu…' : 'Xác nhận tiếp nhận'}
         </button>
       </div>
     </form>

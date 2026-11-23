@@ -78,3 +78,10 @@ test('doctor identity and ICD lookup use the configured SQL database without inv
  const icd=await call('/api/icd10?q=QA_TEST_Z00');assert.equal(icd.status,200);assert.equal(icd.data[0].tenBenh,'QA_TEST_CHAN_DOAN');
  assert.equal(Number(await querySql('SELECT COUNT(*) FROM dbo.PhanCongKham')),before);
 });
+
+test('reception prefers a room with an actual duty over an alphabetically earlier unassigned room',async()=>{
+ await querySql("INSERT dbo.BuongKham(maBuong,maKhoa,tenBuong) VALUES('QA_TEST_A_NO_DUTY','NOI',N'QA_TEST no duty');SELECT 'ok';");
+ const r=await receive({phone:'0900000399',reason:'QA_TEST_DUTY_ROOM'});
+ assert.equal(r.doctorStaffId,'QA_TEST_DOC');
+ assert.notEqual(await querySql('SELECT maBuong FROM dbo.LuotKham WHERE maLuotKham=@id',{id:r.visitId}),'QA_TEST_A_NO_DUTY');
+});

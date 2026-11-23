@@ -28,6 +28,8 @@ export async function workspaceIdentity(req){
  return {role:actor,userId:user.id,person:staff.name,staffId:staff.id,csrf:session.csrf};
 }
 const readRoles={
+ '/api/equipment':['admin'],
+ '/api/notifications':[...roles],
  '/api/patients':['admin','receptionist','doctor','nurse','technician','pharmacist','cashier','patient'],
  '/api/queue':['admin','receptionist','doctor','nurse','patient'],
  '/api/ancillary':['admin','receptionist','doctor','nurse','technician','pharmacist','cashier'],
@@ -43,9 +45,12 @@ const readRoles={
  '/api/pharmacy/batches':['admin','pharmacist'], '/api/clinical/prescriptions':['admin','doctor','pharmacist'],
 };
 const writeRoles={
+ '/api/equipment/action':['admin'],
+ '/api/clinical/care':['admin','doctor'],
+ '/api/notifications':[...roles],
  '/api/appointments':['admin','receptionist'], '/api/patients':['admin','receptionist'], '/api/visits':['admin','receptionist'],
  '/api/clinical/exam':['admin','doctor'], '/api/nursing/vitals':['admin','nurse'], '/api/nursing/perform':['admin','nurse'], '/api/nursing/bed':['admin','nurse'],
- '/api/inpatient/admit':['admin','doctor','nurse'], '/api/inpatient/discharge':['admin','doctor','nurse'], '/api/inpatient/clean':['admin','nurse'],
+ '/api/inpatient/admit':['admin','doctor','nurse'], '/api/inpatient/discharge':['admin','doctor'], '/api/inpatient/clean':['admin','nurse'],
  '/api/labs/orders':['admin','doctor'], '/api/labs/action':['admin','technician'], '/api/pharmacy/action':['admin','doctor','pharmacist'],
  '/api/finance/action':['admin','cashier'], '/api/portal/appointments':['patient'],
 };
@@ -66,13 +71,16 @@ export async function protectWorkspaceRequest(req){
   let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>65536)fail(413,'Dữ liệu quá dài.');}
   let data;try{data=JSON.parse(raw);}catch{fail(400,'JSON không hợp lệ.');}
   if(!data||Array.isArray(data)||typeof data!=='object')fail(400,'Dữ liệu không hợp lệ.');
+  if(['/api/notifications','/api/equipment/action'].includes(path)){
+   const trusted=Buffer.from(JSON.stringify(data));req[Symbol.asyncIterator]=async function*(){yield trusted;};return {identity};
+  }
   // Ignore spoofed identity fields; domain rules still validate role-specific actions.
   data={...data,role:identity.role,staffId:identity.staffId||(identity.role==='admin'?'NV-KTV01':undefined),doctorStaffId:identity.staffId};
   if(path==='/api/nursing/perform')data.nurse=identity.staffId;
   if(path==='/api/portal/appointments')data.patientId=identity.patientId;
   if(identity.role==='doctor'){
    const scope=await doctorScope(identity.staffId);
-   let episode=data.episodeId||data.visitId;
+   let episode=data.episodeId||data.visitId||data.admissionId;
    if(path==='/api/pharmacy/action'&&data.action==='approvePrescription')episode=(await pharmacyState()).prescriptions.find(r=>r.id===data.id)?.episodeId;
    if(!scope.episodes.has(episode))fail(403,'Hồ sơ không thuộc phân công của bác sĩ.');
   }
@@ -102,6 +110,7 @@ export async function protectWorkspaceRequest(req){
   const a=await ancillaryState();
   if(identity.role==='admin')return {identity,answer:a};
   a.staff=a.staff.filter(s=>s.id===identity.staffId||s.specialty==='BAC_SI');
+  a.careSheets=['doctor','nurse'].includes(identity.role)?a.careSheets.filter(inScope):[];
   a.vitals=['doctor','nurse'].includes(identity.role)?a.vitals.filter(inScope):[];
   a.labs=['doctor','technician'].includes(identity.role)?a.labs.filter(inScope):[];
   a.rounds=['doctor','nurse'].includes(identity.role)?a.rounds.filter(inScope):[];

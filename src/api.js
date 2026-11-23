@@ -22,6 +22,12 @@ async function req(url, options = {}) {
 }
 
 export const hisApi = {
+  register:data=>req('/api/auth/register',{method:'POST',headers:jsonHeaders,body:JSON.stringify(data)}),
+  getEquipment:()=>req('/api/equipment'),
+  equipmentAction:data=>req('/api/equipment/action',{method:'POST',headers:jsonHeaders,body:JSON.stringify(data)}),
+  inpatientCare:data=>req('/api/clinical/care',{method:'POST',headers:jsonHeaders,body:JSON.stringify(data)}),
+  notifications:()=>req('/api/notifications'),
+  notificationAction:data=>req('/api/notifications',{method:'POST',headers:jsonHeaders,body:JSON.stringify(data)}),
   login:data=>req('/api/auth/login',{method:'POST',headers:jsonHeaders,body:JSON.stringify(data)}),
   logout:()=>req('/api/auth/logout',{method:'POST',headers:jsonHeaders,body:'{}'}),
   workspaceSession:()=>req('/api/workspace/session'),

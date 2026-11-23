@@ -7,7 +7,7 @@ import { AllocationPreview } from './AllocationPreview';
 import { parseBhytCard } from './bhyt-utils';
 import { hisApi } from './api';
 
-export default function Inventory({ role = 'admin', notify }) {
+export default function Inventory({ role = 'admin', notify, clinicalContext }) {
   const [inventory] = useWorkspace('inventory');
   const [stock] = useWorkspace('stock');
   const [db] = useWorkspace('business');
@@ -31,6 +31,10 @@ export default function Inventory({ role = 'admin', notify }) {
   const [dispenseWarehouse, setDispenseWarehouse] = useState('KHO_NGOAI_TRU');
   const [activeRx, setActiveRx] = useState(null);
   const [dispensingRxId, setDispensingRxId] = useState(null);
+
+  useEffect(() => {
+    if (clinicalContext?.recordId) { setTab('dispense'); setRxSearch(clinicalContext.recordId); }
+  }, [clinicalContext?.recordId]);
 
   // Live SQL Server pharmacy batches
   const [loading, setLoading] = useState(false);
@@ -292,7 +296,7 @@ export default function Inventory({ role = 'admin', notify }) {
     setSaving(true);
     try {
       const payload = {
-        action: 'import_lot',
+        action: 'importShipment', role, staffId: actor.staffId, requestId: operation.current || (operation.current = crypto.randomUUID()),
         warehouseId: shipmentForm.warehouseId,
         supplier: shipmentForm.supplier,
         manufacturer: shipmentForm.manufacturer,
@@ -309,10 +313,10 @@ export default function Inventory({ role = 'admin', notify }) {
         }))
       };
 
-      const result = await hisApi.importPharmacyLot(payload);
+      const result = await hisApi.pharmacyAction(payload);
       await syncWithSqlServer();
       setModal(null);
-      notify(`Đã nhập kho thành công đợt hàng ${result.shipmentId || ''}: ${shipmentForm.lines.length} loại thuốc, ${totalShipmentUnits.toLocaleString('vi-VN')} đơn vị tồn.`);
+      notify(`Đã nhập kho thành công đợt hàng ${result.id || ''}: ${shipmentForm.lines.length} loại thuốc, ${totalShipmentUnits.toLocaleString('vi-VN')} đơn vị tồn.`);
     } catch (err) {
       setError(err.message || 'Lỗi khi nhập kho dược phẩm.');
     } finally {
@@ -439,8 +443,8 @@ export default function Inventory({ role = 'admin', notify }) {
       <section className="panel inventory-panel">
         <div className="panel-heading">
           <div>
-            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>
-              {tab === 'dispense' ? 'Quầy cấp phát thuốc ngoại trú' : tab === 'lots' ? 'Danh mục thuốc & Quản lý tồn kho (FEFO)' : 'Lịch sử xuất nhập & Thẻ kho'}
+            <h2>
+              {tab === 'dispense' ? 'Cấp phát ngoại trú' : tab === 'lots' ? 'Thuốc và tồn kho' : 'Lịch sử xuất nhập'}
             </h2>
           </div>
           <div className="row-actions">
@@ -448,10 +452,10 @@ export default function Inventory({ role = 'admin', notify }) {
               <>
                 <button className="secondary" onClick={() => open('transfer')}>Điều chuyển kho</button>
                 <button className="secondary" onClick={() => open('product')}><Plus size={14} />Thêm mặt hàng</button>
-                <button className="primary" onClick={() => open('lot')}><Plus size={15} />Nhập đợt hàng / Nhiều loại thuốc</button>
+                <button className="primary" onClick={() => open('lot')}><Plus size={15} />Nhập hàng</button>
               </>
             ) : (
-              <button className="secondary" onClick={fetchSqlBatches} disabled={loading} title="Đồng bộ CSDL SQL Server">
+              <button className="secondary" onClick={fetchSqlBatches} disabled={loading} title="Tải lại dữ liệu">
                 <RefreshCw size={14} className={loading ? 'spinning' : ''} style={{ marginRight: 6 }} />Đồng bộ đơn mới
               </button>
             )}
@@ -459,90 +463,90 @@ export default function Inventory({ role = 'admin', notify }) {
         </div>
 
         {/* 1. Main Navigation Tabs Placed At Top */}
-        <div className="inventory-tabs">
-          <button className={tab === 'dispense' ? 'active' : ''} onClick={() => setTab('dispense')}>
+        <div className="inventory-tabs" role="group" aria-label="Chức năng dược">
+          <button aria-pressed={tab === 'dispense'} className={tab === 'dispense' ? 'active' : ''} onClick={() => setTab('dispense')}>
             <ClipboardList size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
-            Quầy cấp phát thuốc ngoại trú
+            Cấp phát ngoại trú
             {pendingRxCount > 0 && (
               <span style={{ marginLeft: 6, backgroundColor: '#f59e0b', color: '#fff', padding: '1px 7px', borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
                 {pendingRxCount}
               </span>
             )}
           </button>
-          <button className={tab === 'lots' ? 'active' : ''} onClick={() => setTab('lots')}>
+          <button aria-pressed={tab === 'lots'} className={tab === 'lots' ? 'active' : ''} onClick={() => setTab('lots')}>
             <Package size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
-            Danh sách lô tồn kho & FEFO
+            Tồn kho theo lô
           </button>
-          <button className={tab === 'ledger' ? 'active' : ''} onClick={() => setTab('ledger')}>
+          <button aria-pressed={tab === 'ledger'} className={tab === 'ledger' ? 'active' : ''} onClick={() => setTab('ledger')}>
             <FileSpreadsheet size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
-            Lịch sử xuất nhập & Thẻ kho
+            Lịch sử xuất nhập
           </button>
         </div>
 
         {/* 2. Specific Search & Filter Toolbar For Active Tab */}
         {tab === 'dispense' ? (
-          <div className="stock-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0 22px 16px', flexWrap: 'wrap' }}>
-            <label className="search" style={{ flex: '1 1 260px', minWidth: '220px', maxWidth: '380px', margin: 0 }}>
+          <div className="stock-toolbar">
+            <label className="search">
               <Search size={15} />
               <input
                 aria-label="Tìm đơn thuốc"
                 placeholder="Tìm mã đơn, tên người bệnh, mã BN, chẩn đoán, bác sĩ kê..."
                 value={rxSearch}
                 onChange={e => setRxSearch(e.target.value)}
-                style={{ width: '100%', height: '36px', fontSize: '12.5px' }}
+
               />
             </label>
 
-            <select aria-label="Lọc trạng thái cấp phát" value={rxFilter} onChange={e => setRxFilter(e.target.value)} className="his-select" style={{ width: 'auto', minWidth: '160px', maxWidth: '210px', height: '36px' }}>
+            <select aria-label="Lọc trạng thái cấp phát" value={rxFilter} onChange={e => setRxFilter(e.target.value)} className="his-select">
               <option value="Tất cả">Tất cả trạng thái</option>
               <option value="Chờ cấp phát">Chờ cấp phát ({pendingRxCount})</option>
               <option value="Đã cấp phát">Đã cấp phát ({dispensedRxCount})</option>
             </select>
 
-            <select aria-label="Kho xuất cấp phát" value={dispenseWarehouse} onChange={e => setDispenseWarehouse(e.target.value)} className="his-select" style={{ width: 'auto', minWidth: '200px', maxWidth: '260px', height: '36px' }}>
+            <select aria-label="Kho xuất cấp phát" value={dispenseWarehouse} onChange={e => setDispenseWarehouse(e.target.value)} className="his-select">
               {warehouses.map(w => (
                 <option key={w.id} value={w.id}>{w.name} ({w.id})</option>
               ))}
             </select>
 
-            <button className="icon-button" aria-label="Đồng bộ SQL Server" onClick={fetchSqlBatches} disabled={loading} title="Đồng bộ CSDL SQL Server" style={{ height: '36px', width: '36px', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
+            <button className="icon-button" aria-label="Tải lại dữ liệu" onClick={fetchSqlBatches} disabled={loading} title="Tải lại dữ liệu" >
               <RefreshCw size={15} className={loading ? 'spinning' : ''} />
             </button>
           </div>
         ) : (
-          <div className="stock-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0 22px 16px', flexWrap: 'wrap' }}>
-            <label className="search" style={{ flex: '1 1 260px', minWidth: '220px', maxWidth: '380px', margin: 0 }}>
+          <div className="stock-toolbar">
+            <label className="search">
               <Search size={15} />
               <input
                 aria-label="Tìm mặt hàng hoặc lô"
                 placeholder="Tên thuốc, hoạt chất, số lô, hãng SX..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                style={{ width: '100%', height: '36px', fontSize: '12.5px' }}
+
               />
             </label>
 
-            <select aria-label="Lọc theo kho" value={warehouse} onChange={e => setWarehouse(e.target.value)} className="his-select" style={{ width: 'auto', minWidth: '180px', maxWidth: '240px', height: '36px' }}>
+            <select aria-label="Lọc theo kho" value={warehouse} onChange={e => setWarehouse(e.target.value)} className="his-select">
               <option value="all">Tất cả kho</option>
               {warehouseOptions}
             </select>
 
-            <select aria-label="Lọc hãng sản xuất" value={manufacturer} onChange={e => setManufacturer(e.target.value)} className="his-select" style={{ width: 'auto', minWidth: '170px', maxWidth: '220px', height: '36px' }}>
+            <select aria-label="Lọc hãng sản xuất" value={manufacturer} onChange={e => setManufacturer(e.target.value)} className="his-select">
               <option value="all">Tất cả hãng sản xuất</option>
               {availableManufacturers.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
 
-            <select aria-label="Lọc hạn dùng" value={filter} onChange={e => setFilter(e.target.value)} className="his-select" style={{ width: 'auto', minWidth: '130px', maxWidth: '170px', height: '36px' }}>
+            <select aria-label="Lọc hạn dùng" value={filter} onChange={e => setFilter(e.target.value)} className="his-select">
               {['Tất cả', 'Còn hạn', 'Cận date', 'Hết hạn', 'Tồn thấp'].map(f => (
                 <option key={f} value={f}>{f}</option>
               ))}
             </select>
 
-            <button className="secondary" onClick={exportLots} style={{ height: '36px', padding: '0 14px', fontSize: '12.5px', whiteSpace: 'nowrap' }}>
+            <button className="secondary" onClick={exportLots} >
               <Download size={15} />Xuất tồn kho
             </button>
 
-            <button className="icon-button" aria-label="Đồng bộ SQL Server" onClick={fetchSqlBatches} disabled={loading} title="Đồng bộ CSDL SQL Server" style={{ height: '36px', width: '36px', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
+            <button className="icon-button" aria-label="Tải lại dữ liệu" onClick={fetchSqlBatches} disabled={loading} title="Tải lại dữ liệu" >
               <RefreshCw size={15} className={loading ? 'spinning' : ''} />
             </button>
           </div>

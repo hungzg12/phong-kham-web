@@ -23,6 +23,6 @@ export default function WorkspaceSession({children}){
  async function login(credentials){await hisApi.login(credentials);accept(await hisApi.workspaceSession());}
  async function logout(){try{await hisApi.logout();forget();}catch(e){setError(e.message);}}
  if(checking)return <ScreenSkeleton label="Đang kiểm tra phiên đăng nhập…"/>;
- if(!identity)return <Auth onLogin={login} externalError={error}/>;
+ if(!identity)return <Auth onLogin={login} onRegister={hisApi.register} externalError={error}/>;
  return <WorkspaceBootstrap key={identity.userId+identity.role}><>{error&&<p role="alert">{error}</p>}{React.cloneElement(children,{session:identity,onLogout:logout})}</></WorkspaceBootstrap>;
 }

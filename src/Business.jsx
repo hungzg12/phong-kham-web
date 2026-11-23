@@ -21,6 +21,7 @@ const terminal=['Đã hủy','Đã thu hồi','Đã từ chối','Đã đóng ca
 function Tone({value}){const negative=/hủy|hỏng|từ chối|Khóa|Tạm ngưng|Ngừng|thu hồi/.test(value),pending=/Chờ|Nháp|Đang/.test(value);return <span className={'badge '+(negative?'danger':pending?'amber':'teal')}>{value}</span>}
 function csvDownload(filename,headers,rows){const csv='\uFEFF'+[headers,...rows].map(r=>r.map(c=>'"'+String(c??'').replaceAll('"','""')+'"').join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const link=document.createElement('a');link.href=url;link.download=filename+'.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 
+function BusinessTabIcon({tab}){const Icon=({equipment:Activity,incidents:ShieldCheck,rounds:ClipboardList,vitals:HeartPulse,prescriptions:Pill,warehouses:FileText,movements:ArrowRight,counts:ClipboardList,settlements:Wallet,advances:Wallet,shifts:Activity,reports:FileSpreadsheet,archives:FileText,corrections:Pencil,authorizations:ShieldCheck})[tab]||FileText;return <Icon size={16} aria-hidden="true"/>;}
 export default function Business({clinicalContext,page,role='admin',requestedTab='',patients,stock,setStock,beds,setBeds,notes,appointments,setAppointments,notify}){
  const [inventory]=useWorkspace('inventory'),[visits]=useWorkspace('visits'),[admissions]=useWorkspace('admissions');
  const actor=actorRoles[role];
@@ -30,7 +31,7 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
  useEffect(()=>{setTab(tabs.includes(requestedTab)?requestedTab:tabs[0]);if(['summary','results','medicine','appointments','bills'].includes(requestedTab))setPortalTab(requestedTab);setSearch('');setStatus('Tất cả');setIndex(0);setDialog(null)},[page,requestedTab,role]);
  useEffect(()=>{function key(e){if(e.key==='Escape')setDialog(null)}window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key)},[]);
  function commit(next,event){setDb(old=>{const updated=typeof next==='function'?next(old):next;const value={...updated,audit:[{id:uid('LOG'),time:timestamp(),actor:actor.person+' · '+actor.name,event},...(old.audit||[])].slice(0,300)};return value})}
- const involved=new Set([...patients.filter(p=>p.doctor.includes(actor.person)).map(p=>p.id),...Object.values(db).filter(Array.isArray).flat().filter(x=>x.doctor===actor.staffId&&x.patient).map(x=>x.patient)]);
+ const involved=new Set([...patients.filter(p=>(p.doctor||'').includes(actor.person)).map(p=>p.id),...Object.values(db).filter(Array.isArray).flat().filter(x=>x.doctor===actor.staffId&&x.patient).map(x=>x.patient)]);
  const rows=(db[tab]||[]).filter(r=>!scope||r.patient===scope.patientId&&r.episodeId===scope.episodeId).filter(r=>role!=='doctor'||!r.patient||involved.has(r.patient)).filter(r=>role!=='pharmacist'||tab!=='prescriptions'||r.status!=='Nháp'),def=definitions[tab];
  const editable=canCreate(role,tab);
  const episodeTab=['vitals','labs','prescriptions','referrals','rounds','consultations','discharges','archives','advances','settlements'].includes(tab);
@@ -54,6 +55,8 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
   if(tab==='counts'){const lot=inventory.find(l=>l.id===data.lotId&&l.medicineId===data.medicine&&l.warehouseId===data.warehouse);if(!lot)return 'Chọn đúng lô thuộc mặt hàng và kho kiểm kê.';data.expected=lot.qty;data.difference=data.actual-data.expected}
   if(tab==='movements'&&['Nhập kho','Hoàn trả'].includes(data.kind)&&(!data.lot||!data.expiry))return 'Phiếu nhập / hoàn trả cần số lô và hạn dùng.';if(tab==='movements'&&data.kind==='Điều chuyển'&&(!data.destination||data.destination===data.warehouse))return 'Kho đích phải khác kho nguồn.';
   if(['prescriptions','movements','counts','warehouses'].includes(tab)){if(old&&tab!=='warehouses')return 'Chứng từ đã lưu không sửa trực tiếp. Hãy tạo bản mới hoặc hủy bản chờ.';return savePharmacy({prescriptions:'savePrescription',movements:'saveMovement',counts:'saveCount',warehouses:'saveWarehouse'}[tab],{...data,id:old?.id});}
+  if(['equipment','incidents'].includes(tab)&&db.equipmentError)return db.equipmentError;
+  if(['equipment','incidents'].includes(tab))return saveEquipment(tab==='equipment'?'saveEquipment':'reportIncident',{...data,id:old?.id,revision:old?.revision||0});
   if(tab==='advances')return saveFinance('saveAdvance',{...data,id:old?.id});
   if(tab==='shifts'){
    if(old)return 'Ca đã mở chỉ được đóng hoặc đối soát, không sửa trực tiếp.';
@@ -97,11 +100,15 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
  
  async function perform(row,action,values){
   if(!canAction(role,tab,action))return 'Vai trò này không được thực hiện thao tác.';
+  if(tab==='rounds'&&action==='administer'){
+   try{await hisApi.performCare({...values,id:row.id,revision:row.revision||0,role,staffId:actor.staffId});await syncWithSqlServer();setDialog(null);notify('Đã ghi nhận thực hiện y lệnh');return null;}catch(e){return e.message;}
+  }
   if(tab==='labs'&&['accept','result','approve'].includes(action)){
    try{await hisApi.labAction({id:row.id,role,staffId:actor.staffId,revision:row.resultRevision||0,action:{accept:'accept',result:'save',approve:'publish'}[action],rows:action==='result'?[{name:'Kết quả',value:values.result||'',unit:'',reference:''}]:undefined,conclusion:values.conclusion,critical:values.critical});await syncWithSqlServer();setDialog(null);notify('Đã lưu CLS trong SQL Server');return null;}catch(e){return e.message;}
   }
   if(tab==='prescriptions'&&['approveRx','dispense'].includes(action))return savePharmacy(action==='approveRx'?'approvePrescription':'dispense',{id:row.id,warehouse:values.warehouse});
   if(['movements','counts','warehouses'].includes(tab))return savePharmacy(tab==='warehouses'?'toggleWarehouse':['reject','cancel'].includes(action)?(tab==='counts'?'cancelCount':'cancelMovement'):action,{id:row.id,reason:values.reason});
+  if(['acceptIncident','maintain','toggleDevice'].includes(action))return saveEquipment(action,{...values,id:row.id,revision:row.revision});
   if(action==='accept')return patchRow(row,{status:'Đang thực hiện'},'Đã tiếp nhận chỉ định');
   if(action==='confirmCash')return saveFinance('confirmAdvance',{id:row.id,signedBy:values.signedBy});
   if(action==='closeShift')return saveFinance('closeShift',{id:row.id,counted:values.counted,reason:values.reason});
@@ -110,7 +117,7 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
   if(action==='revoke')return patchRow(row,{status:'Đã thu hồi'},'Đã thu hồi ủy quyền');
   if(action==='approveCorrection'){if(row.deadline<today)return 'Yêu cầu đã quá hạn chỉnh sửa.';return patchRow(row,{status:'Đã duyệt'},'Đã phê duyệt yêu cầu đính chính')}
   if(action==='confirm')return patchRow(row,{status:'Đã xác nhận'},'Đã xác nhận biên bản');
-  if(action==='discharge'){dischargeAdmission(row.episodeId,actor.person,row.id);setDialog(null);notify('Đã hoàn tất đúng đợt điều trị và giải phóng giường');return}
+  if(action==='discharge'){await dischargeAdmission(row.episodeId,actor.person,row.id);setDialog(null);notify('Đã hoàn tất đúng đợt điều trị và giải phóng giường');return}
   if(action==='acceptIncident')return patchRow(row,{status:'Đang bảo trì'},'Đã tiếp nhận sự cố và khóa thiết bị',{equipment:db.equipment.map(x=>x.id===row.device?{...x,status:'Ngừng sử dụng'}:x)});
   if(action==='maintain')return patchRow(row,{status:'Đã nghiệm thu',maintenance:values.maintenance,engineer:values.engineer,acceptedAt:timestamp()},'Đã nghiệm thu bảo trì',{equipment:db.equipment.map(x=>x.id===row.device?{...x,status:'Đang hoạt động'}:x)});
   if(action==='toggleDevice'&&row.status!=='Đang hoạt động'&&db.incidents.some(x=>x.device===row.id&&x.status==='Đang bảo trì'))return 'Thiết bị đang có phiếu bảo trì chưa nghiệm thu.';
@@ -120,6 +127,8 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
 
  function availableAdvance(patient,episodeId){return db.advances.filter(x=>x.patient===patient&&x.episodeId===episodeId&&x.status==='Đã xác nhận').reduce((s,x)=>s+(x.kind==='Hoàn tiền'?-x.amount:x.amount),0)-db.settlements.filter(x=>x.patient===patient&&x.episodeId===episodeId&&x.status!=='Đã hủy').reduce((s,x)=>s+(x.advance||0),0)}
  
+ const equipmentRequest=useRef(null);
+ async function saveEquipment(action,values){const body={...values,action};const signature=JSON.stringify(body);if(equipmentRequest.current?.signature!==signature)equipmentRequest.current={signature,key:crypto.randomUUID()};try{await hisApi.equipmentAction({...body,requestId:equipmentRequest.current.key});equipmentRequest.current=null;await syncWithSqlServer();setDialog(null);notify('Đã lưu thay đổi thiết bị');return null;}catch(e){return e.message;}}
  const pharmacyRequest=useRef(null);
  async function savePharmacy(action,values){const body={...values,action,role,staffId:actor.staffId};const signature=JSON.stringify(body);if(pharmacyRequest.current?.signature!==signature)pharmacyRequest.current={signature,key:crypto.randomUUID()};try{await hisApi.pharmacyAction({...body,requestId:pharmacyRequest.current.key});pharmacyRequest.current=null;await syncWithSqlServer();setDialog(null);notify('Đã lưu nghiệp vụ dược trong SQL Server');return null;}catch(e){return e.message;}}
  
@@ -146,9 +155,10 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
  if(page==='portal'&&role==='patient')return <PatientPortal requestedTab={requestedTab} notify={notify}/>;
  
  return <div className="business">
+  {page==='devices'&&db.equipmentError&&<p role="alert" className="form-error">{db.equipmentError}</p>}
   {scope&&<div className="doctor-access-help">Đang xem hồ sơ {scope.episodeId} · {patients.find(p=>p.id===scope.patientId)?.name}<button className="secondary" onClick={()=>setScoped(false)}>Xem tất cả hồ sơ</button></div>}
   <div className="business-tabs" role="tablist" aria-label={extraTitles[page]}>
-    {tabs.map(key=><button role="tab" aria-selected={tab===key} key={key} className={tab===key?'selected':''} onClick={()=>changeTab(key)}>{definitions[key]?.title||{settlements:'Quyết toán viện phí',reports:'Báo cáo & nhật ký',portal:'Thông tin người bệnh'}[key]}</button>)}
+    {tabs.map(key=><button role="tab" aria-selected={tab===key} key={key} className={tab===key?'selected':''} onClick={()=>changeTab(key)}><BusinessTabIcon tab={key}/>{definitions[key]?.title||{settlements:'Quyết toán viện phí',reports:'Báo cáo & nhật ký',portal:'Thông tin người bệnh'}[key]}</button>)}
   </div>
   {tab==='roles'&&<div className="doctor-access-help">Vai trò quy định quyền chức năng chung. Để gán bác sĩ, khoa và phạm vi hồ sơ cho từng người, mở Tài khoản.<button className="secondary" onClick={()=>changeTab('accounts')}>Phân quyền bác sĩ theo khoa</button></div>}
   {tab==='accounts'&&<div className="doctor-access-help">Chọn Sửa tài khoản bác sĩ hoặc tạo tài khoản với vai trò Bác sĩ để gán hồ sơ nhân viên, khoa và phạm vi xem hồ sơ. Khung Xem thử cho thấy kết quả ngay trong biểu mẫu.</div>}
@@ -184,7 +194,7 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
       
       {dialog.type==='settlement'&&<SettlementForm scope={scope} initialLines={scope?[...(db.labs||[]),...(db.clinicalCharges||[])].filter(r=>r.episodeId===scope.episodeId&&r.status!=='Đã hủy').map(r=>({description:db.services.find(s=>s.id===r.service)?.name||r.service,category:'Dịch vụ kỹ thuật',quantity:Number(r.quantity)||1,price:Number(r.price??db.services.find(s=>s.id===r.service)?.price)||0,insuranceRate:80,sourceId:r.id})):null} patients={scope?patients.filter(p=>p.id===scope.patientId):patients} services={db.services} availableAdvance={availableAdvance} onSave={saveSettlement}/>}
       
-      {dialog.type==='settle'&&<SimpleForm title={dialog.row.balance<0?'Hoàn tiền tạm ứng thừa':dialog.row.balance===0?'Xác nhận đủ tiền':'Thu thêm viện phí'} description={`${display('patient',dialog.row.patient)} · ${currency(Math.abs(dialog.row.balance))}${dialog.row.balance<0?' cần hoàn trả người bệnh':dialog.row.balance===0?' · Đã cấn trừ đủ':' cần thu thêm'}`} fields={[{key:'signedBy',label:'Họ tên người nộp / nhận tiền (Người bệnh hoặc Thân nhân)',required:true}]} submit="Xác nhận giao dịch viện phí" onSave={values=>settle(dialog.row,values)}><div className="inline-notice">Giao dịch được ghi nhận trực tiếp vào CSDL SQL Server và đối soát trong ca trực hiện hành.</div></SimpleForm>}
+      {dialog.type==='settle'&&<SimpleForm title={dialog.row.balance<0?'Hoàn tiền tạm ứng thừa':dialog.row.balance===0?'Xác nhận đủ tiền':'Thu thêm viện phí'} description={`${display('patient',dialog.row.patient)} · ${currency(Math.abs(dialog.row.balance))}${dialog.row.balance<0?' cần hoàn trả người bệnh':dialog.row.balance===0?' · Đã cấn trừ đủ':' cần thu thêm'}`} fields={[{key:'signedBy',label:'Họ tên người nộp / nhận tiền (Người bệnh hoặc Thân nhân)',required:true}]} submit="Xác nhận giao dịch viện phí" onSave={values=>settle(dialog.row,values)}><div className="inline-notice">Giao dịch sẽ được ghi nhận và đối soát trong ca trực hiện hành.</div></SimpleForm>}
       
       {dialog.type==='portalCancel'&&<SimpleForm title="Hủy lịch hẹn" description={dialog.row.dept+' · '+dialog.row.date.replace('T',' · ')} fields={[{key:'reason',label:'Lý do hủy lịch',type:'textarea',required:true}]} submit="Xác nhận hủy lịch" onSave={v=>{setAppointments(list=>list.map(x=>x.id===dialog.row.id?{...x,status:'Đã hủy',cancelReason:v.reason}:x));setDialog(null);notify('Đã hủy lịch hẹn')}}/>}
       
@@ -556,16 +566,12 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
    '8. Tiền ngày giường'
  ];
 
- const [lines,setLines]=useState(initialLines?.length ? initialLines : [
-   { category: '1. Tiền khám bệnh', description: 'Khám chuyên khoa Nội tổng quát', quantity: 1, price: 150000, insuranceCovered: true },
-   { category: '2. Xét nghiệm', description: 'Tổng phân tích tế bào máu ngoại vi (CBC)', quantity: 1, price: 120000, insuranceCovered: true },
-   { category: '3. Chẩn đoán hình ảnh', description: 'X-quang ngực thẳng kỹ thuật số', quantity: 1, price: 80000, insuranceCovered: true },
-   { category: '5. Thuốc & Dịch truyền', description: 'Panadol Extra 500mg/65mg (Hộp 10 viên)', quantity: 2, price: 15000, insuranceCovered: true }
- ]);
+ const [lines,setLines]=useState(initialLines?.length ? initialLines : []);
 
  // Load actual clinical services and medications when episode is selected
  useEffect(() => {
    if (episodeId && !initialLines?.length) {
+     if(Array.isArray(db.billingCharges)){setLines(db.billingCharges.filter(r=>r.episodeId===episodeId).map(r=>({...r})));return;}
      const matchedLabs = (db.labs || []).filter(r => r.episodeId === episodeId && r.status !== 'Đã hủy');
      const matchedCharges = (db.clinicalCharges || []).filter(r => r.episodeId === episodeId && r.status !== 'Đã hủy');
      const matchedRx = (db.prescriptions || []).filter(r => r.episodeId === episodeId && r.status !== 'Đã hủy');
@@ -611,7 +617,7 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
        setLines(combined);
      }
    }
- }, [episodeId, initialLines, db.labs, db.clinicalCharges, db.prescriptions, db.services, stock]);
+ }, [episodeId, initialLines, db.billingCharges, db.labs, db.clinicalCharges, db.prescriptions, db.services, stock]);
 
  const [error,setError]=useState(''),[saving,setSaving]=useState(false);
 
@@ -622,7 +628,7 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
  function addLine() {
    setLines(prev => [
      ...prev,
-     { category: '2. Xét nghiệm', description: 'Xét nghiệm sinh hóa máu', quantity: 1, price: 50000, insuranceCovered: true }
+     { category: '2. Xét nghiệm', description: '', quantity: 1, price: 0, insuranceCovered: true }
    ]);
  }
 

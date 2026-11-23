@@ -1,0 +1,56 @@
+[
+  {
+    "id": "noi-tong-quat",
+    "file": "/images/specialties/noi-tong-quat.jpg",
+    "url": "https://www.wakemed.org/sites/default/files/2025-05/Marquees3.jpg",
+    "source": "https://www.wakemed.org/wakemed-mycare-365/mycare-365-johnston-county",
+    "type": "image/jpeg",
+    "bytes": 44545,
+    "rights": "Source website photograph; reuse license not verified."
+  },
+  {
+    "id": "tim-mach",
+    "file": "/images/specialties/tim-mach.jpg",
+    "url": "https://kredos.pl/images/grafiki/badanie-ekg-kredos.jpg",
+    "source": "https://kredos.pl/blog/aparat-ekg-badanie-analiza-i-interpretacja-elektrokardiogramu",
+    "type": "image/jpeg",
+    "bytes": 43784,
+    "rights": "Source website photograph; reuse license not verified."
+  },
+  {
+    "id": "tai-mui-hong",
+    "file": "/images/specialties/tai-mui-hong.jpg",
+    "source": "https://www.sfenta.org/",
+    "url": "https://www.datocms-assets.com/56866/1642628915-ear.jpg?auto=format",
+    "type": "image/jpeg",
+    "bytes": 135837,
+    "rights": "Source website photograph; reuse license not verified."
+  },
+  {
+    "id": "da-lieu",
+    "file": "/images/specialties/da-lieu.jpg",
+    "source": "https://www.torbayskin.co.nz/dermatoscopy-initial-consultation/",
+    "url": "https://www.torbayskin.co.nz/wp-content/uploads/2016/10/SkinCheck.jpg",
+    "type": "image/jpeg",
+    "bytes": 153360,
+    "rights": "Source website photograph; reuse license not verified."
+  },
+  {
+    "id": "san-phu-khoa",
+    "file": "/images/specialties/san-phu-khoa.jpg",
+    "url": "https://emi.parkview.com/media/Image/Dashboard_952_Cervix_4_19.jpg",
+    "source": "https://www.parkview.com/blog/the-vital-role-of-the-cervix",
+    "type": "image/jpeg",
+    "bytes": 369464,
+    "rights": "Source website photograph; reuse license not verified."
+  },
+  {
+    "id": "co-xuong-khop",
+    "file": "/images/specialties/co-xuong-khop.webp",
+    "source": "https://www.burdwoodsurgery.nhs.uk/news/physiotherapy-support",
+    "url": "https://www.burdwoodsurgery.nhs.uk/media/content/images/physio.webp",
+    "type": "image/webp",
+    "bytes": 49290,
+    "rights": "Source website photograph; reuse license not verified."
+  }
+]

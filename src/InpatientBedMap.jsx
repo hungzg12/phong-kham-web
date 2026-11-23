@@ -3,18 +3,10 @@ import { BedDouble, Search, CheckCircle2, AlertTriangle, User, Stethoscope, Spar
 import { hisApi } from './api';
 import { useWorkspace } from './workspace';
 
-const DEPARTMENTS = [
-  'Tất cả khoa phòng',
-  'Khoa Nội tổng quát',
-  'Khoa Tim mạch',
-  'Khoa Hồi sức tích cực & Chăm sóc đặc biệt (ICU)',
-  'Khoa Ngoại tổng hợp',
-  'Khoa Sản phụ khoa',
-  'Khoa Nhi'
-];
 
 export default function InpatientBedMap({ beds, setBeds, patients, role, actor, onSelectBed, notify }) {
   const [admissions] = useWorkspace('admissions');
+  const departments=['Tất cả khoa phòng',...new Set(beds.map(b=>b.departmentName||b.department).filter(Boolean))];
   const [selectedDept, setSelectedDept] = useState('Tất cả khoa phòng');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [search, setSearch] = useState('');
@@ -31,14 +23,7 @@ export default function InpatientBedMap({ beds, setBeds, patients, role, actor, 
   const occupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
 
   const filteredBeds = beds.filter(b => {
-    // Dept filter
-    if (selectedDept !== 'Tất cả khoa phòng') {
-      const bDept = b.departmentName || b.roomName || '';
-      if (!bDept.toLowerCase().includes(selectedDept.toLowerCase().replace('khoa ', ''))) {
-        // match partial
-        if (selectedDept.includes('Nội') && !bDept.includes('Nội') && bDept !== 'Tầng 2 · Khu A') return false;
-      }
-    }
+    if (selectedDept !== 'Tất cả khoa phòng' && (b.departmentName || b.department) !== selectedDept) return false;
     // Status filter
     if (selectedStatus === 'OCCUPIED' && !b.patient) return false;
     if (selectedStatus === 'AVAILABLE' && (b.patient || b.cleaning)) return false;
@@ -71,7 +56,7 @@ export default function InpatientBedMap({ beds, setBeds, patients, role, actor, 
               value={selectedDept}
               onChange={e => setSelectedDept(e.target.value)}
             >
-              {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+              {departments.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
         </div>
@@ -137,7 +122,7 @@ export default function InpatientBedMap({ beds, setBeds, patients, role, actor, 
               const age = pat?.birth ? `${new Date().getFullYear() - Number(String(pat.birth).slice(0, 4))}T` : '';
               const gender = pat?.gender === 'female' || pat?.gender === 'Nữ' ? 'Nữ' : pat?.gender === 'male' || pat?.gender === 'Nam' ? 'Nam' : '';
               const demo = [age, gender].filter(Boolean).join(' · ');
-              const firstAvailableBed = beds.find(b => !b.patient && !b.cleaning);
+              const firstAvailableBed = beds.find(b => !b.patient && !b.cleaning && (b.departmentName || b.department) === adm.department);
               return (
                 <div
                   key={adm.id}

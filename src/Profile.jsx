@@ -5,10 +5,20 @@ import {useWorkspace,transact,audit} from './workspace';
 import {today} from './business-data';
 import './profile.css';
 
+// Presentation names for QA accounts only; account IDs and clinical assignments stay unchanged.
+const qaDisplayNames={admin:'Nguyễn Hoàng Anh',receptionist:'Nguyễn Thu Trang',doctor:'Trần Minh Anh',nurse:'Hoàng Thị Lan',technician:'Đỗ Văn Tuấn',pharmacist:'Vũ Đức Thắng',cashier:'Đặng Thu Thảo',patient:'Lê Thị Thu Hương'};
+const qaDoctorNames={NOI:'Nguyễn Thu Hà',TIM:'Trần Minh Anh',TMH:'Lê Thu Hà',DA:'Phạm Ngọc Lan',SAN:'Võ Thị Mai',CXK:'Lê Hoàng Nam'};
+function presentationName(name,role,source){
+ if(!/^QA_TEST(?:_|\s|$)/i.test(name||''))return name;
+ const department=String(source?.department||source?.dept||'').toUpperCase();
+ const specialty=Object.keys(qaDoctorNames).find(key=>department===key||department.startsWith(key+'_'));
+ return role==='doctor'&&specialty?qaDoctorNames[specialty]:qaDisplayNames[role]||name;
+}
 export function profileFor(role,{profiles,patients,business}){
  const actor=actorRoles[role],saved=profiles?.[role]||{};
  const source=actor.patientId?patients.find(p=>p.id===actor.patientId):business.staff.find(s=>s.id===actor.staffId);
  const profile={displayName:actor.person,email:'',phone:'',birth:'',gender:'',address:'',bio:'',avatar:null,...saved};
+ profile.displayName=presentationName(profile.displayName,role,source);
  for(const key of ['email','phone','birth','gender','address']){const sourceKey=key==='birth'?'birth':key;if(source?.[sourceKey]!==undefined)profile[key]=source[sourceKey]}
  return {...profile,legalName:source?.name||actor.person,recordId:source?.id||actor.username,department:source?.department||source?.dept||'',title:source?.title||actor.name,certificate:source?.certificate||'',initials:profile.displayName.trim().split(/\s+/).slice(-2).map(v=>v[0]||'').join('').toUpperCase()||actor.initials};
 }

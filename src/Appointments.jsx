@@ -4,7 +4,7 @@ import { clinics, today } from './business-data';
 import './calendar.css';
 import { syncWithSqlServer } from './workspace';
 
-export default function Appointments({ appointments, setAppointments, patients, setPatients, notify, request = 0 }) {
+export default function Appointments({ appointments, setAppointments, patients, setPatients, notify, focusId, request = 0 }) {
   const [view, setView] = useState('list');
   const [filter, setFilter] = useState('Tất cả');
   const [search, setSearch] = useState('');
@@ -13,6 +13,8 @@ export default function Appointments({ appointments, setAppointments, patients, 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => { if (focusId) { setView('list'); setFilter('Tất cả'); setSearch(focusId); } }, [focusId]);
 
   // Sync live appointments from SQL Server database
   const syncFromSql = async () => {

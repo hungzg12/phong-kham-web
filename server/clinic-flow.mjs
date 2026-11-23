@@ -38,7 +38,7 @@ export async function receivePatient(data){
  const values=patientId?{name:'',phone:'',birth:null,gender:'Nam',cccd:'',insurance:'',address:'',allergy:text(data.allergy,500),history:text(data.history,1000)}:demographics(data);
  return transaction(`
  DECLARE @patient varchar(20)=@patientId,@room varchar(20),@number int,@day date=CONVERT(date,SYSDATETIME());
- SELECT TOP 1 @room=maBuong FROM dbo.BuongKham WHERE maKhoa=@dept AND dangHoatDong=1 ORDER BY maBuong;
+ SELECT TOP 1 @room=b.maBuong FROM dbo.BuongKham b WHERE b.maKhoa=@dept AND b.dangHoatDong=1 ORDER BY CASE WHEN EXISTS(SELECT 1 FROM dbo.PhanCongKham pc JOIN dbo.NhanVien n ON n.maNhanVien=pc.maBacSi WHERE pc.maBuong=b.maBuong AND pc.ngayKham=@day AND pc.caKham=CASE WHEN DATEPART(HOUR,SYSDATETIME())<12 THEN 'SANG' ELSE 'CHIEU' END AND pc.trangThai IN('DA_PHAN_CONG','DANG_TRUC') AND n.dangLamViec=1) THEN 0 ELSE 1 END,b.maBuong;
  IF @room IS NULL THROW 51000,'FLOW_ROOM',1;
  IF @patient IS NOT NULL AND NOT EXISTS(SELECT 1 FROM dbo.BenhNhan WHERE maBenhNhan=@patient) THROW 51000,'FLOW_MISSING',1;
  IF @patient IS NULL AND @cccd<>''
@@ -58,7 +58,7 @@ export async function receivePatient(data){
  WHEN NOT MATCHED THEN INSERT(maBuong,ngayCapSo,soThuTuHienTai) VALUES(@room,@day,1);
  SELECT @number=soThuTuHienTai FROM dbo.BoDemSoThuTuKham WHERE maBuong=@room AND ngayCapSo=@day;
  INSERT dbo.LuotKham(maLuotKham,maBenhNhan,maBuong,soThuTu,lyDoKham) VALUES(@visitId,@patient,@room,@number,@reason);
- SET @result=(SELECT @visitId AS visitId,@patient AS patientId,@number AS queueNumber,b.tenBuong AS roomName,N'Chờ khám' AS status,ISNULL(assigned.hoTen,N'BS.CKI Trần Minh Anh') AS doctor,assigned.maNhanVien AS doctorStaffId FROM dbo.BuongKham b OUTER APPLY(SELECT TOP 1 n.hoTen,n.maNhanVien FROM dbo.PhanCongKham pc JOIN dbo.NhanVien n ON n.maNhanVien=pc.maBacSi WHERE pc.maBuong=@room AND pc.trangThai IN('DA_PHAN_CONG','DANG_TRUC','HOAN_TAT') ORDER BY CASE WHEN pc.ngayKham=@day THEN 0 ELSE 1 END, pc.maPhanCong) assigned WHERE b.maBuong=@room FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
+ SET @result=(SELECT @visitId AS visitId,@patient AS patientId,@number AS queueNumber,b.tenBuong AS roomName,N'Chờ khám' AS status,ISNULL(assigned.hoTen,N'Chưa phân công') AS doctor,assigned.maNhanVien AS doctorStaffId FROM dbo.BuongKham b OUTER APPLY(SELECT TOP 1 n.hoTen,n.maNhanVien FROM dbo.PhanCongKham pc JOIN dbo.NhanVien n ON n.maNhanVien=pc.maBacSi WHERE pc.maBuong=@room AND pc.ngayKham=@day AND pc.caKham=CASE WHEN DATEPART(HOUR,SYSDATETIME())<12 THEN 'SANG' ELSE 'CHIEU' END AND n.dangLamViec=1 AND pc.trangThai IN('DA_PHAN_CONG','DANG_TRUC','HOAN_TAT') ORDER BY pc.maPhanCong) assigned WHERE b.maBuong=@room FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
  `,{...values,patientId,dept:codes[data.dept],newPatient:uid('BN-'),visitId:uid('LK-'),reason:text(data.reason,255)||'Tiếp đón khám mới'});
 }
 
@@ -85,7 +85,7 @@ const visitSelect=`SELECT l.maLuotKham AS id,l.maBenhNhan AS patientId,k.tenKhoa
  LEFT JOIN dbo.HoSoKham h ON h.maLuotKham=l.maLuotKham
  OUTER APPLY(SELECT TOP 1 * FROM dbo.PhieuSinhHieu WHERE maLuotKham=l.maLuotKham ORDER BY thoiDiemDo DESC,maPhieu DESC) vital
  OUTER APPLY(SELECT TOP 1 n.hoTen,n.maNhanVien FROM dbo.PhanCongKham pc JOIN dbo.NhanVien n ON n.maNhanVien=pc.maBacSi
- WHERE pc.maBuong=l.maBuong AND pc.trangThai IN('DA_PHAN_CONG','DANG_TRUC','HOAN_TAT')
+ WHERE pc.maBuong=l.maBuong AND pc.ngayKham=l.ngayKham AND pc.caKham=CASE WHEN DATEPART(HOUR,l.thoiDiemCapSo)<12 THEN 'SANG' ELSE 'CHIEU' END AND n.dangLamViec=1 AND pc.trangThai IN('DA_PHAN_CONG','DANG_TRUC','HOAN_TAT')
  ORDER BY CASE WHEN pc.ngayKham=l.ngayKham THEN 0 ELSE 1 END,
           CASE WHEN pc.caKham=CASE WHEN DATEPART(HOUR,l.thoiDiemCapSo)<12 THEN 'SANG' ELSE 'CHIEU' END THEN 0 ELSE 1 END,
           pc.maPhanCong) assigned
@@ -102,8 +102,8 @@ export async function listVisits({history=false,id=null}={}){
 
 export async function searchIcd(query=''){
  const q=text(query,100);
- return JSON.parse(await querySql(`SELECT (SELECT TOP(35) maICD,tenBenh,ISNULL(tenTiengAnh,'') AS tenTiengAnh,maChuong,tenChuong,trangThai
- FROM dbo.DanhMucICD10 WHERE trangThai=1 AND (maICD LIKE @q+'%' OR tenBenh LIKE N'%'+@q+'%' OR tenTiengAnh LIKE N'%'+@q+'%') ORDER BY thuongGap DESC, maICD ASC FOR JSON PATH)`,{q})||'[]');
+ return JSON.parse(await querySql(`SELECT (SELECT TOP(35) maICD,tenBenh,ISNULL(tenTiengAnh,'') AS tenTiengAnh,maChuong,tenChuong,dangHoatDong AS trangThai
+ FROM dbo.DanhMucICD10 WHERE dangHoatDong=1 AND (maICD LIKE @q+'%' OR tenBenh LIKE N'%'+@q+'%' OR tenTiengAnh LIKE N'%'+@q+'%') ORDER BY CASE WHEN maICD=@q THEN 0 ELSE 1 END, maICD ASC FOR JSON PATH)`,{q})||'[]');
 }
 
 export async function listDoctors(){
@@ -119,7 +119,7 @@ export async function changeVisit(data){
  IF @action='cancel' UPDATE dbo.LuotKham SET trangThai='DA_HUY' WHERE maLuotKham=@id;
  ELSE
  BEGIN
-  SELECT TOP 1 @room=maBuong FROM dbo.BuongKham WHERE maKhoa=@dept AND dangHoatDong=1 ORDER BY maBuong;
+  SELECT TOP 1 @room=b.maBuong FROM dbo.BuongKham b WHERE b.maKhoa=@dept AND b.dangHoatDong=1 ORDER BY CASE WHEN EXISTS(SELECT 1 FROM dbo.PhanCongKham pc JOIN dbo.NhanVien n ON n.maNhanVien=pc.maBacSi WHERE pc.maBuong=b.maBuong AND pc.ngayKham=@day AND pc.caKham=CASE WHEN DATEPART(HOUR,SYSDATETIME())<12 THEN 'SANG' ELSE 'CHIEU' END AND pc.trangThai IN('DA_PHAN_CONG','DANG_TRUC') AND n.dangLamViec=1) THEN 0 ELSE 1 END,b.maBuong;
   IF @room IS NULL THROW 51000,'FLOW_ROOM',1;
   SELECT @day=ngayKham FROM dbo.LuotKham WHERE maLuotKham=@id;
   MERGE dbo.BoDemSoThuTuKham WITH(HOLDLOCK) target USING(SELECT @room maBuong,@day ngayCapSo) source ON target.maBuong=source.maBuong AND target.ngayCapSo=source.ngayCapSo

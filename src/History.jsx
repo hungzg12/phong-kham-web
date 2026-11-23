@@ -47,7 +47,7 @@ export function PatientHistory({patientId,clinical=false}){
       <div style={{fontSize:'12px',color:'#475569',marginTop:'2px'}}>
         <span>{v.date}</span> · <span>{v.department}</span> {v.doctor ? `· ${v.doctor}` : ''}
       </div>
-      {clinical&&v.note?.diagnosis&&<p style={{margin:'4px 0 0',color:'#0f766e',fontWeight:600}}>Chẩn đoán: {v.note.diagnosis}</p>}
+      {clinical&&v.note?.diagnosis&&<p style={{margin:'4px 0 0',color:'#2563eb',fontWeight:600}}>Chẩn đoán: {v.note.diagnosis}</p>}
     </div>)}
     {!items.length&&<p className="form-hint">Chưa có lượt khám hoặc đợt điều trị.</p>}
   </div>;
@@ -643,7 +643,7 @@ export default function History({role='admin',patientId,navigate,notify}){
                     setSelectedEpisodeId('');
                   }}
                   className="his-select"
-                  style={{ minWidth: '260px', height: '38px', fontWeight: 600, color: '#0f766e' }}
+                  style={{ minWidth: '260px', height: '38px', fontWeight: 600, color: '#2563eb' }}
                 >
                   {matchedPatients.map(p => (
                     <option key={p.id} value={p.id}>
@@ -675,9 +675,9 @@ export default function History({role='admin',patientId,navigate,notify}){
       {/* 2. Patient Master Identity Banner */}
       {curPt ? (
         <section className="panel" style={{ marginBottom: '14px', padding: '16px 20px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', alignItems: 'center' }}>
+          <div className="emr-patient-summary">
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#0f766e', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '16px' }}>
+              <div style={{ flexShrink: 0, width: '42px', height: '42px', borderRadius: '50%', background: '#2563eb', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '16px' }}>
                 {curPt.name?.slice(0, 1).toUpperCase()}
               </div>
               <div>
@@ -705,7 +705,7 @@ export default function History({role='admin',patientId,navigate,notify}){
                   <span className={`badge ${bh.benefitBadgeClass}`} style={{ fontSize: '11px', fontWeight: 600 }}>
                     {bh.benefitBadge} · {bh.rate}%
                   </span>
-                  <span style={{ fontFamily: 'monospace', fontSize: '12px', color: '#047857', fontWeight: 700 }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: '12px', color: '#1d4ed8', fontWeight: 700 }}>
                     {bh.code}
                   </span>
                 </div>
@@ -719,7 +719,7 @@ export default function History({role='admin',patientId,navigate,notify}){
 
             <div>
               <small style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Cảnh báo y tế quan trọng</small>
-              <div style={{ fontSize: '12px', color: curPt.allergy ? '#b91c1c' : '#047857', fontWeight: 600 }}>
+              <div style={{ fontSize: '12px', color: curPt.allergy ? '#b91c1c' : '#1d4ed8', fontWeight: 600 }}>
                 {curPt.allergy ? `⚠️ Dị ứng: ${curPt.allergy}` : '✓ Không có tiền sử dị ứng'}
               </div>
               <small style={{ color: '#64748b', fontSize: '11px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={curPt.history}>
@@ -731,7 +731,7 @@ export default function History({role='admin',patientId,navigate,notify}){
       ) : null}
 
       {/* 3. Split EMR Layout: Timeline on Left, Deep Medical Record on Right */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 24vw) minmax(0, 1fr)', gap: '16px', alignItems: 'start' }}>
+      <div className="emr-record-layout">
         {/* LEFT PANE: ENCOUNTER TIMELINE */}
         <section className="panel" style={{ padding: '14px', maxHeight: '78vh', overflowY: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
@@ -750,19 +750,19 @@ export default function History({role='admin',patientId,navigate,notify}){
                   type="button"
                   onClick={() => setSelectedEpisodeId(ep.id)}
                   style={{
-                    border: isSelected ? '1.5px solid #0f766e' : '1px solid #e2e8f0',
-                    borderLeft: isSelected ? '4px solid #0f766e' : '3px solid #cbd5e1',
-                    background: isSelected ? '#f0fdfa' : '#ffffff',
+                    border: isSelected ? '1.5px solid #2563eb' : '1px solid #e2e8f0',
+                    borderLeft: isSelected ? '4px solid #2563eb' : '3px solid #cbd5e1',
+                    background: isSelected ? '#eff6ff' : '#ffffff',
                     padding: '10px 12px',
                     borderRadius: '8px',
                     textAlign: 'left',
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
-                    boxShadow: isSelected ? '0 1px 4px rgba(15,118,110,0.12)' : 'none'
+                    boxShadow: isSelected ? '0 1px 4px rgba(37,99,235,0.12)' : 'none'
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '12px', color: isSelected ? '#0f766e' : '#334155' }}>
+                    <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '12px', color: isSelected ? '#2563eb' : '#334155' }}>
                       {ep.id}
                     </span>
                     <span className={`badge ${ep.kind === 'Nội trú' ? 'purple' : 'teal'}`} style={{ fontSize: '9.5px', padding: '1px 5px' }}>
@@ -782,7 +782,7 @@ export default function History({role='admin',patientId,navigate,notify}){
                   </div>
 
                   {ep.note?.diagnosis && (
-                    <div style={{ marginTop: '4px', fontSize: '11px', color: '#0f766e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ep.note.diagnosis}>
+                    <div style={{ marginTop: '4px', fontSize: '11px', color: '#2563eb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ep.note.diagnosis}>
                       🩺 {ep.note.diagnosis}
                     </div>
                   )}
@@ -802,7 +802,7 @@ export default function History({role='admin',patientId,navigate,notify}){
           {activeEp ? (
             <div>
               {/* Record Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #e2e8f0', paddingBottom: '14px', marginBottom: '16px' }}>
+              <div className="emr-record-heading">
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: '#0f172a' }}>
@@ -835,9 +835,9 @@ export default function History({role='admin',patientId,navigate,notify}){
               {/* SECTION 1: VITALS */}
               <div style={{ marginBottom: '18px' }}>
                 <h4 style={{ margin: '0 0 8px 0', fontSize: '13.5px', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <HeartPulse size={16} style={{ color: '#0f766e' }} /> 1. Dấu hiệu sinh tồn & Thể trạng tại thời điểm khám
+                  <HeartPulse size={16} style={{ color: '#2563eb' }} /> 1. Dấu hiệu sinh tồn & Thể trạng tại thời điểm khám
                 </h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '10px', background: '#f8fafc', padding: '12px 14px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                <div className="emr-vitals-grid">
                   <div>
                     <small style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Huyết áp</small>
                     <b style={{ fontSize: '13px', color: '#0f172a' }}>{vitals.pressure || (activeEp.bpSystolic ? `${activeEp.bpSystolic}/${activeEp.bpDiastolic}` : '120/80')} mmHg</b>
@@ -860,7 +860,7 @@ export default function History({role='admin',patientId,navigate,notify}){
                   </div>
                   <div>
                     <small style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Chỉ số BMI</small>
-                    <b style={{ fontSize: '13px', color: '#047857' }}>
+                    <b style={{ fontSize: '13px', color: '#1d4ed8' }}>
                       {vitals.height && vitals.weight ? (Number(vitals.weight) / Math.pow(Number(vitals.height) / 100, 2)).toFixed(1) : '22.0'} (Bình thường)
                     </b>
                   </div>
@@ -870,7 +870,7 @@ export default function History({role='admin',patientId,navigate,notify}){
               {/* SECTION 2: CLINICAL SOAP EXAMINATION */}
               <div style={{ marginBottom: '18px' }}>
                 <h4 style={{ margin: '0 0 8px 0', fontSize: '13.5px', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Stethoscope size={16} style={{ color: '#0f766e' }} /> 2. Diễn biến bệnh sử, Khám thực thể & Chẩn đoán ICD-10
+                  <Stethoscope size={16} style={{ color: '#2563eb' }} /> 2. Diễn biến bệnh sử, Khám thực thể & Chẩn đoán ICD-10
                 </h4>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
@@ -887,18 +887,18 @@ export default function History({role='admin',patientId,navigate,notify}){
                     </p>
                   </div>
 
-                  <div style={{ gridColumn: 'span 2', background: '#ecfdf5', padding: '12px 14px', borderRadius: '6px', border: '1px solid #a7f3d0' }}>
-                    <small style={{ color: '#047857', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Chẩn đoán xác định theo từ điển ICD-10</small>
+                  <div style={{ gridColumn: 'span 2', background: '#eff6ff', padding: '12px 14px', borderRadius: '6px', border: '1px solid #bfdbfe' }}>
+                    <small style={{ color: '#1d4ed8', fontWeight: 700, display: 'block', marginBottom: '4px' }}>Chẩn đoán xác định theo từ điển ICD-10</small>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span className="badge teal" style={{ fontSize: '12px', fontWeight: 700, fontFamily: 'monospace' }}>
                         {activeEp.note?.icd || activeEp.icd || 'I10'}
                       </span>
-                      <b style={{ fontSize: '14px', color: '#065f46' }}>
+                      <b style={{ fontSize: '14px', color: '#1e40af' }}>
                         {activeEp.note?.diagnosis || activeEp.diagnosis || 'Tăng huyết áp vô căn (nguyên phát)'}
                       </b>
                     </div>
                     {activeEp.note?.comorbidities && (
-                      <div style={{ marginTop: '6px', fontSize: '12px', color: '#047857' }}>
+                      <div style={{ marginTop: '6px', fontSize: '12px', color: '#1d4ed8' }}>
                         <b>Bệnh kèm theo:</b> {activeEp.note.comorbidities}
                       </div>
                     )}
@@ -909,7 +909,7 @@ export default function History({role='admin',patientId,navigate,notify}){
               {/* SECTION 3: PARACLINICAL LAB & IMAGING ORDERS */}
               <div style={{ marginBottom: '18px' }}>
                 <h4 style={{ margin: '0 0 8px 0', fontSize: '13.5px', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Activity size={16} style={{ color: '#0f766e' }} /> 3. Kết quả Cận lâm sàng & Chẩn đoán hình ảnh ({activeLabs.length} chỉ định)
+                  <Activity size={16} style={{ color: '#2563eb' }} /> 3. Kết quả Cận lâm sàng & Chẩn đoán hình ảnh ({activeLabs.length} chỉ định)
                 </h4>
                 {activeLabs.length > 0 ? (
                   <div className="table-scroll" style={{ border: '1px solid #e2e8f0', borderRadius: '6px' }}>
@@ -936,7 +936,7 @@ export default function History({role='admin',patientId,navigate,notify}){
                               </span>
                             </td>
                             <td>{l.result || (l.rows?.length ? l.rows.map(r => `${r.name}: ${r.value} ${r.unit}`).join(', ') : 'Chưa có kết quả')}</td>
-                            <td style={{ color: '#0f766e', fontWeight: 600 }}>{l.conclusion || '—'}</td>
+                            <td style={{ color: '#2563eb', fontWeight: 600 }}>{l.conclusion || '—'}</td>
                             <td>{l.reviewer || 'KTV Trưởng'}</td>
                           </tr>
                         ))}
@@ -953,7 +953,7 @@ export default function History({role='admin',patientId,navigate,notify}){
               {/* SECTION 4: PRESCRIBED MEDICINES */}
               <div style={{ marginBottom: '18px' }}>
                 <h4 style={{ margin: '0 0 8px 0', fontSize: '13.5px', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Pill size={16} style={{ color: '#0f766e' }} /> 4. Đơn thuốc & Cấp phát ngoại trú ({activeRxs.length} đơn thuốc)
+                  <Pill size={16} style={{ color: '#2563eb' }} /> 4. Đơn thuốc & Cấp phát ngoại trú ({activeRxs.length} đơn thuốc)
                 </h4>
                 {activeRxs.length > 0 ? (
                   activeRxs.map((rx, rxIdx) => (
@@ -995,7 +995,7 @@ export default function History({role='admin',patientId,navigate,notify}){
 
               {/* SECTION 5: OUTCOME & ADVICE */}
               <div style={{ background: '#f0fdf4', padding: '12px 16px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>
-                <h4 style={{ margin: '0 0 6px 0', fontSize: '13px', fontWeight: 700, color: '#047857' }}>
+                <h4 style={{ margin: '0 0 6px 0', fontSize: '13px', fontWeight: 700, color: '#1d4ed8' }}>
                   5. Hướng xử trí kết luận & Lời dặn Bác sĩ
                 </h4>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px', fontSize: '12.5px' }}>

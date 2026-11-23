@@ -87,3 +87,22 @@ button:not(:disabled):not(.sidebar-backdrop):active {
     transform: none !important;
   }
 }
+
+/* Workspace decoration is screen-only and honours the operating system preference. */
+@media screen and (prefers-reduced-motion: no-preference) {
+  .app :is(.page-heading,.desk-intro,.bedmap-header) { animation: workspace-rise 340ms var(--motion-ease) backwards; }
+  .app :is(.actor-welcome,.actor-task,.stat-card,.actor-stats > div) { animation: workspace-rise 440ms var(--motion-ease) backwards; }
+  .app :is(.actor-task,.stat-card,.actor-stats > div):nth-child(2) { animation-delay: 45ms; }
+  .app :is(.actor-task,.stat-card,.actor-stats > div):nth-child(3) { animation-delay: 90ms; }
+  .app :is(.actor-task,.stat-card,.actor-stats > div):nth-child(4) { animation-delay: 135ms; }
+  .app .actor-task-icon { transition: transform 220ms ease, box-shadow 220ms ease; }
+}
+@media screen and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .app .actor-task:hover { transform: translateY(-4px); box-shadow: 0 12px 28px #1e3a8a12; border-color: var(--task-accent); }
+  .app .actor-task:hover .actor-task-icon { transform: rotate(-5deg) scale(1.06); box-shadow: 0 6px 14px #2563eb15; }
+  .app .primary:hover:not(:disabled) { box-shadow: 0 7px 18px #2563eb30; }
+}
+@keyframes workspace-rise {
+  from { opacity: .35; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

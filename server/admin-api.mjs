@@ -1,3 +1,4 @@
+import {registerPatient} from './patient-registration.mjs';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { loadState, transactAdmin, querySql } from './admin-store.mjs';
 import { authorize, digest, ensureLastAdmin, event, fail, hashPassword, publicAccount, validate, verifyPassword } from './admin-domain.mjs';
@@ -6,6 +7,7 @@ import { adminDefinitions } from '../src/admin-schema.js';
 
 const cookieName='medicare_admin_session';
 const attempts=new Map();
+const registrations=new Map();
 const cookie=(token,age=28800)=>`${cookieName}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${age}${process.env.NODE_ENV==='production'&&process.env.MEDICARE_ALLOW_HTTP!=='true'?'; Secure':''}`;
 const tokenOf=req=>{try{return decodeURIComponent((req.headers.cookie||'').split(';').map(s=>s.trim()).find(s=>s.startsWith(cookieName+'='))?.slice(cookieName.length+1)||'');}catch{return '';}};
 export async function readJson(req) {
@@ -51,6 +53,13 @@ export function createAdminMiddleware() {
     try {
       if(!['GET','HEAD'].includes(req.method))originGuard(req);
       const token=tokenOf(req);
+      if(url.pathname==='/api/auth/register'&&req.method==='POST'){
+        const body=await readJson(req),key=digest(req.socket.remoteAddress||''),now=Date.now();
+        for(const [k,v]of registrations)if(v.until<now)registrations.delete(k);
+        const limit=registrations.get(key);if(registrations.size>5000||limit?.count>=8)fail(429,'Đăng ký quá nhiều lần. Vui lòng thử lại sau 15 phút.');
+        registrations.set(key,{count:(limit?.count||0)+1,until:limit?.until||now+900000});
+        return send(201,await registerPatient(body));
+      }
       if(url.pathname==='/api/auth/login'&&req.method==='POST') {
         const body=await readJson(req),username=typeof body.username==='string'?body.username.trim().toLowerCase():'';
         const key=digest(`${req.socket.remoteAddress}:${username}`),now=Date.now();

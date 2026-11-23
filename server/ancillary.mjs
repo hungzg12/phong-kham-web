@@ -43,9 +43,10 @@ export async function ancillaryState(){
  CONVERT(varchar(19),y.thoiDiemBatDau,126) scheduled,CASE WHEN y.trangThai='DA_HOAN_TAT' THEN N'Đã thực hiện' WHEN y.trangThai='DA_HUY' THEN N'Đã hủy' ELSE N'Chờ thực hiện' END status,
  ISNULL(a.maNhatKy,0) revision FROM dbo.YLenh y JOIN dbo.ToDieuTri t ON t.maTo=y.maTo JOIN dbo.DotDieuTri dt ON dt.maDotDieuTri=t.maDotDieuTri
  OUTER APPLY(SELECT TOP 1 maNhatKy FROM dbo.NhatKyThayDoi WHERE loaiDoiTuong='YLenh' AND maDoiTuong=y.maYLenh ORDER BY maNhatKy DESC) a FOR JSON PATH)`)||'[]');
- result.admissions=JSON.parse(await querySql(`SELECT (SELECT d.maDotDieuTri id,d.maBenhNhan patientId,k.tenKhoa department,n.hoTen doctor,CONVERT(char(10),d.thoiDiemNhapVien,23) date,LEFT(CONVERT(char(8),d.thoiDiemNhapVien,108),5) time,
+ result.admissions=JSON.parse(await querySql(`SELECT (SELECT d.maDotDieuTri id,d.maBenhNhan patientId,k.tenKhoa department,n.hoTen doctor,d.maBacSiDieuTriChinh doctorStaffId,d.chanDoanVaoVien diagnosis,d.maICDVaoVien icdCode,CONVERT(char(10),d.thoiDiemNhapVien,23) date,LEFT(CONVERT(char(8),d.thoiDiemNhapVien,108),5) time,
  CASE WHEN d.trangThai IN('DANG_DIEU_TRI','CHO_XUAT_VIEN') THEN N'Đang điều trị' ELSE N'Đã ra viện' END status,d.lyDoNhapVien reason
  FROM dbo.DotDieuTri d JOIN dbo.Khoa k ON k.maKhoa=d.maKhoaDieuTri JOIN dbo.NhanVien n ON n.maNhanVien=d.maBacSiDieuTriChinh FOR JSON PATH)`)||'[]');
+ result.careSheets=JSON.parse(await querySql(`SELECT (SELECT t.maTo id,t.maDotDieuTri episodeId,d.maBenhNhan patient,t.maBacSi doctor,CONVERT(char(10),t.ngayDieuTri,23) date,CONVERT(varchar(19),t.thoiDiemGhi,126) createdAt,CAST(CASE WHEN t.trangThai='DA_KHOA' THEN 1 ELSE 0 END AS bit) locked,CASE WHEN t.trangThai='DA_KHOA' THEN N'Đã khóa' ELSE N'Nháp' END status,ISNULL(a.maNhatKy,0) revision,JSON_QUERY(COALESCE(a.duLieuSau,N'{}')) note FROM dbo.ToDieuTri t JOIN dbo.DotDieuTri d ON d.maDotDieuTri=t.maDotDieuTri OUTER APPLY(SELECT TOP 1 maNhatKy,duLieuSau FROM dbo.NhatKyThayDoi WHERE loaiDoiTuong='CareSheet' AND maDoiTuong=t.maTo ORDER BY maNhatKy DESC) a FOR JSON PATH)`)||'[]');
  return result;
 }
 
@@ -64,6 +65,8 @@ export async function bedAction(data){
  IF NOT EXISTS(SELECT 1 FROM dbo.NhanVien WHERE maNhanVien=@staff AND chuyenMon='DIEU_DUONG' AND dangLamViec=1) THROW 51000,'A_STAFF',1;
  SELECT @state=g.trangThaiHienTai,@department=b.maKhoa,@price=g.donGiaNgay FROM dbo.GiuongBenh g JOIN dbo.BuongBenh b ON b.maBuongBenh=g.maBuongBenh WHERE g.maGiuong=@id AND g.dangHoatDong=1;
  IF @state IS NULL THROW 51000,'A_MISSING',1;
+ IF @action='assign' AND EXISTS(SELECT 1 FROM dbo.PhanGiuong p JOIN dbo.DotDieuTri d ON d.maDotDieuTri=p.maDotDieuTri WHERE p.maGiuong=@id AND p.trangThai='DANG_SU_DUNG' AND p.denThoiDiem IS NULL AND d.maBenhNhan=@patient AND d.trangThai='DANG_DIEU_TRI') BEGIN SET @result=N'{}'; END
+ ELSE BEGIN
  IF EXISTS(SELECT 1 FROM dbo.PhanGiuong WHERE maGiuong=@id AND trangThai='DANG_SU_DUNG' AND denThoiDiem IS NULL) THROW 51000,'A_STATE',1;
  IF @action='clean'
  BEGIN
@@ -79,7 +82,7 @@ export async function bedAction(data){
   INSERT dbo.PhanGiuong(maPhanGiuong,maDotDieuTri,maGiuong,tuThoiDiem,donGiaApDung,maNhanVienXep) VALUES(@allocation,@admission,@id,SYSDATETIME(),@price,@staff);
   UPDATE dbo.GiuongBenh SET trangThaiHienTai='DANG_SU_DUNG' WHERE maGiuong=@id;
  END
- INSERT dbo.NhatKyThayDoi(loaiDoiTuong,maDoiTuong,hanhDong,loaiTacNhan,maNguoiThucHien,ketQua) VALUES('Giuong',@id,@action,'NHAN_VIEN',@staff,'THANH_CONG');SET @result=N'{}';
+ INSERT dbo.NhatKyThayDoi(loaiDoiTuong,maDoiTuong,hanhDong,loaiTacNhan,maNguoiThucHien,ketQua) VALUES('Giuong',@id,@action,'NHAN_VIEN',@staff,'THANH_CONG');SET @result=N'{}'; END
  `,{id:data.id,staff:data.staffId,action:data.action,patient:data.patientId||null,allocation:uid('PG-')});
  return (await listBeds()).find(b=>b.id===data.id);
 }

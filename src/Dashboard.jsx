@@ -2,8 +2,10 @@ import React,{useMemo} from 'react';
 import {Users,BedDouble,Activity,Wallet,CalendarDays,ArrowUpRight,ArrowRight} from 'lucide-react';
 import {useWorkspace,financialRows} from './workspace';
 import {today} from './business-data';
+import {useProfile} from './Profile';
 const currency=value=>new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND',maximumFractionDigits:0}).format(value);
 export default function Dashboard({navigate,children,date,setDate}){
+ const profile=useProfile('admin');
  const [visits]=useWorkspace('visits'),[admissions]=useWorkspace('admissions'),[beds]=useWorkspace('beds'),[db]=useWorkspace('business'),[updatedAt]=useWorkspace('updatedAt');
  const daily=visits.filter(v=>v.date===date&&v.status!=='Đã hủy');
  const previous=new Date(date+'T12:00:00Z');previous.setUTCDate(previous.getUTCDate()-1);const yesterday=previous.toISOString().slice(0,10);
@@ -15,7 +17,7 @@ export default function Dashboard({navigate,children,date,setDate}){
  const colors=['#147c6d','#67aaa0','#a4c8bf','#80aa9a','#bdd8cb','#dcebe3'];
  const counts=Object.entries(daily.reduce((out,v)=>({...out,[v.department]:(out[v.department]||0)+1}),{})).sort((a,b)=>b[1]-a[1]);
  let cursor=0;const stops=counts.map(([,n],i)=>{const start=cursor;cursor+=n/Math.max(1,daily.length)*100;return `${colors[i%colors.length]} ${start}% ${cursor}%`});
- return <><div className="data-filter"><CalendarDays size={17}/><label htmlFor="dashboard-date">Ngày thống kê</label><input id="dashboard-date" type="date" required value={date} onChange={e=>{if(e.target.value)setDate(e.target.value)}}/><button className="text-button" onClick={()=>setDate(today)}>Hôm nay</button><span>Số liệu từ dữ liệu đã lưu · Cập nhật {new Date(updatedAt).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})}</span></div>
+ return <><section className="actor-welcome actor-welcome-illustrated"><div><span>KHÔNG GIAN QUẢN TRỊ VIÊN</span><h2>Xin chào, {profile.displayName}</h2><p>Theo dõi hoạt động và quản lý hệ thống bệnh viện.</p></div><img className="actor-welcome-art" src="/images/workspace/admin-welcome-vietnam-poster.png" alt="" aria-hidden="true" width="1536" height="1024"/></section><div className="data-filter"><CalendarDays size={17}/><label htmlFor="dashboard-date">Ngày thống kê</label><input id="dashboard-date" type="date" required value={date} onChange={e=>{if(e.target.value)setDate(e.target.value)}}/><button className="text-button" onClick={()=>setDate(today)}>Hôm nay</button><span>Số liệu từ dữ liệu đã lưu · Cập nhật {new Date(updatedAt).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})}</span></div>
  <section className="stats">{[
  {title:'Lượt khám trong ngày',value:daily.length,Icon:Users,cls:'teal',caption:(daily.length-before>=0?'+':'')+(daily.length-before)+' lượt so với ngày trước'},
  {title:'Đang điều trị nội trú',value:admissions.filter(a=>a.status==='Đang điều trị').length,Icon:BedDouble,cls:'blue',caption:'Tổng các đợt nội trú chưa ra viện'},

@@ -80,6 +80,6 @@ test('nurse can record vitals/care but cannot create a physician order',()=>{
 });
 
 
-test('pharmacist inventory renders SQL snapshot controls without merging another stock source',()=>{const html=fixture.render('inventory','pharmacist');assert.match(html,/Quầy cấp phát thuốc ngoại trú|Danh sách lô tồn kho|Nhập lô/);});
+test('pharmacist inventory renders SQL snapshot controls without merging another stock source',()=>{const html=fixture.render('inventory','pharmacist');assert.match(html,/Cấp phát ngoại trú|Tồn kho theo lô|Nhập hàng/);});
 
 test('workspace login requires credentials and does not offer a demo actor switch',()=>{const html=fixture.render('auth','patient');assert.match(html,/name="username"/);assert.match(html,/type="password"/);assert.doesNotMatch(html,/không cần tài khoản|auth-role-tabs|demo-account/);});

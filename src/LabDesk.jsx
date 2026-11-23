@@ -274,7 +274,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
       )}
 
       {/* 2. Room Selector & Queue Toolbar */}
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '16px', background: '#ffffff', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+      <div className="lab-room-toolbar">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Building2 size={18} style={{ color: '#0f766e' }} />
           <span style={{ fontSize: '13px', fontWeight: 600, color: '#334155' }}>Phòng máy trực:</span>
@@ -288,7 +288,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
             setSelectedServiceId('');
             setEditing(null);
           }}
-          style={{ padding: '8px 12px', fontSize: '13px', borderRadius: '6px', border: '1.5px solid #cbd5e1', fontWeight: 600, color: '#0f766e', minWidth: '320px', background: '#f8fafc' }}
+          className="lab-room-select"
         >
           {LAB_ROOMS.map(r => {
             const countInRoom = db.labs.filter(l => {
@@ -308,7 +308,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
         </select>
 
         {/* Quick status counters */}
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', fontSize: '12px' }}>
+        <div className="lab-room-counts">
           <span style={{ background: '#fef3c7', color: '#92400e', padding: '4px 10px', borderRadius: '20px', fontWeight: 600 }}>
             Chờ tiếp nhận: {allFilteredLabs.filter(r => r.status === 'Chờ tiếp nhận').length}
           </span>
@@ -322,7 +322,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
       </div>
 
       {/* 3. Main Split Desk Layout */}
-      <div className="desk-layout" style={{ gridTemplateColumns: 'minmax(350px, 24vw) minmax(0, 1fr)', gap: '18px' }}>
+      <div className="desk-layout">
         {/* Left Side: Patient Queue Grouped by Patient */}
         <aside className="desk-queue" style={{ maxHeight: '82vh' }}>
           <div className="desk-queue-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>

@@ -47,7 +47,13 @@ export async function financeState(){
  JSON_QUERY((SELECT g.maGiaoDich FROM dbo.GiaoDichThanhToan g WHERE g.maCaTruc=c.maBaoCao AND g.trangThai='THANH_CONG' FOR JSON PATH)) transactions
  FROM dbo.BaoCaoVienPhi c FOR JSON PATH)`)||'[]');
  for(const row of shifts)row.transactionIds=(row.transactions||[]).map(g=>g.maGiaoDich);
- return {advances,settlements,shifts};
+ const visits=JSON.parse(await querySql(`SELECT (SELECT l.maLuotKham id,l.maBenhNhan patientId,CONVERT(char(10),l.thoiDiemDangKy,23) date,CONVERT(char(5),l.thoiDiemDangKy,108) time,k.tenKhoa department,N'Ngoại trú' status FROM dbo.LuotKham l JOIN dbo.BuongKham b ON b.maBuong=l.maBuong JOIN dbo.Khoa k ON k.maKhoa=b.maKhoa WHERE l.trangThai<>'DA_HUY' FOR JSON PATH)`)||'[]');
+ const admissions=JSON.parse(await querySql(`SELECT (SELECT d.maDotDieuTri id,d.maBenhNhan patientId,CONVERT(char(10),d.thoiDiemNhapVien,23) date,k.tenKhoa department,CASE WHEN d.trangThai IN('DANG_DIEU_TRI','CHO_XUAT_VIEN') THEN N'Đang điều trị' ELSE N'Đã ra viện' END status FROM dbo.DotDieuTri d JOIN dbo.Khoa k ON k.maKhoa=d.maKhoaDieuTri WHERE d.trangThai<>'DA_HUY' FOR JSON PATH)`)||'[]');
+ const billingCharges=JSON.parse(await querySql(`SELECT (SELECT * FROM (
+ SELECT COALESCE(c.maLuotKham,c.maDotDieuTri) episodeId,ct.maChiTiet sourceId,d.tenDichVu description,ct.soLuong quantity,ct.donGiaApDung price,N'2. Xét nghiệm' category,CAST(1 AS bit) insuranceCovered FROM dbo.ChiTietChiDinh ct JOIN dbo.ChiDinhCLS c ON c.maChiDinh=ct.maChiDinh JOIN dbo.DichVuKyThuat d ON d.maDichVu=ct.maDichVu WHERE ct.trangThai<>'DA_HUY'
+ UNION ALL SELECT COALESCE(d.maLuotKham,d.maDotDieuTri),c.maChiTietDon,h.tenHang,c.soLuongKe,c.donGiaKe,N'5. Thuốc & Dịch truyền',CAST(1 AS bit) FROM dbo.ChiTietDonThuoc c JOIN dbo.DonThuoc d ON d.maDon=c.maDon JOIN dbo.HangHoaYTe h ON h.maHang=c.maHang WHERE d.thoiDiemDuyet IS NOT NULL AND d.trangThaiCapPhat<>'DA_HUY' AND c.trangThai<>'DA_HUY'
+ ) charges FOR JSON PATH)`)||'[]');
+ return {advances,settlements,shifts,visits,admissions,billingCharges};
 }
 
 export async function financeAction(data){

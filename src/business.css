@@ -530,25 +530,6 @@
   background: #0d574e !important;
 }
 
-.stock-toolbar {
-  display: flex !important;
-  align-items: center !important;
-  gap: 10px !important;
-  flex-wrap: wrap !important;
-}
-.stock-toolbar .search {
-  flex: 1 1 240px !important;
-  min-width: 200px !important;
-  max-width: 360px !important;
-  margin: 0 !important;
-}
-.stock-toolbar select,
-.stock-toolbar .his-select {
-  width: auto !important;
-  min-width: 140px !important;
-  flex: 0 1 auto !important;
-}
-
 .his-btn-sm {
   padding: 4px 10px !important;
   font-size: 11px !important;
