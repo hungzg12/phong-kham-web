@@ -12,6 +12,7 @@ import {DoctorAccessFields,isDoctorAccount,doctorScopes,doctorFunctions} from '.
 function formResult(fn){try{return fn()}catch(e){return e.message||'Không thực hiện được thao tác. Vui lòng thử lại.'}}
 import {actorRoles,allowedTabs,canCreate,canEdit,canAction} from './roles';
 import {parseBhytCard} from './bhyt-utils';
+import MedicalPaperFormViewer from './MedicalPaperForms';
 
 const currency=n=>new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(Number(n)||0);
 const uid=p=>p+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,5).toUpperCase();
@@ -160,25 +161,45 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
       
       {dialog.type==='form'&&<RecordForm tab={tab} episodeTab={episodeTab} inpatientOnly={['rounds','consultations','discharges'].includes(tab)} definition={def} defaults={{doctor:actor.staffId||'',cashier:actor.staffId||'',...(scope?{patient:scope.patientId,episodeId:scope.episodeId}:{})}} initial={dialog.row} stock={stock} optionsFor={optionsFor} onSave={values=>saveRow(values,dialog.row)}/>}
       
-      {dialog.type==='detail'&&<>
-        <div className="print-heading"><h2>MediCare · {def?.title||'Quyết toán viện phí'}</h2><p>Biểu mẫu y tế chuẩn · Kết nối CSDL SQL Server</p></div>
-        <h2>{dialog.row.id}</h2>
-        <p className="dialog-subtitle">{dialog.row.createdAt||'Dữ liệu hệ thống'} <Tone value={dialog.row.status}/></p>
-        <div className="detail-grid">
-          {Object.entries(dialog.row).filter(([k,v])=>!['id','status','lines','permissions','transactionIds','allocations'].includes(k)&&typeof v!=='object'&&v!==''&&v!==undefined).map(([k,v])=>(
-            <div key={k}><span>{label(k)}</span><b>{display(k,v)}</b></div>
-          ))}
-        </div>
-        {dialog.row.allocations?.length>0&&<div className="allocation-preview"><h3>Lô thực tế đã xuất</h3>{dialog.row.allocations.map((a,i)=><div key={i}><span>{display('medicine',a.medicineId)} · {a.lot}<small>Kho {a.warehouseId} · HSD {a.expiry}{a.sourceLine&&<> · Dòng cấp: {a.sourceLine} · Đã hoàn: {a.returned||0}</>}</small></span><b>{a.quantity}</b></div>)}</div>}
-        {dialog.row.lines&&<div className="table-scroll"><table><thead><tr><th>NỘI DUNG</th><th>SỐ LƯỢNG</th><th>LIỀU / ĐƠN GIÁ</th></tr></thead><tbody>{dialog.row.lines.map((l,i)=><tr key={i}><td>{l.description||display('medicine',l.medicine)}{l.route&&<small>{l.route} · {l.frequency} · {l.days} ngày</small>}</td><td>{l.quantity}</td><td>{l.dose||currency(l.price)}</td></tr>)}</tbody></table></div>}
-        {dialog.row.permissions&&<div className="permission-tags">{dialog.row.permissions.map(p=><span key={p}><Check size={12}/>{p}</span>)}</div>}
-        <div className="dialog-actions no-print">
-          <button className="secondary" onClick={()=>window.print()}><Printer size={16}/>In biểu mẫu</button>
-          {actions(dialog.row).map(([title,action])=><button className="primary" key={action} onClick={()=>setDialog({type:'action',row:dialog.row,action,title})}>{title}</button>)}
-          {tab!=='warehouses'&&canAction(role,tab,'cancel')&&!terminal.includes(dialog.row.status)&&!['Đã phát hành','Đã ghi sổ'].includes(dialog.row.status)&&tab!=='settlements'&&<button className="secondary danger-button" onClick={()=>setDialog({type:'action',row:dialog.row,action:'cancel',title:'Hủy chứng từ'})}>Hủy chứng từ</button>}
-          {tab==='settlements'&&dialog.row.status==='Chờ quyết toán'&&<button className="primary" onClick={()=>setDialog({type:'settle',row:dialog.row})}>Thực hiện quyết toán</button>}
-        </div>
-      </>}
+      {dialog.type==='detail'&&(
+        ['referrals','consultations','discharges','settlements','prescriptions','archives','authorizations'].includes(tab) ? (
+          <>
+            <MedicalPaperFormViewer
+              tab={tab}
+              row={dialog.row}
+              patient={patients.find(p => p.id === dialog.row.patient)}
+              doctorStaff={db.staff.find(s => s.id === dialog.row.doctor)}
+              cashierStaff={db.staff.find(s => s.id === dialog.row.cashier)}
+              onClose={() => setDialog(null)}
+            />
+            <div className="dialog-actions no-print" style={{ marginTop: 16 }}>
+              {actions(dialog.row).map(([title,action])=><button className="primary" key={action} onClick={()=>setDialog({type:'action',row:dialog.row,action,title})}>{title}</button>)}
+              {tab!=='warehouses'&&canAction(role,tab,'cancel')&&!terminal.includes(dialog.row.status)&&!['Đã phát hành','Đã ghi sổ'].includes(dialog.row.status)&&tab!=='settlements'&&<button className="secondary danger-button" onClick={()=>setDialog({type:'action',row:dialog.row,action:'cancel',title:'Hủy chứng từ'})}>Hủy chứng từ</button>}
+              {tab==='settlements'&&dialog.row.status==='Chờ quyết toán'&&<button className="primary" onClick={()=>setDialog({type:'settle',row:dialog.row})}>Thực hiện quyết toán</button>}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="print-heading"><h2>MediCare · {def?.title||'Quyết toán viện phí'}</h2><p>Biểu mẫu y tế chuẩn · Kết nối CSDL SQL Server</p></div>
+            <h2>{dialog.row.id}</h2>
+            <p className="dialog-subtitle">{dialog.row.createdAt||'Dữ liệu hệ thống'} <Tone value={dialog.row.status}/></p>
+            <div className="detail-grid">
+              {Object.entries(dialog.row).filter(([k,v])=>!['id','status','lines','permissions','transactionIds','allocations'].includes(k)&&typeof v!=='object'&&v!==''&&v!==undefined).map(([k,v])=>(
+                <div key={k}><span>{label(k)}</span><b>{display(k,v)}</b></div>
+              ))}
+            </div>
+            {dialog.row.allocations?.length>0&&<div className="allocation-preview"><h3>Lô thực tế đã xuất</h3>{dialog.row.allocations.map((a,i)=><div key={i}><span>{display('medicine',a.medicineId)} · {a.lot}<small>Kho {a.warehouseId} · HSD {a.expiry}{a.sourceLine&&<> · Dòng cấp: {a.sourceLine} · Đã hoàn: {a.returned||0}</>}</small></span><b>{a.quantity}</b></div>)}</div>}
+            {dialog.row.lines&&<div className="table-scroll"><table><thead><tr><th>NỘI DUNG</th><th>SỐ LƯỢNG</th><th>LIỀU / ĐƠN GIÁ</th></tr></thead><tbody>{dialog.row.lines.map((l,i)=><tr key={i}><td>{l.description||display('medicine',l.medicine)}{l.route&&<small>{l.route} · {l.frequency} · {l.days} ngày</small>}</td><td>{l.quantity}</td><td>{l.dose||currency(l.price)}</td></tr>)}</tbody></table></div>}
+            {dialog.row.permissions&&<div className="permission-tags">{dialog.row.permissions.map(p=><span key={p}><Check size={12}/>{p}</span>)}</div>}
+            <div className="dialog-actions no-print">
+              <button className="secondary" onClick={()=>window.print()}><Printer size={16}/>In biểu mẫu</button>
+              {actions(dialog.row).map(([title,action])=><button className="primary" key={action} onClick={()=>setDialog({type:'action',row:dialog.row,action,title})}>{title}</button>)}
+              {tab!=='warehouses'&&canAction(role,tab,'cancel')&&!terminal.includes(dialog.row.status)&&!['Đã phát hành','Đã ghi sổ'].includes(dialog.row.status)&&tab!=='settlements'&&<button className="secondary danger-button" onClick={()=>setDialog({type:'action',row:dialog.row,action:'cancel',title:'Hủy chứng từ'})}>Hủy chứng từ</button>}
+              {tab==='settlements'&&dialog.row.status==='Chờ quyết toán'&&<button className="primary" onClick={()=>setDialog({type:'settle',row:dialog.row})}>Thực hiện quyết toán</button>}
+            </div>
+          </>
+        )
+      )}
       
       {dialog.type==='action'&&<ActionForm key={dialog.action} dialog={dialog} stock={stock} optionsFor={optionsFor} onSave={values=>perform(dialog.row,dialog.action,values)}/>}
       

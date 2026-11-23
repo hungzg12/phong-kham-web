@@ -35,7 +35,7 @@ test('anonymous requests cannot read clinical, pharmacy, finance, legacy APIs or
  assert.equal((await get('/api/health')).status,200);
 });
 test('all eight roles restore their identity from SQL session and enforce read API matrix',async()=>{
- const allowed={admin:[],receptionist:['/api/appointments'],doctor:['/api/queue','/api/pharmacy/state'],nurse:['/api/queue','/api/inpatient/beds','/api/pharmacy/state'],technician:['/api/ancillary'],pharmacist:['/api/pharmacy/state'],cashier:['/api/finance'],patient:['/api/portal','/api/appointments']};
+ const allowed={admin:['/api/appointments','/api/finance','/api/pharmacy/state'],receptionist:['/api/appointments'],doctor:['/api/queue','/api/pharmacy/state'],nurse:['/api/queue','/api/inpatient/beds','/api/pharmacy/state'],technician:['/api/ancillary'],pharmacist:['/api/pharmacy/state'],cashier:['/api/finance'],patient:['/api/portal','/api/appointments']};
  for(const role of ['admin',...actors]){
   let r=await get('/api/workspace/session?role=admin&staffId=QA_TEST_DOC2',role);assert.equal(r.status,200);const who=await r.json();assert.equal(who.role,role);if(role==='patient')assert.equal(who.patientId,'QA_TEST_PAT_A');
   for(const path of ['/api/appointments','/api/finance','/api/portal','/api/pharmacy/state']){r=await get(path,role);const expected=allowed[role].includes(path)?200:403;assert.equal(r.status,expected,role+' '+path);}

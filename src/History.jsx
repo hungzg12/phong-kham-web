@@ -6,6 +6,7 @@ import {today,clinics} from './business-data';
 import {actorRoles} from './roles';
 import Icd10Search from './Icd10Search';
 import { parseBhytCard } from './bhyt-utils';
+import MedicalPaperFormViewer from './MedicalPaperForms';
 
 export function EpisodeField({patientId,value,onChange,inpatientOnly=false}){
   const [visits]=useWorkspace('visits'),[admissions]=useWorkspace('admissions');
@@ -821,7 +822,7 @@ export default function History({role='admin',patientId,navigate,notify}){
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button className="secondary" onClick={() => window.print()} title="In tóm tắt bệnh án">
+                  <button className="secondary" onClick={() => setModal({ type: 'printSummary', episode: activeEp })} title="In tóm tắt bệnh án (Phụ lục 4 - Thông tư 18/2022/TT-BYT)">
                     <Printer size={15} /> In tóm tắt bệnh án
                   </button>
                   {clinical && activeEp.kind === 'Ngoại trú' && (
@@ -1035,7 +1036,23 @@ export default function History({role='admin',patientId,navigate,notify}){
               <X size={20}/>
             </button>
 
-            {modal.type==='exam' ? (
+            {modal.type === 'printSummary' ? (
+              <MedicalPaperFormViewer
+                tab="archives"
+                row={{
+                  ...modal.episode,
+                  id: modal.episode.id,
+                  episodeId: modal.episode.id,
+                  diagnosis: modal.episode.note?.diagnosis || modal.episode.diagnosis || 'Khám kiểm tra sức khỏe tổng quát',
+                  treatment: modal.episode.note?.plan || 'Điều trị ngoại trú theo đơn chỉ định',
+                  outcome: modal.episode.note?.outcome || modal.episode.status || 'Đỡ / Giảm',
+                  advice: modal.episode.note?.advice || 'Tái khám theo hẹn'
+                }}
+                patient={curPt}
+                doctorStaff={{ name: modal.episode.doctor || 'BS.CKI Trần Minh Anh' }}
+                onClose={() => setModal(null)}
+              />
+            ) : modal.type==='exam' ? (
               <VisitExam
                 patient={patients.find(p=>p.id===modal.row.patientId)}
                 visitId={modal.row.id}

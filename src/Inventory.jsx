@@ -6,6 +6,7 @@ import { actorRoles } from './roles';
 import { AllocationPreview } from './AllocationPreview';
 import { parseBhytCard } from './bhyt-utils';
 import { hisApi } from './api';
+import MedicalPaperFormViewer from './MedicalPaperForms';
 
 export default function Inventory({ role = 'admin', notify }) {
   const [inventory] = useWorkspace('inventory');
@@ -31,6 +32,7 @@ export default function Inventory({ role = 'admin', notify }) {
   const [dispenseWarehouse, setDispenseWarehouse] = useState('KHO_NGOAI_TRU');
   const [activeRx, setActiveRx] = useState(null);
   const [dispensingRxId, setDispensingRxId] = useState(null);
+  const [showPrintSlip, setShowPrintSlip] = useState(false);
 
   // Live SQL Server pharmacy batches
   const [loading, setLoading] = useState(false);
@@ -1435,7 +1437,7 @@ export default function Inventory({ role = 'admin', notify }) {
 
                     {/* Action buttons */}
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8, borderTop: '1px solid #e2e8f0', paddingTop: 14 }}>
-                      <button className="secondary" onClick={() => window.print()}>
+                      <button className="secondary" onClick={() => setShowPrintSlip(true)}>
                         <Printer size={15} /> In phiếu cấp phát & Lời dặn
                       </button>
                       <button className="secondary" onClick={() => setActiveRx(null)}>Đóng</button>
@@ -1459,6 +1461,24 @@ export default function Inventory({ role = 'admin', notify }) {
                 );
               })()}
             </div>
+          </section>
+        </div>
+      )}
+
+      {showPrintSlip && activeRx && (
+        <div className="modal-backdrop" onClick={() => setShowPrintSlip(false)}>
+          <section className="modal his-large-modal wide-modal" role="dialog" aria-modal="true" onClick={e => e.stopPropagation()}>
+            <button className="close icon-button" aria-label="Đóng" onClick={() => setShowPrintSlip(false)}><X size={21}/></button>
+            <MedicalPaperFormViewer
+              tab="prescriptions"
+              row={{
+                ...activeRx,
+                lines: activeRx.lines
+              }}
+              patient={patients.find(p => p.id === activeRx.patient)}
+              doctorStaff={{ name: activeRx.doctor || 'BS.CKI Trần Minh Anh' }}
+              onClose={() => setShowPrintSlip(false)}
+            />
           </section>
         </div>
       )}

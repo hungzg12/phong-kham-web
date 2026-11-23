@@ -63,7 +63,7 @@ export function createApiMiddleware({trustedTest=false}={}) {
         let body='';for await(const part of req){body+=part;if(body.length>60000)return respond(413,{error:'Dữ liệu quá dài.'});}
         return respond(200,await pharmacyAction(JSON.parse(body)));
       }
-      if(['/api/prescriptions','/api/prescriptions/dispense','/api/pharmacy/product','/api/pharmacy/transfer'].includes(url)&&req.method==='POST')return respond(410,{error:'Sử dụng API dược hiện tại /api/pharmacy/action để kiểm tra vai trò, nhân viên và lưu đúng database.'});
+      if(['/api/prescriptions','/api/prescriptions/dispense','/api/pharmacy/import','/api/pharmacy/product','/api/pharmacy/transfer'].includes(url)&&req.method==='POST')return respond(410,{error:'Sử dụng API dược hiện tại /api/pharmacy/action để kiểm tra vai trò, nhân viên và lưu đúng database.'});
       if(url==='/api/finance'&&req.method==='GET')return respond(200,await financeState());
       if(url==='/api/portal'&&req.method==='GET')return respond(200,await portalState());
       if(['/api/finance/action','/api/portal/appointments'].includes(url)&&req.method==='POST'){
