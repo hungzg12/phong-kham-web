@@ -400,11 +400,11 @@ export default function StatutoryPaperBusinessForm({
                     <option key={i.code} value={i.code}>{i.code}</option>
                   ))}
                 </select>
-                <input
-                  className="his-input"
+                <MedicalSuggestInput
+                  type="diagnosis"
                   style={{ flex: 1, fontWeight: 600 }}
                   value={values.diagnosis}
-                  onChange={e => handleChange('diagnosis', e.target.value)}
+                  onChange={val => handleChange('diagnosis', val)}
                   placeholder="Tên chẩn đoán xác định..."
                 />
               </div>
@@ -595,11 +595,12 @@ export default function StatutoryPaperBusinessForm({
                     <option key={i.code} value={i.code}>{i.code}</option>
                   ))}
                 </select>
-                <input
-                  className="his-input"
+                <MedicalSuggestInput
+                  type="diagnosis"
                   style={{ flex: 1, fontWeight: 600 }}
                   value={values.diagnosis}
-                  onChange={e => handleChange('diagnosis', e.target.value)}
+                  onChange={val => handleChange('diagnosis', val)}
+                  placeholder="Tên chẩn đoán ra viện..."
                 />
               </div>
             </div>
@@ -642,10 +643,11 @@ export default function StatutoryPaperBusinessForm({
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
                   Địa điểm hội chẩn:
                 </label>
-                <input
-                  className="his-input"
+                <MedicalSuggestInput
+                  type="room"
                   value={values.location}
-                  onChange={e => handleChange('location', e.target.value)}
+                  onChange={val => handleChange('location', val)}
+                  placeholder="VD: Phòng giao ban khoa, Phòng hội chẩn..."
                 />
               </div>
               <div>
@@ -795,11 +797,12 @@ export default function StatutoryPaperBusinessForm({
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
                 Chẩn đoán xác định:
               </label>
-              <input
-                className="his-input"
+              <MedicalSuggestInput
+                type="diagnosis"
                 style={{ fontWeight: 600 }}
                 value={values.diagnosis}
-                onChange={e => handleChange('diagnosis', e.target.value)}
+                onChange={val => handleChange('diagnosis', val)}
+                placeholder="Chẩn đoán xác định sau hội chẩn..."
               />
             </div>
 

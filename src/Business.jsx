@@ -288,12 +288,20 @@ function Empty({text}){return <div className="business-empty"><FileText size={30
 
 function Field({field,value,onChange,optionsFor=()=>null}){
   const options=optionsFor(field)||field.options?.map(x=>({label:x,value:x}));
-  const clinicalType = ['reason','reasons'].includes(field.key) ? 'reason'
-    : ['history','allergy','tienSu'].includes(field.key) ? 'history'
+  const clinicalType = ['reason','reasons','lyDo'].includes(field.key) ? 'reason'
+    : ['history','tienSu'].includes(field.key) ? 'history'
+    : ['allergy','diUng'].includes(field.key) ? 'allergy'
+    : ['address','diaChi'].includes(field.key) ? 'address'
+    : ['diagnosis','chanDoan'].includes(field.key) ? 'diagnosis'
+    : ['destination','noiChuyenDen','benhVien'].includes(field.key) ? 'destination'
+    : ['room','phong','buong'].includes(field.key) ? 'room'
+    : ['proposal','deNghi'].includes(field.key) ? 'proposal'
+    : ['surveyArea','vungKhaoSat'].includes(field.key) ? 'surveyArea'
+    : ['technique','kyThuat'].includes(field.key) ? 'technique'
     : ['symptoms','progress','dienBien'].includes(field.key) ? 'symptoms'
     : ['examination','physicalExam'].includes(field.key) ? 'examination'
     : ['plan','treatment','huongDieuTri'].includes(field.key) ? 'plan'
-    : ['advice','note','conclusion','finding','loiDan'].includes(field.key) ? 'advice'
+    : ['advice','note','conclusion','finding','loiDan','ghiChu'].includes(field.key) ? 'advice'
     : ['dose','orders','yLenh'].includes(field.key) ? 'orders'
     : null;
 

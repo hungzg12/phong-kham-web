@@ -418,6 +418,14 @@ export default function Appointments({ appointments, setAppointments, patients, 
                     </select>
                   </label>
                   <label>Ngày giờ khám<input type="datetime-local" name="date" min={today + 'T00:00'} required defaultValue={modal.date || today + 'T08:30'} /></label>
+                  <label>Lý do khám bệnh (nếu có)
+                    <MedicalSuggestInput
+                      type="reason"
+                      name="reason"
+                      placeholder="Ví dụ: Tái khám định kỳ, Đau đầu chóng mặt..."
+                      defaultValue={modal.reason || ''}
+                    />
+                  </label>
                   {error && <p className="form-error" role="alert">{error}</p>}
                   <button className="primary full" disabled={saving}>{modal.id ? 'Lưu lịch hẹn' : 'Xác nhận đặt lịch'}</button>
                 </form>

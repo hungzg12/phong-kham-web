@@ -91,6 +91,7 @@ export default function MedicalSuggestInput({
   const currentValue = isControlled ? (controlledValue || '') : internalValue;
 
   const [isOpen, setIsOpen] = useState(false);
+  const [dropUp, setDropUp] = useState(false);
   const [highlightIdx, setHighlightIdx] = useState(-1);
   const [suggestions, setSuggestions] = useState([]);
   const wrapperRef = useRef(null);
@@ -101,6 +102,20 @@ export default function MedicalSuggestInput({
     setSuggestions(list);
     setHighlightIdx(-1);
   }, [type, currentValue]);
+
+  // Tự động tính toán hướng mở dropdown (dropUp nếu gần đáy màn hình/form)
+  useEffect(() => {
+    if (isOpen && wrapperRef.current && typeof window !== 'undefined') {
+      const rect = wrapperRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      if (spaceBelow < 220 && spaceAbove > 200) {
+        setDropUp(true);
+      } else {
+        setDropUp(false);
+      }
+    }
+  }, [isOpen, suggestions]);
 
   // Đóng dropdown khi click ra ngoài
   useEffect(() => {
@@ -164,16 +179,26 @@ export default function MedicalSuggestInput({
     style: { ...style }
   };
 
+  const isDropdownActive = isOpen && suggestions.length > 0 && !disabled;
+
   return (
-    <div className="his-suggest-wrapper" ref={wrapperRef}>
+    <div
+      className={`his-suggest-wrapper ${isDropdownActive ? 'is-open' : ''}`}
+      ref={wrapperRef}
+      style={{
+        position: 'relative',
+        width: '100%',
+        zIndex: isDropdownActive ? 99999 : 'auto'
+      }}
+    >
       {multiline ? (
         <textarea rows={rows} {...inputProps} />
       ) : (
         <input type="text" {...inputProps} />
       )}
 
-      {isOpen && suggestions.length > 0 && !disabled && (
-        <div className="his-suggest-dropdown" role="listbox">
+      {isDropdownActive && (
+        <div className={`his-suggest-dropdown ${dropUp ? 'drop-up' : ''}`} role="listbox">
           <div className="his-suggest-dropdown-header">
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               <Sparkles size={12} color="#0f766e" />

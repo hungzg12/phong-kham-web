@@ -252,6 +252,153 @@ export const CLINICAL_PHRASE_DICTIONARY = {
   specialtySpine: [
     'Độ giãn cột sống thắt lưng (Schober) 14/10 cm (bình thường). Dấu Lasegue hai bên 85 độ âm tính.',
     'Cột sống thắt lưng thẳng trục, ấn các gai sau không đau chói, cơ cạnh sống không co cứng.'
+  ],
+
+  // 18. Địa chỉ hành chính thường trú (Patient residence address)
+  address: [
+    '124 Nguyễn Trãi, Phường 3, Quận 5, TP. Hồ Chí Minh',
+    '45 Lê Lợi, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh',
+    '78 Cách Mạng Tháng Tám, Phường 6, Quận 3, TP. Hồ Chí Minh',
+    '12 Đại lộ Bình Dương, Phường Phú Hòa, TP. Thủ Dầu Một, Bình Dương',
+    '89 Nguyễn Du, Phường Dĩ An, TP. Dĩ An, Bình Dương',
+    '34 Cách Mạng Tháng Tám, Phường Lái Thiêu, TP. Thuận An, Bình Dương',
+    '56 Quốc lộ 1K, Phường Linh Xuân, TP. Thủ Đức, TP. Hồ Chí Minh',
+    '102 Đồng Khởi, Phường Tân Hiệp, TP. Biên Hòa, Đồng Nai',
+    '15 Hoàng Hoa Thám, Phường Hiệp Thành, TP. Thủ Dầu Một, Bình Dương',
+    '88 Bến Vân Đồn, Phường 12, Quận 4, TP. Hồ Chí Minh'
+  ],
+
+  // 19. Dị ứng thuốc & dị nguyên (Drug allergy & allergens)
+  allergy: [
+    'Không ghi nhận tiền sử dị ứng thuốc và thức ăn',
+    'Dị ứng thuốc kháng sinh nhóm Penicillin (nổi mề đay, khó thở)',
+    'Dị ứng thuốc nhóm Cephalosporin (ngứa, ban đỏ toàn thân)',
+    'Dị ứng thuốc Paracetamol (phù môi, ngứa kết mạc mắt)',
+    'Dị ứng thuốc giảm đau chống viêm nhóm NSAIDs (Aspirin, Ibuprofen)',
+    'Dị ứng thuốc cản quang có chứa iod trong chụp CLS',
+    'Dị ứng thức ăn hải sản: Tôm, cua biển (phù Quincke, mề đay cấp)',
+    'Dị ứng thời tiết và phấn hoa (viêm mũi dị ứng, hắt hơi)'
+  ],
+
+  // 20. Chẩn đoán xác định lâm sàng (Clinical diagnosis)
+  diagnosis: [
+    'Tăng huyết áp vô căn (nguyên phát) (I10)',
+    'Đái tháo đường type 2 không có biến chứng (E11.9)',
+    'Viêm phế quản cấp không đặc hiệu (J20.9)',
+    'Viêm phổi thùy cấp do vi khuẩn (J18.1)',
+    'Viêm dạ dày cấp tính xuất huyết (K29.0)',
+    'Bệnh trào ngược dạ dày - thực quản có viêm thực quản (K21.0)',
+    'Bệnh tim thiếu máu cục bộ do xơ vữa động mạch (I25.1)',
+    'Hen phế quản không xác định (J45.9)',
+    'Đợt cấp bệnh phổi tắc nghẽn mạn tính (COPD) (J44.1)',
+    'Bệnh Gút không xác định (Gout mạn tính) (M10.9)',
+    'Thoái hóa khớp gối nguyên phát hai bên (M17.0)',
+    'Đau thắt lưng dưới cấp tính (M54.5)',
+    'Nhiễm khuẩn đường tiết niệu không đặc hiệu (N39.0)',
+    'Rối loạn chuyển hóa lipoprotein không đặc hiệu (E78.5)',
+    'Viêm họng cấp tính do virus (J02.9)'
+  ],
+
+  // 21. Cơ sở tiếp nhận chuyển viện / chuyển tuyến (Referral destinations)
+  destination: [
+    'Bệnh viện Chợ Rẫy (Tuyến Trung ương - Hạng đặc biệt)',
+    'Bệnh viện Thống Nhất (Tuyến Trung ương - Hạng I)',
+    'Bệnh viện Đại học Y Dược TP. Hồ Chí Minh (Tuyến Trung ương)',
+    'Bệnh viện Đa khoa Tỉnh Bình Dương (Tuyến Tỉnh - Hạng I)',
+    'Bệnh viện Nhân dân Gia Định (Tuyến Thành phố - Hạng I)',
+    'Bệnh viện Từ Dũ (Tuyến Chuyên khoa Sản - Hạng I)',
+    'Bệnh viện Nhi Đồng 1 (Tuyến Chuyên khoa Nhi - Hạng I)',
+    'Bệnh viện Bạch Mai (Tuyến Trung ương - Hạng đặc biệt)',
+    'Bệnh viện Tai Mũi Họng TP. Hồ Chí Minh (Tuyến Chuyên khoa Hạng I)',
+    'Bệnh viện Da Liễu TP. Hồ Chí Minh (Tuyến Chuyên khoa Hạng I)'
+  ],
+
+  // 22. Ghi chú chăm sóc & theo dõi nội trú (Inpatient care notes)
+  note: [
+    'Theo dõi dấu hiệu sinh tồn (Mạch, Nhiệt, HA, SpO2) mỗi 4 giờ tại giường',
+    'Thở oxy qua kính mũi 3 lít/phút, duy trì SpO2 trên 95%',
+    'Bệnh nhân nằm bất động tại giường, đầu cao 30 độ, ăn súp loãng dinh dưỡng',
+    'Chế độ ăn kiêng muối nghiêm ngặt (dưới 3g muối/ngày) và hạn chế nước uống',
+    'Thử đường huyết mao mạch trước các bữa ăn chính và lúc 21 giờ tối',
+    'Chăm sóc vết thương hàng ngày, thay băng vô khuẩn, theo dõi dẫn lưu',
+    'Báo bác sĩ trực ngay nếu có cơn đau ngực tái phát, khó thở hoặc sốt > 38.5°C'
+  ],
+
+  // 23. Đề nghị chuyên môn CĐHA & CLS (Diagnostic proposals)
+  proposal: [
+    'Đề nghị chụp lại kiểm tra sau 7-10 ngày điều trị nội khoa',
+    'Đề nghị chụp cắt lớp vi tính (CT-Scanner) ngực để đánh giá chi tiết tổn thương',
+    'Đề nghị kết hợp siêu âm Doppler tim và siêu âm ổ bụng tổng quát',
+    'Đề nghị nội soi thực quản - dạ dày kiểm tra và làm Clo-test',
+    'Chưa phát hiện tổn thương bất thường cần can thiệp ngoại khoa cấp cứu'
+  ],
+
+  // 24. Vùng khảo sát hình ảnh (Survey area)
+  surveyArea: [
+    'Lồng ngực và nhu mô phổi hai bên',
+    'Cột sống thắt lưng thẳng và nghiêng',
+    'Cột sống cổ thẳng và nghiêng',
+    'Khớp gối hai bên (thẳng và nghiêng)',
+    'Khớp háng hai bên (thế thẳng)',
+    'Toàn bộ ổ bụng và hệ tiết niệu',
+    'Xoang hàm mặt và vòm mũi họng',
+    'Sọ não thẳng và nghiêng'
+  ],
+
+  // 25. Kỹ thuật thực hiện hình ảnh (Imaging technique)
+  technique: [
+    'Chụp X-quang kỹ thuật số thẳng thế đứng PA',
+    'Chụp X-quang kỹ thuật số thẳng và nghiêng',
+    'Siêu âm màu Doppler 2D/4D tổng quát',
+    'Nội soi huỳnh quang độ nét cao',
+    'Điện tâm đồ 12 chuyển đạo chuẩn tại giường',
+    'Chụp CT-Scanner đa dãy đầu dò có tiêm thuốc cản quang'
+  ],
+
+  // 26. Phòng khám tiếp nhận (Clinic rooms)
+  room: [
+    'Phòng khám 101 - Nội tổng quát (BS.CKI Trần Minh Anh)',
+    'Phòng khám 102 - Tim mạch can thiệp (ThS.BS Nguyễn Văn An)',
+    'Phòng khám 103 - Tai Mũi Họng (BS.CKII Lê Thị Mai)',
+    'Phòng khám 104 - Da liễu & Thẩm mỹ (BS Đỗ Hoàng Long)',
+    'Phòng khám 105 - Sản phụ khoa (BS.CKI Phạm Quỳnh Hoa)',
+    'Phòng khám 106 - Cơ xương khớp (ThS.BS Đặng Quốc Tuấn)'
+  ],
+
+  // 27. Tiếng tim & âm thổi chuyên khoa Tim mạch
+  specialtyHeartSounds: [
+    'T1, T2 đều rõ, không âm thổi bệnh lý, không tiếng tim thứ 3 (T3/T4)',
+    'T1, T2 rõ, âm thổi tâm thu 2/6 ở mỏm tim lan nách',
+    'Tim loạn nhịp hoàn toàn, T1 thay đổi cường độ (Nghi rung nhĩ)',
+    'Âm thổi tâm thu 3/6 ở liên sườn 2 bờ phải xương ức (Hẹp van ĐMC)',
+    'Tiếng tim mờ xa xăm, có tiếng cọ màng tim vùng trước tim'
+  ],
+
+  // 28. Điện tâm đồ & Siêu âm tim chuyên khoa Tim mạch
+  specialtyEcg: [
+    'Nhịp xoang đều 75 bpm, không biến đổi đoạn ST-T. EF ước tính > 55%',
+    'Nhịp nhanh xoang 105 bpm, không thiếu máu cơ tim cấp',
+    'Rung nhĩ đáp ứng thất trung bình 85 bpm, không có sóng f lớn',
+    'Dày thất trái theo tiêu chuẩn Sokolow-Lyon (Sv1 + Rv5 > 35mm)',
+    'Ngoại tâm thu thất thưa đơn dạng rải rác'
+  ],
+
+  // 29. Tổn thương da cơ bản & Tính chất chuyên khoa Da liễu
+  specialtySkin: [
+    'Dát đỏ hình tròn, sẩn phù mề đay rải rác, ngứa nhiều',
+    'Mụn nước nhỏ li ti mọc thành chùm trên nền dát đỏ, rát buốt',
+    'Mảng đỏ bong vảy trắng bạc, dấu cạo vỏ hành (+)',
+    'Sẩn sừng nang lông, da khô ráp dày sừng vùng duỗi',
+    'Vết loét trợt nông, bờ rõ, rỉ dịch mủ vàng nhạt'
+  ],
+
+  // 30. Khám mỏ vịt & Cổ tử cung chuyên khoa Sản phụ khoa
+  specialtyCervix: [
+    'Âm đạo không viêm, CTC trơn láng, đóng kín, không chảy máu',
+    'CTC lộ tuyến độ I, tiết dịch nhầy trong, không đau',
+    'Âm đạo nhiều huyết trắng dạng vón cục, CTC viêm đỏ nhẹ',
+    'Tử cung tư thế trung gian, kích thước bình thường, hai phần phụ mềm không đau',
+    'Tử cung ngả trước, kích thước tương đương tuổi thai, hai phần phụ mềm'
   ]
 };
 

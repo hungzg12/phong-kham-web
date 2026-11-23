@@ -239,13 +239,11 @@ export default function SpecialtyExamModule({ roomCode, department, specialtyDat
 
             <label className="his-label" style={{ gridColumn: 'span 2' }}>
               Khám Tiếng tim & Âm thổi bệnh lý
-              <input
-                type="text"
-                list="tim-heart-sounds"
+              <MedicalSuggestInput
+                type="specialtyHeartSounds"
                 disabled={disabled}
-                className="his-input"
                 value={specialtyData.heartSounds || ''}
-                onChange={e => update('heartSounds', e.target.value)}
+                onChange={val => update('heartSounds', val)}
                 placeholder="T1, T2 đều rõ / Âm thổi tâm thu 3/6 ở mỏm / Không rung miu..."
               />
             </label>
@@ -280,13 +278,11 @@ export default function SpecialtyExamModule({ roomCode, department, specialtyDat
 
             <label className="his-label" style={{ gridColumn: 'span 4' }}>
               Ghi chú Điện tâm đồ (ECG) & Siêu âm tim tại chỗ
-              <input
-                type="text"
-                list="tim-ecg-notes"
+              <MedicalSuggestInput
+                type="specialtyEcg"
                 disabled={disabled}
-                className="his-input"
                 value={specialtyData.ecgNotes || ''}
-                onChange={e => update('ecgNotes', e.target.value)}
+                onChange={val => update('ecgNotes', val)}
                 placeholder="Nhịp xoang 75 bpm, không biến đổi đoạn ST-T. EF ước tính > 55%..."
               />
             </label>
@@ -383,13 +379,11 @@ export default function SpecialtyExamModule({ roomCode, department, specialtyDat
 
             <label className="his-label" style={{ gridColumn: 'span 2' }}>
               Tổn thương da cơ bản & Tính chất
-              <input
-                type="text"
-                list="da-primary-lesions"
+              <MedicalSuggestInput
+                type="specialtySkin"
                 disabled={disabled}
-                className="his-input"
                 value={specialtyData.primaryLesions || ''}
-                onChange={e => update('primaryLesions', e.target.value)}
+                onChange={val => update('primaryLesions', val)}
                 placeholder="Dát đỏ hình tròn, sẩn phù, mụn nước nhỏ li ti, có vảy da mỏng..."
               />
             </label>
@@ -413,13 +407,11 @@ export default function SpecialtyExamModule({ roomCode, department, specialtyDat
 
             <label className="his-label" style={{ gridColumn: 'span 2' }}>
               Vị trí & Phân bố tổn thương
-              <input
-                type="text"
-                list="da-distribution"
+              <MedicalSuggestInput
+                type="specialtySkin"
                 disabled={disabled}
-                className="his-input"
                 value={specialtyData.lesionDistribution || ''}
-                onChange={e => update('lesionDistribution', e.target.value)}
+                onChange={val => update('lesionDistribution', val)}
                 placeholder="Đối xứng hai bên cẳng tay, vùng nếp gấp khuỷu, vùng phơi bày ánh sáng..."
               />
             </label>
@@ -520,26 +512,22 @@ export default function SpecialtyExamModule({ roomCode, department, specialtyDat
 
             <label className="his-label" style={{ gridColumn: 'span 2' }}>
               Khám Mỏ vịt & Cổ tử cung (CTC)
-              <input
-                type="text"
-                list="san-cervix-presets"
+              <MedicalSuggestInput
+                type="specialtyCervix"
                 disabled={disabled}
-                className="his-input"
                 value={specialtyData.cervixExam || ''}
-                onChange={e => update('cervixExam', e.target.value)}
+                onChange={val => update('cervixExam', val)}
                 placeholder="Âm đạo không viêm, CTC trơn láng, đóng kín, không chảy máu..."
               />
             </label>
 
             <label className="his-label" style={{ gridColumn: 'span 2' }}>
               Khám Tử cung & 2 Phần phụ (Bimanual Exam)
-              <input
-                type="text"
-                list="san-uterus-presets"
+              <MedicalSuggestInput
+                type="specialtyCervix"
                 disabled={disabled}
-                className="his-input"
                 value={specialtyData.uterusExam || ''}
-                onChange={e => update('uterusExam', e.target.value)}
+                onChange={val => update('uterusExam', val)}
                 placeholder="Tử cung tư thế trung gian, di động tốt. Hai phần phụ mềm, không đau..."
               />
             </label>

@@ -423,11 +423,11 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
             <div>
               <label className="his-label">
                 Chẩn đoán lâm sàng mô tả đầy đủ *
-                <input
+                <MedicalSuggestInput
+                  type="diagnosis"
                   required
                   value={diagnosis}
-                  onChange={e => setDiagnosis(e.target.value)}
-                  className="his-input"
+                  onChange={val => setDiagnosis(val)}
                   placeholder="Ví dụ: Tăng huyết áp vô căn (I10) / Kèm theo: Đái tháo đường typ 2 (E11)..."
                 />
               </label>

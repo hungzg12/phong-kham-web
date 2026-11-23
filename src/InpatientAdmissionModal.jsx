@@ -367,12 +367,12 @@ export default function InpatientAdmissionModal({
 
           <label className="his-field col-span-2">
             <span>Chẩn đoán lâm sàng vào viện <small className="required-star">*</small></span>
-            <input
-              type="text"
+            <MedicalSuggestInput
+              type="diagnosis"
               value={diagnosis}
-              onChange={e => setDiagnosis(e.target.value)}
+              onChange={val => setDiagnosis(val)}
               required
-              placeholder="Nhập chẩn đoán lâm sàng đầy đủ hoặc chọn từ mã ICD-10 phía trên..."
+              placeholder="Nhập chẩn đoán lâm sàng đầy đủ hoặc chọn từ gợi ý/mã ICD-10 phía trên..."
             />
           </label>
 
@@ -437,11 +437,11 @@ export default function InpatientAdmissionModal({
 
           <label className="his-field col-span-2">
             <span>Dặn dò chăm sóc & Ghi chú buồng bệnh (ghiChu)</span>
-            <input
-              type="text"
+            <MedicalSuggestInput
+              type="note"
               value={note}
-              onChange={e => setNote(e.target.value)}
-              placeholder="Ghi chú vị trí nằm, chế độ theo dõi hoặc lưu ý hộ lý..."
+              onChange={val => setNote(val)}
+              placeholder="VD: Chế độ ăn giảm muối, theo dõi huyết áp 2 lần/ngày, bất động tại giường..."
             />
           </label>
         </div>

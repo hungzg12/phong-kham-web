@@ -371,14 +371,13 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
 
                 <label className="his-label">
                   Địa chỉ thường trú / Tạm trú *
-                  <input
-                    name="address"
+                  <MedicalSuggestInput
+                    type="address"
                     required
                     maxLength={255}
                     value={address}
-                    onChange={e => setAddress(e.target.value)}
-                    placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/TP"
-                    className="his-input"
+                    onChange={val => setAddress(val)}
+                    placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/TP..."
                   />
                 </label>
 
@@ -406,13 +405,12 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
 
                 <label className="his-label">
                   Dị ứng thuốc & dị nguyên
-                  <input
-                    name="allergy"
+                  <MedicalSuggestInput
+                    type="allergy"
                     maxLength={255}
                     value={allergyNote}
-                    onChange={e => setAllergyNote(e.target.value)}
+                    onChange={val => setAllergyNote(val)}
                     placeholder="Penicillin, NSAIDs, Paracetamol..."
-                    className="his-input"
                   />
                   <div style={{display:'flex',gap:'6px',flexWrap:'wrap',marginTop:'4px'}}>
                     {['Không ghi nhận dị ứng', 'Penicillin', 'Aspirin / NSAIDs', 'Paracetamol'].map(tag => (

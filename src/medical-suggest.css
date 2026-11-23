@@ -8,6 +8,11 @@
   width: 100%;
 }
 
+.his-suggest-wrapper.is-open {
+  position: relative;
+  z-index: 99999 !important;
+}
+
 .his-suggest-field {
   width: 100%;
   border: 1px solid #dce8df;
@@ -33,25 +38,44 @@
   cursor: not-allowed;
 }
 
-/* Dropdown Container */
+/* Dropdown Container: Luôn nằm ở lớp trên cùng (z-index cực đại, nền trắng đục hoàn toàn) */
 .his-suggest-dropdown {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background: #ffffff;
-  border: 1px solid #94a3b8;
+  background: #ffffff !important;
+  border: 1px solid #0f766e;
   border-radius: 8px;
-  box-shadow: 0 12px 28px -4px rgba(15, 23, 42, 0.15), 0 4px 12px -2px rgba(15, 23, 42, 0.08);
-  z-index: 1050;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.4), 0 8px 20px rgba(15, 23, 42, 0.25) !important;
+  z-index: 999999 !important;
   overflow: hidden;
   animation: hisFadeDown 0.15s ease-out;
+}
+
+/* Khi trường nhập liệu ở đáy màn hình hoặc đáy modal: Mở ngược lên trên */
+.his-suggest-dropdown.drop-up {
+  top: auto;
+  bottom: calc(100% + 4px);
+  box-shadow: 0 -20px 45px rgba(15, 23, 42, 0.4), 0 -8px 20px rgba(15, 23, 42, 0.25) !important;
+  animation: hisFadeUp 0.15s ease-out;
 }
 
 @keyframes hisFadeDown {
   from {
     opacity: 0;
     transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hisFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
   }
   to {
     opacity: 1;

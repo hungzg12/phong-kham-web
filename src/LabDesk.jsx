@@ -704,21 +704,21 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                           <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
                             Vùng khảo sát
-                            <input
-                              list="survey-areas"
+                            <MedicalSuggestInput
+                              type="surveyArea"
                               value={editing.surveyArea || ''}
                               placeholder="VD: Lồng ngực và nhu mô phổi 2 bên"
-                              onChange={e => setEditing({ ...editing, surveyArea: e.target.value })}
+                              onChange={val => setEditing({ ...editing, surveyArea: val })}
                               style={{ marginTop: '4px' }}
                             />
                           </label>
                           <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
                             Kỹ thuật chụp / thực hiện
-                            <input
-                              list="imaging-techniques"
+                            <MedicalSuggestInput
+                              type="technique"
                               value={editing.technique || ''}
                               placeholder="VD: Chụp X-quang tim phổi thẳng số hóa thế PA"
-                              onChange={e => setEditing({ ...editing, technique: e.target.value })}
+                              onChange={val => setEditing({ ...editing, technique: val })}
                               style={{ marginTop: '4px' }}
                             />
                           </label>
@@ -750,11 +750,11 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
 
                         <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
                           Đề nghị chuyên môn (nếu có)
-                          <input
-                            list="imaging-proposals"
+                          <MedicalSuggestInput
+                            type="proposal"
                             value={editing.proposal || ''}
                             placeholder="VD: Đề nghị chụp lại sau điều trị hoặc làm thêm CT-Scanner"
-                            onChange={e => setEditing({ ...editing, proposal: e.target.value })}
+                            onChange={val => setEditing({ ...editing, proposal: val })}
                             style={{ marginTop: '4px' }}
                           />
                         </label>
