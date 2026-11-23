@@ -275,10 +275,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
 
       {/* 2. Room Selector & Queue Toolbar */}
       <div className="lab-room-toolbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Building2 size={18} style={{ color: '#0f766e' }} />
-          <span style={{ fontSize: '13px', fontWeight: 600, color: '#334155' }}>Phòng máy trực:</span>
-        </div>
+        <label className="lab-room-label" htmlFor="lab-room-select"><Building2 size={18}/><span>Phòng thực hiện CLS</span></label>
         <select
           aria-label="Chọn phòng thực hiện CLS"
           value={selectedRoom}
@@ -288,7 +285,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
             setSelectedServiceId('');
             setEditing(null);
           }}
-          className="lab-room-select"
+          id="lab-room-select" className="lab-room-select"
         >
           {LAB_ROOMS.map(r => {
             const countInRoom = db.labs.filter(l => {
@@ -309,13 +306,13 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
 
         {/* Quick status counters */}
         <div className="lab-room-counts">
-          <span style={{ background: '#fef3c7', color: '#92400e', padding: '4px 10px', borderRadius: '20px', fontWeight: 600 }}>
+          <span className="lab-count pending">
             Chờ tiếp nhận: {allFilteredLabs.filter(r => r.status === 'Chờ tiếp nhận').length}
           </span>
-          <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '4px 10px', borderRadius: '20px', fontWeight: 600 }}>
+          <span className="lab-count processing">
             Đang làm: {allFilteredLabs.filter(r => r.status === 'Đang thực hiện').length}
           </span>
-          <span style={{ background: '#dcfce7', color: '#166534', padding: '4px 10px', borderRadius: '20px', fontWeight: 600 }}>
+          <span className="lab-count complete">
             Đã có KQ: {allFilteredLabs.filter(r => r.status === 'Đã phát hành').length}
           </span>
         </div>
@@ -397,9 +394,9 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                   key={g.key}
                   aria-pressed={isSelected}
                   style={{
-                    border: isSelected ? '1.5px solid #0f766e' : '1px solid #e2e8f0',
-                    borderLeft: isSelected ? '4px solid #0f766e' : '3px solid #cbd5e1',
-                    background: isSelected ? '#f0fdfa' : '#ffffff',
+                    border: isSelected ? '1.5px solid #2563eb' : '1px solid #e2e8f0',
+                    borderLeft: isSelected ? '4px solid #2563eb' : '3px solid #cbd5e1',
+                    background: isSelected ? '#eff6ff' : '#ffffff',
                     padding: '8px 12px',
                     display: 'flex',
                     flexDirection: 'column',
@@ -409,7 +406,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                     cursor: 'pointer',
                     minHeight: '52px',
                     transition: 'all 0.15s ease',
-                    boxShadow: isSelected ? '0 1px 4px rgba(15,118,110,0.12)' : 'none'
+                    boxShadow: isSelected ? '0 1px 4px rgba(37,99,235,0.12)' : 'none'
                   }}
                   onClick={() => {
                     if (editing && !window.confirm('Bỏ kết quả chưa lưu để chuyển người bệnh?')) return;
@@ -423,7 +420,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                   {/* Line 1: STT + Full Patient Name + Demographics + Urgent Tag */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', width: '100%' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
-                      <span style={{ background: isSelected ? '#ccfbf1' : '#f1f5f9', color: isSelected ? '#0f766e' : '#475569', fontSize: '11px', fontWeight: 700, padding: '1px 5px', borderRadius: '4px', flexShrink: 0 }}>
+                      <span style={{ background: isSelected ? '#dbeafe' : '#f1f5f9', color: isSelected ? '#2563eb' : '#475569', fontSize: '11px', fontWeight: 700, padding: '1px 5px', borderRadius: '4px', flexShrink: 0 }}>
                         {String(idx + 1).padStart(2, '0')}
                       </span>
                       <b style={{ fontSize: '13.5px', color: '#0f172a', whiteSpace: 'nowrap' }}>
@@ -447,7 +444,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
 
                   {/* Line 2: Service count & names summary + Episode ID + Consolidated Status Badge */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', width: '100%', fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-                    <span style={{ color: '#0f766e', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }} title={serviceNames}>
+                    <span style={{ color: '#2563eb', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }} title={serviceNames}>
                       {g.counts.total} DV: {serviceNames}
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
@@ -521,7 +518,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                   </div>
                   <div style={{ whiteSpace: 'nowrap' }}>
                     <span style={{ color: '#1e40af', fontWeight: 600 }}>Tổng số chỉ định:</span>{' '}
-                    <b style={{ color: '#0f766e' }}>{activeGroup.services.length} dịch vụ kỹ thuật</b>
+                    <b style={{ color: '#2563eb' }}>{activeGroup.services.length} dịch vụ kỹ thuật</b>
                   </div>
                   <div style={{ width: '100%', display: 'flex', gap: '6px', alignItems: 'baseline', marginTop: '2px' }}>
                     <span style={{ color: '#1e40af', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>Chẩn đoán sơ bộ:</span>{' '}
@@ -535,7 +532,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
               {/* Segmented Service Selector Tabs (Show all services ordered for this patient) */}
               <div style={{ display: 'flex', gap: '8px', padding: '10px 20px', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', flexWrap: 'wrap', alignItems: 'center' }}>
                 <span style={{ fontSize: '12px', fontWeight: 700, color: '#334155', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <Activity size={14} style={{ color: '#0f766e' }} /> Chọn dịch vụ:
+                  <Activity size={14} style={{ color: '#2563eb' }} /> Chọn dịch vụ:
                 </span>
                 {activeGroup.services.map((sItem, sIdx) => {
                   const serv = db.services.find(x => x.id === sItem.service);
@@ -563,9 +560,9 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                         borderRadius: '6px',
                         fontSize: '12px',
                         fontWeight: isAct ? 700 : 500,
-                        border: isAct ? '1.5px solid #0f766e' : '1px solid #cbd5e1',
-                        background: isAct ? '#f0fdfa' : '#ffffff',
-                        color: isAct ? '#0f766e' : '#334155',
+                        border: isAct ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+                        background: isAct ? '#eff6ff' : '#ffffff',
+                        color: isAct ? '#2563eb' : '#334155',
                         cursor: 'pointer',
                         whiteSpace: 'nowrap',
                         transition: 'all 0.15s ease',
@@ -586,7 +583,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                     className="secondary"
                     onClick={batchAcceptServices}
                     disabled={saving}
-                    style={{ marginLeft: 'auto', padding: '6px 12px', fontSize: '11.5px', fontWeight: 600, color: '#0f766e', borderColor: '#0f766e', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                    style={{ marginLeft: 'auto', padding: '6px 12px', fontSize: '11.5px', fontWeight: 600, color: '#2563eb', borderColor: '#2563eb', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                     title="Tiếp nhận đồng thời tất cả các chỉ định đang chờ của bệnh nhân này"
                   >
                     <Check size={13} /> Tiếp nhận tất cả ({activeGroup.services.filter(s => s.status === 'Chờ tiếp nhận').length} DV)
@@ -597,10 +594,10 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
               {/* Card 2: Technician Result Entry or Result Presentation */}
               <div style={{ padding: '20px' }}>
                 {/* Active Service Banner */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', paddingBottom: '10px', borderBottom: '1px solid #f1f5f9' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ background: '#ccfbf1', color: '#0f766e', padding: '3px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 700 }}>
-                      Đang xử lý
+                <div className="lab-service-heading">
+                  <div className="lab-service-title">
+                    <span style={{ background: '#dbeafe', color: '#2563eb', padding: '3px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 700 }}>
+                      {row.status}
                     </span>
                     <h4 style={{ margin: 0, fontSize: '15px', color: '#0f172a', fontWeight: 700 }}>
                       {serviceName}
@@ -622,7 +619,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                 {/* Stage A: When Waiting for Check-in */}
                 {row.status === 'Chờ tiếp nhận' && !editing && (
                   <div style={{ padding: '28px', textAlign: 'center', background: '#fafaf9', borderRadius: '8px', border: '1.5px dashed #cbd5e1' }}>
-                    <Activity size={32} style={{ color: '#0f766e', margin: '0 auto 8px' }} />
+                    <Activity size={32} style={{ color: '#2563eb', margin: '0 auto 8px' }} />
                     <h3 style={{ margin: '0 0 8px', fontSize: '16px', color: '#1e293b' }}>
                       Chỉ định "{serviceName}" đang chờ tiếp nhận
                     </h3>
@@ -633,7 +630,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                       <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
                         <button
                           className="primary"
-                          style={{ padding: '8px 20px', fontSize: '13px', fontWeight: 600, background: '#0f766e', borderColor: '#0f766e', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                          style={{ padding: '8px 20px', fontSize: '13px', fontWeight: 600, background: '#2563eb', borderColor: '#2563eb', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                           disabled={saving}
                           onClick={async () => {
                             await action('accept');
@@ -669,7 +666,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                       <button
                         type="button"
                         className="secondary"
-                        style={{ color: '#0f766e', borderColor: '#0f766e', fontWeight: 600, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                        style={{ color: '#2563eb', borderColor: '#2563eb', fontWeight: 600, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
                         onClick={fillQuickTemplate}
                       >
                         <Sparkles size={14} /> Điền mẫu kết quả chuẩn nhanh
@@ -718,7 +715,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                             value={editing.conclusion || ''}
                             placeholder="Ghi rõ kết luận chẩn đoán hình ảnh..."
                             onChange={e => setEditing({ ...editing, conclusion: e.target.value })}
-                            style={{ marginTop: '4px', width: '100%', fontWeight: 600, color: '#0f766e', fontFamily: 'inherit' }}
+                            style={{ marginTop: '4px', width: '100%', fontWeight: 600, color: '#2563eb', fontFamily: 'inherit' }}
                           />
                         </label>
 
@@ -865,7 +862,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                             {row.resultRows.map((r, i) => (
                               <tr key={i}>
                                 <td style={{ fontWeight: 600 }}>{r.name}</td>
-                                <td style={{ fontWeight: 700, color: '#0f766e' }}>{r.value}</td>
+                                <td style={{ fontWeight: 700, color: '#2563eb' }}>{r.value}</td>
                                 <td>{r.unit}</td>
                                 <td style={{ color: '#64748b' }}>{r.reference}</td>
                               </tr>
@@ -883,7 +880,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                     <div style={{ padding: '14px', background: '#f1f5f9', borderRadius: '6px', marginBottom: '16px', fontSize: '13px' }}>
                       <p style={{ margin: '0 0 6px' }}>
                         <b>Kết luận chuyên môn:</b>{' '}
-                        <span style={{ color: '#0f766e', fontWeight: 600 }}>{row.conclusion || '—'}</span>
+                        <span style={{ color: '#2563eb', fontWeight: 600 }}>{row.conclusion || '—'}</span>
                       </p>
                       <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
                         <b>Người ký duyệt:</b> {row.reviewer || 'KTV Trưởng / Bác sĩ CĐHA'} · Thời điểm phát hành: {row.releasedAt || 'Chưa duyệt'}

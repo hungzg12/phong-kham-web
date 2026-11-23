@@ -152,16 +152,30 @@
 .app .bed-kpi-card .kpi-icon { width: 40px; height: 40px; border-radius: 10px; }
 .app .bedmap-filter-tabs { background: #eaf0f2; border-radius: 9px; padding: 4px; gap: 3px; }
 .app .bedmap-filter-tabs button { border-radius: 6px; padding: 8px 11px; font-size: 11px; }
-.app .bedmap-grid { gap: 16px; grid-template-columns: repeat(auto-fill,minmax(280px,1fr)); }
-.app .bed-card { border: 1px solid var(--ui-line); border-top: 3px solid #c2d1d8; border-radius: 11px; padding: 17px; box-shadow: none; }
-.app .bed-card.available { border-left: 1px solid var(--ui-line); border-top-color: #61ad94; }
-.app .bed-card.occupied { border-left: 1px solid var(--ui-line); border-top-color: #77a7d4; }
-.app .bed-card.cleaning { border-left: 1px solid var(--ui-line); border-top-color: #d9b26a; }
-.app .bed-card:hover { box-shadow: 0 5px 16px #24464c0b; transform: translateY(-1px); }
-.app .bed-room-tag { background: #f4f7fa; color: #677d89; font-size: 10px; max-width: 75%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.app .bed-status-pill { flex-shrink: 0; white-space: nowrap; }
-.app .bed-available-notice { background: #f4faf7; color: #4c8973; font-size: var(--ui-label); border-radius: 7px; }
-.app .bed-price { color: #7c8c96; font-size: 11px; }
+.app .bedmap-grid { gap: 16px; grid-template-columns: repeat(auto-fill,minmax(280px,1fr)); align-items: stretch; }
+.app .bed-card { border: 1px solid #dbe4ef; border-top: 3px solid #94a3b8; border-radius: 12px; padding: 18px; gap: 16px; box-shadow: none; background: #fff; }
+.app .bed-card.available { border-left: 1px solid #dbe4ef; border-top-color: #93c5fd; }
+.app .bed-card.occupied { border-left: 1px solid #dbe4ef; border-top-color: #2563eb; background: #f8fbff; }
+.app .bed-card.cleaning { border-left: 1px solid #dbe4ef; border-top-color: #f59e0b; background: #fffdf8; }
+.app .bed-card:hover { border-color: #93c5fd; box-shadow: 0 5px 16px #2563eb0d; transform: translateY(-1px); }
+.app .bed-card:focus-visible { outline: 3px solid #60a5fa; outline-offset: 3px; }
+.app .bed-card-head { gap: 8px; flex-wrap: wrap; align-items: flex-start; }
+.app .bed-room-tag { background: transparent; color: #64748b; font-size: 12px; padding: 0; max-width: 100%; overflow-wrap: anywhere; white-space: normal; line-height: 1.6; }
+.app .bed-status-pill { flex-shrink: 0; white-space: nowrap; font-size: 11px; padding: 4px 8px; border-radius: 6px; }
+.app .bed-card .pill-green { color: #1e40af; background: #eff6ff; }
+.app .bed-card .bed-identity { gap: 12px; margin: 2px 0 10px; }
+.app .bed-card .bed-icon-badge { width: 42px; height: 42px; flex-shrink: 0; background: #eff6ff; color: #2563eb; border-radius: 10px; }
+.app .bed-card.cleaning .bed-icon-badge { background: #fffbeb; color: #b45309; }
+.app .bed-card .bed-num { font-size: 20px; line-height: 1.4; color: #1e293b; }
+.app .bed-price { color: #64748b; font-size: 12px; display: block; margin-top: 3px; }
+.app .bed-available-notice { background: #f8fafc; color: #475569; font-size: 12px; border: 1px solid #e2e8f0; border-radius: 7px; padding: 9px 10px; }
+.app .bed-available-notice svg { color: #2563eb; flex-shrink: 0; }
+.app .bed-card .bed-patient-info { background: #fff; border-color: #dbeafe; }
+.app .bed-card .patient-name { overflow-wrap: anywhere; }
+.app .bed-card .patient-meta { flex-wrap: wrap; gap: 4px 10px; overflow-wrap: anywhere; }
+.app .bed-card-footer { border-top: 1px solid #e2e8f0; padding-top: 12px; }
+.app .bed-action-hint { display: flex; align-items: center; justify-content: center; min-height: 38px; padding: 8px 10px; background: #eff6ff; color: #1d4ed8; border-radius: 7px; font-size: 12px; font-weight: 600; text-align: center; }
+.app .bed-card.cleaning .bed-action-hint { background: #fffbeb; color: #92400e; }
 
 /* A single form rhythm for existing dialogs and embedded administration. */
 .app :is(.modal,.admin-dialog) { border-radius: 15px; border: 1px solid #e3e9ec; box-shadow: 0 20px 80px #19343c24; max-height: calc(100dvh - 48px); scrollbar-width: thin; }
@@ -206,6 +220,25 @@
 .app .inventory-tabs > button { border: 0; background: transparent; color: #5a707c; white-space: nowrap; border-radius: 6px; padding: 10px 14px; min-height: 38px; font-size: var(--ui-label); flex-shrink: 0; }
 .app .inventory-tabs > button.active { background: #2563eb; color: #fff; font-weight: 600; box-shadow: 0 1px 3px #163b3210; }
 .app .his-emr-archive-container { min-width: 0; }
+.app .exam-dialog > .close { position: sticky; top: 0; right: auto; margin-left: auto; margin-bottom: -38px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; z-index: 8; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; border-radius: 8px; }
+.app .exam-form { gap: 0; }
+.app .exam-form .his-form-header { position: sticky; top: -24px; z-index: 5; background: #fff; padding: 18px 46px 18px 0; margin: 0 0 20px; border-bottom: 1px solid #e2e8f0; align-items: flex-start; flex-wrap: wrap; gap: 12px; }
+.app .exam-form .his-header-title { align-items: flex-start; min-width: 0; flex: 1 1 420px; }
+.app .exam-form .his-header-title > div { min-width: 0; }
+.app .exam-form .his-header-title h2 { color: #1e293b; font-size: 20px; line-height: 1.5; }
+.app .exam-form .his-header-icon { color: #2563eb; margin-top: 5px; }
+.app .exam-form .his-header-sub { color: #64748b; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.app .exam-form .his-form-section { border-color: #e2e8f0; padding: 20px; border-radius: 10px; box-shadow: none; gap: 16px; }
+.app .exam-form .his-lookup-section { background: #f8fafc; border-color: #dbe4f0; }
+.app .exam-form .his-section-header { color: #1e40af; border-color: #e2e8f0; font-size: 14px; line-height: 1.6; padding-bottom: 12px; }
+.app .exam-form .his-section-header svg { color: #2563eb; }
+.app .exam-form .his-label { color: #475569; font-size: 13px; line-height: 1.6; gap: 7px; }
+.app .exam-form :is(input,select,textarea) { color: #1e293b; background: #fff; border-color: #cbd5e1; border-radius: 8px; }
+.app .exam-form .his-bottom-actions { display: flex; justify-content: flex-end; gap: 10px; position: sticky; bottom: -24px; z-index: 5; padding: 16px 0 8px; margin-top: 0; background: #fff; border-top: 1px solid #e2e8f0; }
+@media(max-width:900px) { .app .exam-form .his-grid-4 { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media(max-width:700px) { .app .exam-form .his-form-header { top: -22px; padding-top: 12px; } .app .exam-form .his-header-title h2 { font-size: 18px; } .app .exam-form .his-form-section { padding: 16px; } .app .exam-form .his-bottom-actions { bottom: -22px; flex-wrap: wrap; } .app .exam-form .his-bottom-actions button { flex: 1 1 140px; } }
+@media(max-width:480px) { .app .exam-form :is(.his-grid-2,.his-grid-3,.his-grid-4) { grid-template-columns: 1fr; } .app .exam-form :is(.his-col-2,.his-col-3) { grid-column: 1; } }
+
 .app .emr-patient-summary { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 18px; align-items: center; }
 .app .emr-patient-summary > div { min-width: 0; overflow-wrap: anywhere; }
 .app .emr-record-layout { display: grid; grid-template-columns: minmax(240px, .75fr) minmax(0,2fr); gap: 16px; align-items: start; }
@@ -263,8 +296,36 @@
   .app .bedmap-header-actions { max-width: 45%; }
   .app .bedmap-kpis { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
+.app .lab-desk .desk-queue { border-color: #dbe4ef; padding: 16px; border-radius: 12px; }
+.app .lab-desk .desk-queue-title { gap: 8px; flex-wrap: wrap; padding-bottom: 12px; border-bottom: 1px solid #e2e8f0; }
+.app .lab-desk .desk-queue-title > span { background: #eff6ff; color: #334155; }
+.app .lab-desk .desk-patient-list > button { min-width: 0; }
+.app .lab-desk .desk-patient-list > button > div { flex-wrap: wrap; gap: 6px; }
+.app .lab-desk .desk-patient-list > button > div > div { flex-wrap: wrap; }
+.app .lab-desk .desk-patient-list > button b { overflow-wrap: anywhere; }
+.app .lab-desk .desk-workspace { min-width: 0; }
+.app .lab-service-heading { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 14px; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; }
+.app .lab-service-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.app .lab-service-title h4 { overflow-wrap: anywhere; }
+.app .lab-service-title > span:last-child { overflow-wrap: anywhere; }
+.app .lab-desk .table-scroll { border: 1px solid #e2e8f0; border-radius: 8px; }
+.app .lab-desk table th { background: #f8fafc; color: #475569; font-size: 12px; line-height: 1.6; }
+.app .lab-desk table td { color: #334155; font-size: 13px; padding-block: 16px; }
 .app .lab-room-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; padding: 14px 16px; background: #fff; border: 1px solid var(--ui-line); border-radius: 10px; }
-.app .lab-room-select { flex: 1 1 260px; min-width: 0; max-width: 100%; }
+.app .lab-room-label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #334155; }
+.app .lab-room-label svg { color: #2563eb; flex-shrink: 0; }
+.app .lab-room-select { flex: 1 1 300px; min-width: 0; max-width: 100%; height: 44px; padding: 10px 36px 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #1e293b; font: inherit; font-size: 14px; text-overflow: ellipsis; }
+.app .lab-room-select:focus-visible { outline: 3px solid #bfdbfe; outline-offset: 2px; border-color: #2563eb; }
+.app .lab-count { display: inline-flex; align-items: center; padding: 6px 10px; border: 1px solid transparent; border-radius: 7px; font-weight: 600; white-space: nowrap; }
+.app .lab-count.pending { color: #92400e; background: #fffbeb; border-color: #fde68a; }
+.app .lab-count.processing { color: #1d4ed8; background: #eff6ff; border-color: #bfdbfe; }
+.app .lab-count.complete { color: #166534; background: #f0fdf4; border-color: #bbf7d0; }
+.app .integrated-operation-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px; margin-bottom: 20px; background: #eaf0f8; border: 1px solid #dbe4f0; border-radius: 10px; }
+.app .integrated-operation-tabs > button { min-height: 42px; padding: 10px 16px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #475569; font: inherit; font-size: 14px; font-weight: 600; text-align: left; line-height: 1.5; }
+.app .integrated-operation-tabs > button[aria-selected=true] { background: #fff; color: #1d4ed8; border-color: #bfdbfe; box-shadow: 0 1px 3px #0f172a0a; }
+.app .integrated-operation-tabs > button:hover { background: #f8fafc; color: #1d4ed8; }
+.app .integrated-operation-tabs > button:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+@media(max-width:700px) { .app .lab-room-label { flex-basis: 100%; } .app .lab-room-select { flex-basis: 100%; width: 100%; font-size: 16px; } .app .integrated-operation-tabs > button { flex: 1 1 240px; } }
 .app .lab-room-counts { display: flex; flex-wrap: wrap; gap: 8px; font-size: var(--ui-label); }
 @media(max-width:850px) {
   .app .desk-layout { grid-template-columns: 1fr; }

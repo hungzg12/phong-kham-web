@@ -254,6 +254,10 @@ export default function InpatientBedMap({ beds, setBeds, patients, role, actor, 
             <div
               key={b.id}
               className={`bed-card ${isOccupied ? 'occupied' : isCleaning ? 'cleaning' : 'available'}`}
+              role="button"
+              tabIndex={0}
+              aria-label={roomTitle+' · Giường '+bedNum+' · '+(isOccupied?'Đang điều trị':isCleaning?'Chờ khử khuẩn':'Sẵn sàng')}
+              onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onSelectBed(b);}}}
               onClick={() => onSelectBed(b)}
             >
               <div className="bed-card-head">

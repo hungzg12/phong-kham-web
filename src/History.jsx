@@ -154,13 +154,13 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
   }
 
   return (
-    <div className="his-reception-container">
+    <div className="his-reception-container exam-form">
       {/* HEADER BANNER */}
       <div className="his-form-header">
         <div className="his-header-title">
           <Stethoscope size={24} className="his-header-icon" />
           <div>
-            <h2>Phiếu khám bệnh lâm sàng chuyên khoa & Chẩn đoán ICD-10</h2>
+            <h2>Phiếu khám lâm sàng & chẩn đoán ICD-10</h2>
             <p className="his-header-sub">
               Người bệnh: <b>{patient.name}</b> · Mã BN: <b>{patient.id}</b> · {patient.gender}, {patient.birth} · {(() => {
                 const bh = parseBhytCard(patient.insurance);
@@ -170,7 +170,7 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
           </div>
         </div>
         <div className="his-mode-badge">
-          <span className="badge teal">Khám Bệnh Ngoại Trú (HIS Viettel)</span>
+          <span className="badge teal">Khám ngoại trú</span>
         </div>
       </div>
 
@@ -375,7 +375,7 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
           <div className="his-form-section">
             <div className="his-section-header">
               <Shield size={16} />
-              <span>3. Chẩn đoán xác định & Tra cứu danh mục ICD-10 từ CSDL Bộ Y tế</span>
+              <span>3. Chẩn đoán & tra cứu ICD-10</span>
             </div>
 
             <div className="his-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
@@ -490,7 +490,7 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
               Đóng
             </button>
             <button className="primary his-submit-button" type="submit" disabled={saving}>
-              {saving ? 'Đang lưu CSDL...' : <><Check size={18} /> Lưu phiếu khám & Cập nhật CSDL (SQL Server)</>}
+              {saving ? 'Đang lưu…' : <><Check size={18} /> Lưu phiếu khám</>}
             </button>
           </div>
         </form>
@@ -1026,7 +1026,7 @@ export default function History({role='admin',patientId,navigate,notify}){
       {modal&&(
         <div className="modal-backdrop" onClick={()=>setModal(null)}>
           <section
-            className="modal business-modal wide-modal his-large-modal"
+            className={`modal business-modal wide-modal his-large-modal${modal.type==='exam'?' exam-dialog':''}`}
             role="dialog"
             aria-modal="true"
             aria-label="Lịch sử khám và điều trị"
