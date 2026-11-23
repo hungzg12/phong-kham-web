@@ -170,6 +170,13 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
               patient={patients.find(p => p.id === dialog.row.patient)}
               doctorStaff={db.staff.find(s => s.id === dialog.row.doctor)}
               cashierStaff={db.staff.find(s => s.id === dialog.row.cashier)}
+              onSave={updatedRow => {
+                setDb(d => ({
+                  ...d,
+                  [tab]: (d[tab] || []).map(x => x.id === updatedRow.id ? { ...x, ...updatedRow } : x)
+                }));
+                notify?.('Đã lưu biểu mẫu y tế vào CSDL thành công');
+              }}
               onClose={() => setDialog(null)}
             />
             <div className="dialog-actions no-print" style={{ marginTop: 16 }}>

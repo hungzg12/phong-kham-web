@@ -6,6 +6,7 @@ import {ancillaryState,saveVitals,createLab,labAction,performCare,listBeds,bedAc
 import {financeState,financeAction} from './finance.mjs';
 import {portalState,portalAppointment} from './patient-portal.mjs';
 import { listAppointments, saveAppointment, cancelAppointment, checkInAppointment } from './appointments.mjs';
+import { getPaperFormData, savePaperFormData } from './paper-forms.mjs';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
@@ -668,6 +669,22 @@ export function createApiMiddleware({trustedTest=false}={}) {
         `;
         const resultJson = await querySql(sql, { bedId });
         return respond(200, { success: true, ...JSON.parse(resultJson) });
+      }
+
+      // 31. Paper Forms (GET /api/paper-forms & POST /api/paper-forms/save)
+      if (url.startsWith('/api/paper-forms') && req.method === 'GET') {
+        const fullUrl = new URL(req.url, 'http://127.0.0.1');
+        const type = fullUrl.searchParams.get('type') || '';
+        const id = fullUrl.searchParams.get('id') || '';
+        const data = await getPaperFormData(type, id);
+        return respond(200, data || {});
+      }
+      if (url === '/api/paper-forms/save' && req.method === 'POST') {
+        let body = '';
+        for await (const part of req) { body += part; }
+        const payload = JSON.parse(body);
+        const result = await savePaperFormData(payload.type, payload.data);
+        return respond(200, result);
       }
 
       next();
