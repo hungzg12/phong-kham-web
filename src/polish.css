@@ -5,6 +5,20 @@
 
 
 /* Viettel HIS Forms & Large Modals */
+.modal.his-inpatient-modal {
+  width: 960px !important;
+  max-width: min(960px, 96vw) !important;
+  padding: 24px 28px !important;
+  border-radius: 14px !important;
+  box-sizing: border-box !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+.modal.his-inpatient-modal .his-header-card {
+  padding-right: 48px !important;
+}
+
 .his-form-container {
   display: flex;
   flex-direction: column;

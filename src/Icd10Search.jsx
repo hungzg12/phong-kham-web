@@ -93,16 +93,18 @@ export default function Icd10Search({ valueCode = '', valueName = '', onChange, 
           )}
         </div>
 
-        <button
-          type="button"
-          className="secondary"
-          onClick={onOpenManager}
-          title="Mở từ điển ICD-10 & Cập nhật từ Excel"
-          style={{ padding: '0 10px', display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', fontSize: 13 }}
-        >
-          <BookOpen size={14} />
-          <span>Từ điển Excel</span>
-        </button>
+        {onOpenManager && (
+          <button
+            type="button"
+            className="secondary"
+            onClick={onOpenManager}
+            title="Mở từ điển ICD-10 & Cập nhật từ Excel"
+            style={{ padding: '0 10px', display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', fontSize: 13 }}
+          >
+            <BookOpen size={14} />
+            <span>Từ điển Excel</span>
+          </button>
+        )}
       </div>
 
       {/* Autocomplete Dropdown - Luôn nằm trên cùng mọi form */}

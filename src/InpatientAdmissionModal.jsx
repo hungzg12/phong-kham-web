@@ -339,22 +339,22 @@ export default function InpatientAdmissionModal({
       {/* HEADER CARD */}
       <div className="his-header-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', flex: 1, minWidth: 0, gap: 4 }}>
-          <div className="his-pill-group" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 2 }}>
+          <div className="his-pill-group" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
             <span className="badge teal">TIẾP NHẬN NỘI TRÚ</span>
             <span className="badge gray">QUY CHUẨN BỘ Y TẾ</span>
             <span className="badge green">KHOA ĐIỀU TRỊ</span>
           </div>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#0f172a', margin: '4px 0 2px 0', lineHeight: 1.35, whiteSpace: 'normal' }}>
+          <h2 style={{ fontSize: 19, fontWeight: 750, color: '#0f172a', margin: '4px 0 2px 0', lineHeight: 1.35 }}>
             Phiếu Tiếp nhận Nội trú & Xếp buồng giường
           </h2>
-          <p style={{ fontSize: 12, color: '#64748b', margin: 0, lineHeight: 1.5, whiteSpace: 'normal' }}>
+          <p style={{ fontSize: 12.5, color: '#64748b', margin: 0, lineHeight: 1.5 }}>
             Quy trình tiếp nhận nội trú, quản lý buồng bệnh và phân bổ y lệnh theo đợt điều trị
           </p>
         </div>
         <div className="his-header-specs">
           <div><span>Vị trí:</span> <b>{bed.roomName || 'Buồng 301 - Nội tổng quát'}</b></div>
           <div><span>Số giường:</span> <b className="highlight-tag">G{bed.bedNumber || bed.id}</b></div>
-          <div><span>Đơn giá ngày giường:</span> <b className="text-teal">{(bed.dailyRate || 250000).toLocaleString('vi-VN')} ₫</b></div>
+          <div><span>Đơn giá ngày giường:</span> <b className="text-teal">{(bed.dailyRate || 250000).toLocaleString('vi-VN')} ₫ / ngày</b></div>
         </div>
       </div>
 
