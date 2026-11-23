@@ -196,7 +196,7 @@ export default function MedicalSuggestInput({
               >
                 <span className="his-suggest-stt">{idx + 1}</span>
                 <span className="his-suggest-text">
-                  <HighlightMatch text={item} query={value} />
+                  <HighlightMatch text={item} query={currentValue} />
                 </span>
               </li>
             ))}
