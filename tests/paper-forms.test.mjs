@@ -121,3 +121,30 @@ test('paper forms: getPaperFormData and savePaperFormData for archives (medical 
   assert.equal(fetched.diagnosis, 'Rối loạn tiền đình ngoại biên');
   assert.equal(fetched.icd, 'H81.0');
 });
+
+test('paper forms: getPaperFormData and savePaperFormData for reexaminations (Giấy hẹn khám lại - Mẫu 05)', async () => {
+  const customId = 'GHKL-TEST-555';
+  const saveRes = await savePaperFormData('reexaminations', {
+    id: customId,
+    soVaoSo: '55/2026/GHKL',
+    patient: 'BN-240101-001',
+    appointmentDate: '2026-12-05',
+    appointmentTime: '09:00',
+    clinicRoom: 'Phòng khám Tim mạch 102',
+    reason: 'Tái khám đánh giá huyết áp và điện tâm đồ',
+    diagnosis: 'Tăng huyết áp nguyên phát',
+    icd: 'I10',
+    testsNeeded: 'Điện giải đồ, ECG',
+    advice: 'Nhịn ăn sáng lấy máu xét nghiệm'
+  });
+
+  assert.equal(saveRes.ok, true);
+  assert.equal(saveRes.id, customId);
+
+  const fetched = await getPaperFormData('reexaminations', customId);
+  assert.ok(fetched, 'Reexamination record must exist in SQL');
+  assert.equal(fetched.soVaoSo, '55/2026/GHKL');
+  assert.equal(fetched.appointmentDate, '2026-12-05');
+  assert.equal(fetched.clinicRoom, 'Phòng khám Tim mạch 102');
+  assert.equal(fetched.icd, 'I10');
+});

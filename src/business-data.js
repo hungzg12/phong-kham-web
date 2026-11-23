@@ -19,6 +19,7 @@ export const definitions={
  advances:{title:'Tạm ứng & hoàn tiền',singular:'giao dịch',prefix:'GD',description:'Ghi nhận tạm ứng hoặc hoàn tiền, theo dõi ký nhận và lịch sử giao dịch.',fields:[patient,field('kind','Loại giao dịch','select',{options:['Tạm ứng','Hoàn tiền'],required:true}),field('amount','Số tiền (₫)','number',{required:true,min:1000,step:1}),reason],columns:['patient','kind','amount','reason','status'],initialStatus:'Chờ xác nhận'},
  shifts:{title:'Đối soát ca trực',singular:'ca trực',prefix:'CA',description:'Đối chiếu thu, hoàn và tiền thực đếm trước khi đóng ca.',fields:[field('name','Tên ca trực','text',{required:true}),field('cashier','Thu ngân','staff',{required:true}),field('opening','Tiền đầu ca (₫)','number',{required:true,min:0,step:1}),field('counted','Tiền thực đếm (₫)','number',{required:true,min:0,step:1}),field('reason','Giải trình chênh lệch','textarea')],columns:['name','cashier','expected','counted','difference','status'],initialStatus:'Chờ đối soát'},
  archives:{title:'Bệnh án điện tử',singular:'bệnh án',prefix:'BA',description:'Quản lý hồ sơ ngoại trú, nội trú và trạng thái lưu trữ.',fields:[patient,field('kind','Loại bệnh án','select',{options:['Ngoại trú','Nội trú'],required:true}),field('diagnosis','Chẩn đoán chính','text',{required:true}),field('summary','Tóm tắt bệnh án','textarea',{required:true}),field('doctor','Bác sĩ phụ trách','staff',{required:true})],columns:['patient','kind','diagnosis','doctor','status'],initialStatus:'Đang mở'},
+ reexaminations:{title:'Giấy hẹn khám lại',singular:'giấy hẹn khám lại',prefix:'GHKL',description:'Lập và in Giấy hẹn khám lại theo Mẫu số 05 (Nghị định 75/2023/NĐ-CP & Thông tư 01/2025/TT-BYT).',fields:[patient,field('appointmentDate','Ngày hẹn khám lại','date',{required:true}),field('appointmentTime','Giờ hẹn','text',{required:true}),field('clinicRoom','Khoa / Phòng khám hẹn','text',{required:true}),field('diagnosis','Chẩn đoán hiện tại','text',{required:true}),field('icd','Mã ICD-10','text',{required:true}),field('reason','Lý do hẹn khám lại','textarea',{required:true}),field('testsNeeded','Cận lâm sàng cần làm lại','textarea'),field('doctor','Bác sĩ hẹn khám','staff',{required:true}),field('advice','Lời dặn người bệnh','textarea')],columns:['patient','appointmentDate','clinicRoom','diagnosis','status'],initialStatus:'Đang có hiệu lực'},
  corrections:{title:'Yêu cầu đính chính',singular:'yêu cầu đính chính',prefix:'DC',description:'Tiếp nhận đề nghị sửa hồ sơ và theo dõi quyết định xử lý.',fields:[patient,field('record','Mã bệnh án','text',{required:true}),reason,field('proposed','Nội dung đề nghị sửa','textarea',{required:true}),field('deadline','Hạn được sửa','date',{required:true,min:today}),field('requester','Người đề nghị','staff',{required:true})],columns:['patient','record','requester','deadline','status'],initialStatus:'Chờ phê duyệt'},
  authorizations:{title:'Ủy quyền hồ sơ',singular:'ủy quyền',prefix:'UQ',description:'Quản lý phạm vi, thời hạn và thu hồi quyền truy cập hồ sơ trong bản demo.',fields:[patient,field('recipient','Người được ủy quyền','text',{required:true}),field('scope','Phạm vi','select',{options:['Xem kết quả CLS','Xem tóm tắt bệnh án','Xem toàn bộ hồ sơ'],required:true}),field('start','Từ ngày','date',{required:true}),field('end','Đến ngày','date',{required:true})],columns:['patient','recipient','scope','end','status'],initialStatus:'Có hiệu lực'},
  staff:{title:'Nhân viên',singular:'nhân viên',prefix:'NV',description:'Danh sách bác sĩ, điều dưỡng, dược sĩ và nhân viên vận hành.',fields:[field('name','Họ tên','text',{required:true}),field('title','Chức danh','select',{options:['Bác sĩ','Điều dưỡng','Dược sĩ','Thu ngân','Kỹ sư','Quản trị viên'],required:true}),field('department','Khoa công tác','select',{options:clinics,required:true}),field('certificate','Số chứng chỉ','text'),field('phone','Điện thoại','tel',{required:true,pattern:'[0-9]{10,11}'})],columns:['name','title','department','phone','status'],initialStatus:'Đang hoạt động'},
@@ -34,7 +35,7 @@ export const pageGroups={
  care:['rounds'],
  warehouse:['warehouses','movements','counts'],
  finance:['settlements','advances','shifts','reports'],
- archive:['archives','referrals','consultations','discharges','corrections','authorizations'],
+ archive:['archives','reexaminations','referrals','consultations','discharges','corrections','authorizations'],
  admin:['staff','departments','services','accounts','roles'],
  devices:['equipment','incidents'],
  portal:['portal']
@@ -129,6 +130,38 @@ export const seeds={
       doctor:'BS.CKI Trần Minh Anh',
       status:'Đang mở',
       createdAt:'2026-11-22 09:00:00'
+    }
+  ],
+  reexaminations:[
+    {
+      id:'GHKL-261122-001',
+      soVaoSo:'01/2026/GHKL',
+      patient:'BN-240101-001',
+      appointmentDate:'2026-12-01',
+      appointmentTime:'08:30',
+      clinicRoom:'Phòng khám 101 - Khoa Khám bệnh Nội tổng quát',
+      reason:'Tái khám đánh giá đáp ứng phác đồ hạ áp và kiểm soát đường huyết sau 7 ngày điều trị',
+      diagnosis:'I10 - Tăng huyết áp vô căn (nguyên phát)',
+      icd:'I10',
+      testsNeeded:'Xét nghiệm máu (Glucose đói, Creatinine, AST/ALT), Đo điện tim (ECG 12 cần)',
+      advice:'Nhịn ăn sáng trước khi lấy máu làm xét nghiệm. Mang theo toàn bộ đơn thuốc cũ và Giấy hẹn này khi đến khám.',
+      doctor:'NV-BS01',
+      status:'Đang có hiệu lực'
+    },
+    {
+      id:'GHKL-261122-002',
+      soVaoSo:'02/2026/GHKL',
+      patient:'BN-240101-002',
+      appointmentDate:'2026-12-03',
+      appointmentTime:'09:00',
+      clinicRoom:'Phòng khám Tim mạch 102',
+      reason:'Tái khám theo dõi cơn đau ngực và siêu âm tim kiểm tra',
+      diagnosis:'I20.0 - Hội chứng mạch vành cấp',
+      icd:'I20.0',
+      testsNeeded:'Siêu âm tim Dopler màu, Men tim Troponin T',
+      advice:'Tránh gắng sức, mang theo kết quả xét nghiệm và đơn thuốc khi đến khám.',
+      doctor:'NV-BS02',
+      status:'Đang có hiệu lực'
     }
   ],
   corrections:[],authorizations:[],

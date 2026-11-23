@@ -117,6 +117,37 @@ export async function getPaperFormData(type, id) {
     return json ? JSON.parse(json) : null;
   }
 
+  if (type === 'reexaminations') {
+    const json = await querySql(`
+      SELECT 
+        h.maGiayHen AS id,
+        h.soVaoSo,
+        h.maBenhNhan AS patient,
+        p.hoTen AS patientName,
+        p.gioiTinh AS gender,
+        p.soBHYT AS insurance,
+        p.diaChi AS address,
+        p.soDinhDanh AS cccd,
+        CONVERT(varchar(10), p.ngaySinh, 23) AS birth,
+        CONVERT(varchar(10), h.ngayHenKham, 23) AS appointmentDate,
+        h.gioHenKham AS appointmentTime,
+        h.khoaPhongHen AS clinicRoom,
+        h.lyDoHenKham AS reason,
+        h.chanDoanHienTai AS diagnosis,
+        h.maICD AS icd,
+        h.chiDinhCanLam AS testsNeeded,
+        h.loiDanBacSi AS advice,
+        bs.hoTen AS doctor,
+        h.trangThai AS status
+      FROM dbo.GiayHenKhamLai h
+      LEFT JOIN dbo.BenhNhan p ON p.maBenhNhan = h.maBenhNhan
+      LEFT JOIN dbo.NhanVien bs ON bs.maNhanVien = h.maBacSiHen
+      WHERE h.maGiayHen = @id OR h.maLuotKham = @id OR h.maDotDieuTri = @id
+      FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+    `, { id });
+    return json ? JSON.parse(json) : null;
+  }
+
   return null;
 }
 
@@ -269,6 +300,44 @@ export async function savePaperFormData(type, d) {
       treatment: d.treatment || d.phuongPhapDieuTri || '',
       outcome: d.outcome || d.tinhTrangRaVien || 'Ổn định',
       advice: d.advice || d.ghiChuLoiDan || ''
+    });
+    return { ok: true, id };
+  }
+
+  if (type === 'reexaminations') {
+    const id = d.id || ('GHKL-' + Date.now().toString(36).toUpperCase());
+    await querySql(`
+      MERGE dbo.GiayHenKhamLai AS target
+      USING (SELECT @id AS maGiayHen) AS source
+      ON target.maGiayHen = source.maGiayHen
+      WHEN MATCHED THEN
+        UPDATE SET
+          soVaoSo = @soVaoSo,
+          ngayHenKham = @appointmentDate,
+          gioHenKham = @appointmentTime,
+          khoaPhongHen = @clinicRoom,
+          lyDoHenKham = @reason,
+          chanDoanHienTai = @diagnosis,
+          maICD = @icd,
+          chiDinhCanLam = @testsNeeded,
+          loiDanBacSi = @advice
+      WHEN NOT MATCHED THEN
+        INSERT (maGiayHen, soVaoSo, maBenhNhan, maLuotKham, maDotDieuTri, ngayHenKham, gioHenKham, khoaPhongHen, lyDoHenKham, chanDoanHienTai, maICD, chiDinhCanLam, loiDanBacSi, trangThai)
+        VALUES (@id, @soVaoSo, @patientId, @episodeId, @admissionId, @appointmentDate, @appointmentTime, @clinicRoom, @reason, @diagnosis, @icd, @testsNeeded, @advice, N'Đang có hiệu lực');
+    `, {
+      id,
+      soVaoSo: d.soVaoSo || '01/2026/GHKL',
+      patientId: d.patient || d.patientId || 'BN-240101-001',
+      episodeId: d.episodeId || null,
+      admissionId: d.admissionId || null,
+      appointmentDate: d.appointmentDate || '2026-12-01',
+      appointmentTime: d.appointmentTime || '08:30',
+      clinicRoom: d.clinicRoom || 'Phòng khám Nội tổng quát 101',
+      reason: d.reason || 'Tái khám đánh giá đáp ứng điều trị',
+      diagnosis: d.diagnosis || '',
+      icd: d.icd || 'I10',
+      testsNeeded: d.testsNeeded || '',
+      advice: d.advice || d.loiDan || ''
     });
     return { ok: true, id };
   }

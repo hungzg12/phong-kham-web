@@ -42,22 +42,24 @@ export default function InpatientAdmissionModal({
   const [doctorsList, setDoctorsList] = useState(DEFAULT_DOCTORS);
   const [autoFilledFrom, setAutoFilledFrom] = useState('');
 
-  // Tự động tìm kiếm và trích xuất thông tin chuyên môn có sẵn từ hồ sơ khám bệnh, y lệnh chỉ định nhập viện
+  // Tự động tìm kiếm và trích xuất thông tin chuyên môn từ y lệnh chỉ định nhập viện / hồ sơ khám bệnh tại viện
   function getPatientAdmissionContext(patientId) {
     if (!patientId) return null;
     const ws = getWorkspace();
     const adm = (ws.admissions || []).find(a => (a.patientId === patientId || a.patient === patientId) && (!a.status || a.status === 'Chờ xếp buồng' || a.status === 'Đang điều trị'));
     const visit = (ws.visits || []).slice().reverse().find(v => v.patientId === patientId || v.patient === patientId);
-    const ref = (ws.business?.referrals || []).find(r => r.patient === patientId || r.patientId === patientId);
     const clinicalNote = ws.notes?.[patientId];
     const pt = patients.find(p => p.id === patientId || p.maBenhNhan === patientId);
 
-    const diag = adm?.diagnosis || ref?.diagnosis || clinicalNote?.diagnosis || visit?.diagnosis || visit?.note?.diagnosis || pt?.diagnosis || 'Viêm phổi thùy cấp (J18.1)';
-    const rsn = adm?.reason || ref?.reason || ref?.symptoms || clinicalNote?.reason || visit?.reason || visit?.symptoms || clinicalNote?.symptoms || pt?.reason || 'Sốt cao, ho có đờm, khó thở tăng dần cần theo dõi và điều trị nội trú';
-    const doc = adm?.doctor || ref?.doctor || visit?.doctor || visit?.doctorStaffId || pt?.doctor || 'NV-BS01';
+    const diag = adm?.diagnosis || clinicalNote?.diagnosis || visit?.diagnosis || visit?.note?.diagnosis || pt?.diagnosis || 'Viêm phổi thùy cấp (J18.1)';
+    let doc = adm?.doctor || visit?.doctor || visit?.doctorStaffId || pt?.doctor || 'NV-BS01';
+    
+    // Tìm tên bác sĩ chỉ định để hiển thị chuẩn xác
+    const docObj = DEFAULT_DOCTORS.find(d => d.id === doc || d.name.includes(doc)) || { name: doc || 'BS.CKI Trần Minh Anh' };
+    const docDisplayName = docObj.name;
 
     // Tự động suy ra mã ICD-10 từ tên chẩn đoán
-    let icd = ref?.icd || adm?.icd || '';
+    let icd = adm?.icd || '';
     if (!icd && diag) {
       const match = diag.match(/\(([A-Z][0-9]{2}(?:\.[0-9]+)?)\)/) || diag.match(/\[([A-Z][0-9]{2}(?:\.[0-9]+)?)\]/) || diag.match(/\b([A-Z][0-9]{2}(?:\.[0-9]+)?)\b/);
       if (match) icd = match[1];
@@ -70,16 +72,37 @@ export default function InpatientAdmissionModal({
       else icd = 'J18.1';
     }
 
-    const sourceName = adm ? 'Y lệnh Tiếp nhận nội trú' : (ref ? 'Giấy Chuyển tuyến' : (visit ? 'Phiếu Khám ngoại trú' : 'Hồ sơ bệnh nhân'));
+    // Xác định lý do nhập viện nội trú thực tế (LƯU Ý: Tuyệt đối KHÔNG lấy lý do của giấy chuyển viện tuyến trên!)
+    let rsn = adm?.reason || clinicalNote?.reason || visit?.reason || visit?.symptoms || clinicalNote?.symptoms || pt?.reason || '';
+    
+    // Nếu lý do bị nhiễm câu từ "chuyển tuyến" hoặc rỗng, tự động tạo lý do chuyên môn chuẩn điều trị nội trú tại viện
+    const lowerDiag = (diag + ' ' + rsn).toLowerCase();
+    if (!rsn || lowerDiag.includes('vượt quá') || lowerDiag.includes('chuyển tuyến') || lowerDiag.includes('tuyến trên')) {
+      if (lowerDiag.includes('mạch vành') || lowerDiag.includes('đau thắt ngực') || lowerDiag.includes('đau ngực') || lowerDiag.includes('tim')) {
+        rsn = 'Cơn đau thắt ngực tiến triển (nghi Hội chứng vành cấp), chỉ định bất động tại buồng tim mạch, theo dõi sát điện tim và men tim theo phác đồ nội trú.';
+      } else if (lowerDiag.includes('viêm phổi') || lowerDiag.includes('hô hấp') || lowerDiag.includes('khó thở')) {
+        rsn = 'Viêm phổi thùy cấp bội nhiễm, sốt cao khó thở, chỉ định điều trị nội trú, tiêm truyền kháng sinh và khí dung hỗ trợ.';
+      } else if (lowerDiag.includes('huyết áp')) {
+        rsn = 'Cơn tăng huyết áp kịch phát (HA >= 180/110 mmHg) có triệu chứng tiền triệu, cần hạ áp đường tĩnh mạch và theo dõi sát buồng bệnh.';
+      } else if (lowerDiag.includes('dạ dày') || lowerDiag.includes('tiêu hóa')) {
+        rsn = 'Viêm dạ dày xuất huyết cấp, đau thượng vị dữ dội, chỉ định truyền dịch và thuốc đường tĩnh mạch tại buồng bệnh.';
+      } else if (lowerDiag.includes('đái tháo đường') || lowerDiag.includes('tiểu đường')) {
+        rsn = 'Đái tháo đường type 2 mất kiểm soát đường huyết có biến chứng, cần chỉnh liều Insulin và bù điện giải nội trú.';
+      } else {
+        rsn = 'Bệnh nhân xuất hiện triệu chứng cấp tính, chỉ định điều trị nội trú, dùng thuốc đường tiêm truyền và chăm sóc điều dưỡng cấp 2.';
+      }
+    }
+
+    const sourceName = adm ? 'Phiếu Chỉ định vào viện' : (visit ? 'Bàn khám Ngoại trú' : 'Hồ sơ Bệnh án Bác sĩ');
 
     return {
       adm,
       visit,
-      ref,
       diagnosis: diag,
       reason: rsn,
       icdCode: icd,
       doctor: doc,
+      docDisplayName,
       sourceName
     };
   }
@@ -94,7 +117,7 @@ export default function InpatientAdmissionModal({
       setIcdCode(ctx.icdCode);
       setReason(ctx.reason);
       setDoctor(ctx.doctor);
-      setAutoFilledFrom(`${ctx.sourceName} · ${ctx.doctor}`);
+      setAutoFilledFrom(`${ctx.sourceName} · ${ctx.docDisplayName}`);
 
       // Tự động thiết lập y lệnh dặn dò buồng bệnh dựa trên chẩn đoán
       const lowerDiag = (ctx.diagnosis + ' ' + ctx.reason).toLowerCase();

@@ -81,7 +81,14 @@ export default function StatutoryPaperBusinessForm({
 
     // Summaries / Archives
     pathology: initialRow?.pathology || initialRow?.quaTrinhBenhLy || 'Bệnh khởi phát 3 ngày trước khi vào viện với triệu chứng đau tức thượng vị lan ra sau lưng, buồn nôn, ợ chua.',
-    treatmentPeriod: initialRow?.treatmentPeriod || '08:00 ngày 21/11/2026 đến 11:30 ngày 23/11/2026'
+    treatmentPeriod: initialRow?.treatmentPeriod || '08:00 ngày 21/11/2026 đến 11:30 ngày 23/11/2026',
+
+    // Reexaminations (Mẫu 05)
+    appointmentDate: initialRow?.appointmentDate || new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+    appointmentTime: initialRow?.appointmentTime || '08:30',
+    clinicRoom: initialRow?.clinicRoom || 'Phòng khám 101 - Khoa Khám bệnh Nội tổng quát',
+    testsNeeded: initialRow?.testsNeeded || 'Xét nghiệm máu (Glucose đói, Creatinine, AST/ALT), Đo điện tim (ECG 12 cần)',
+    treatedAt: initialRow?.treatedAt || 'Khoa Nội tổng quát - Bệnh viện Đa khoa Medicare'
   }));
 
   const [saving, setSaving] = useState(false);
@@ -107,6 +114,9 @@ export default function StatutoryPaperBusinessForm({
     }
     if (tab === 'consultations') {
       return (values.reason || '').length + (values.summary || '').length + (values.conclusion || '').length + (values.plan || '').length + (values.participants || '').length;
+    }
+    if (tab === 'reexaminations') {
+      return (values.reason || '').length + (values.testsNeeded || '').length + (values.advice || '').length + (values.diagnosis || '').length;
     }
     return (values.pathology || '').length + (values.labSummary || '').length + (values.treatment || '').length + (values.advice || '').length;
   }, [tab, values]);
@@ -173,6 +183,9 @@ export default function StatutoryPaperBusinessForm({
   } else if (tab === 'consultations') {
     title = 'Lập Biên Bản Hội Chẩn Chuyên Môn';
     lawRef = 'Quyết định 1895/1997/QĐ-BYT & QĐ 4069/2001/QĐ-BYT Quy chế Bệnh viện';
+  } else if (tab === 'reexaminations') {
+    title = 'Lập Giấy Hẹn Khám Lại BHYT';
+    lawRef = 'Mẫu số 05 (Nghị định số 75/2023/NĐ-CP & Thông tư 01/2025/TT-BYT)';
   } else if (tab === 'archives') {
     title = 'Lập Bản Tóm Tắt Hồ Sơ Bệnh Án';
     lawRef = 'Phụ lục 4 (Thông tư số 18/2022/TT-BYT của Bộ Y tế)';
@@ -832,6 +845,165 @@ export default function StatutoryPaperBusinessForm({
                 onChange={val => handleChange('advice', val)}
                 placeholder="Tình trạng khi xuất viện, chế độ dùng thuốc và tái khám..."
               />
+            </div>
+          </div>
+        )}
+
+        {/* 2.5: GIẤY HẸN KHÁM LẠI (MẪU SỐ 05 - NGHỊ ĐỊNH 75/2023/NĐ-CP) */}
+        {tab === 'reexaminations' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
+                  Số vào sổ hẹn khám lại:
+                </label>
+                <input
+                  type="text"
+                  className="his-input"
+                  style={{ fontWeight: 700 }}
+                  value={values.soVaoSo || '01/2026/GHKL'}
+                  onChange={e => handleChange('soVaoSo', e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
+                  Đã khám / điều trị tại:
+                </label>
+                <input
+                  type="text"
+                  className="his-input"
+                  value={values.treatedAt || 'Khoa Nội tổng quát - Bệnh viện Đa khoa Medicare'}
+                  onChange={e => handleChange('treatedAt', e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
+                  Chẩn đoán bệnh hiện tại: *
+                </label>
+                <MedicalSuggestInput
+                  type="diagnosis"
+                  value={values.diagnosis}
+                  onChange={val => handleChange('diagnosis', val)}
+                  placeholder="Nhập chẩn đoán hiện tại..."
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
+                  Mã ICD-10:
+                </label>
+                <input
+                  type="text"
+                  className="his-input"
+                  style={{ fontFamily: 'monospace', fontWeight: 700 }}
+                  value={values.icd || 'I10'}
+                  onChange={e => handleChange('icd', e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.5fr', gap: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#0f766e', marginBottom: 4 }}>
+                  Hẹn khám lại vào ngày: *
+                </label>
+                <input
+                  type="date"
+                  className="his-input"
+                  style={{ fontWeight: 700, borderColor: '#0f766e', color: '#0f766e' }}
+                  value={values.appointmentDate}
+                  onChange={e => handleChange('appointmentDate', e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
+                  Giờ hẹn dự kiến:
+                </label>
+                <input
+                  type="text"
+                  className="his-input"
+                  style={{ fontWeight: 600 }}
+                  value={values.appointmentTime || '08:30'}
+                  onChange={e => handleChange('appointmentTime', e.target.value)}
+                  placeholder="VD: 08:30"
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
+                  Khoa / Phòng khám hẹn: *
+                </label>
+                <input
+                  type="text"
+                  className="his-input"
+                  style={{ fontWeight: 600 }}
+                  value={values.clinicRoom || 'Phòng khám 101 - Khoa Khám bệnh Nội tổng quát'}
+                  onChange={e => handleChange('clinicRoom', e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
+                Lý do hẹn khám lại: *
+              </label>
+              <MedicalSuggestInput
+                type="reason"
+                multiline
+                rows={2}
+                value={values.reason}
+                onChange={val => handleChange('reason', val)}
+                placeholder="Lý do hẹn tái khám, mục tiêu đánh giá chuyên môn..."
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
+                Xét nghiệm / Cận lâm sàng cần thực hiện lại:
+              </label>
+              <MedicalSuggestInput
+                type="orders"
+                value={values.testsNeeded}
+                onChange={val => handleChange('testsNeeded', val)}
+                placeholder="Các xét nghiệm, chẩn đoán hình ảnh cần làm lại khi tái khám..."
+              />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
+                  Lời dặn người bệnh trước khi đến khám:
+                </label>
+                <input
+                  type="text"
+                  className="his-input"
+                  value={values.advice}
+                  onChange={e => handleChange('advice', e.target.value)}
+                  placeholder="Nhịn ăn sáng lấy máu, mang theo đơn thuốc và thẻ BHYT..."
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
+                  Bác sĩ hẹn khám:
+                </label>
+                <input
+                  type="text"
+                  className="his-input"
+                  style={{ fontWeight: 600 }}
+                  value={values.doctor || 'BS.CKI Trần Minh Anh'}
+                  onChange={e => handleChange('doctor', e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, padding: '10px 14px', fontSize: 12, color: '#166534', lineHeight: 1.6 }}>
+              <b>💡 Quy định BHYT (Nghị định 75/2023/NĐ-CP):</b> Giấy hẹn khám lại chỉ có giá trị sử dụng <b>01 lần</b> trong thời hạn <b>10 ngày làm việc</b> kể từ ngày hẹn. Nếu quá thời hạn trên giấy hẹn sẽ hết hiệu lực.
             </div>
           </div>
         )}

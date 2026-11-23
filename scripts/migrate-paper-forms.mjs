@@ -94,6 +94,29 @@ export async function migratePaperFormsSchema() {
     );
   END;
 
+  -- 5. Bảng Giấy Hẹn Khám Lại (Mẫu số 05 - Nghị định 75/2023/NĐ-CP & TT 01/2025/TT-BYT)
+  IF OBJECT_ID('dbo.GiayHenKhamLai', 'U') IS NULL
+  BEGIN
+    CREATE TABLE dbo.GiayHenKhamLai (
+      maGiayHen varchar(20) NOT NULL PRIMARY KEY,
+      soVaoSo varchar(50) NOT NULL DEFAULT '01/2026/GHKL',
+      maBenhNhan varchar(20) NOT NULL REFERENCES dbo.BenhNhan(maBenhNhan),
+      maLuotKham varchar(20) NULL REFERENCES dbo.LuotKham(maLuotKham),
+      maDotDieuTri varchar(20) NULL REFERENCES dbo.DotDieuTri(maDotDieuTri),
+      ngayHenKham date NOT NULL,
+      gioHenKham varchar(20) NULL DEFAULT '08:30',
+      khoaPhongHen nvarchar(100) NOT NULL DEFAULT N'Phòng khám Nội tổng quát - Bệnh viện Đa khoa Medicare',
+      lyDoHenKham nvarchar(500) NOT NULL DEFAULT N'Tái khám đánh giá đáp ứng phác đồ điều trị và xét nghiệm kiểm tra',
+      chanDoanHienTai nvarchar(500) NOT NULL,
+      maICD varchar(20) NULL DEFAULT 'I10',
+      chiDinhCanLam nvarchar(500) NULL DEFAULT N'Xét nghiệm công thức máu, đường huyết đói, đo điện tâm đồ',
+      loiDanBacSi nvarchar(500) NULL DEFAULT N'Nhịn ăn sáng trước khi lấy máu làm xét nghiệm. Mang theo đơn thuốc cũ và giấy hẹn.',
+      maBacSiHen varchar(20) NULL REFERENCES dbo.NhanVien(maNhanVien),
+      trangThai nvarchar(30) NOT NULL DEFAULT N'Đang có hiệu lực',
+      ngayTao datetime2 NOT NULL DEFAULT SYSUTCDATETIME()
+    );
+  END;
+
   COMMIT TRANSACTION;
   SELECT 'MIGRATION_OK' AS result;
   `;

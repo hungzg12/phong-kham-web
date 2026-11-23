@@ -163,7 +163,7 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
       <button className="close icon-button" aria-label="Đóng biểu mẫu" onClick={()=>setDialog(null)}><X size={21}/></button>
       
       {dialog.type==='form' && (
-        ['referrals', 'consultations', 'discharges', 'archives'].includes(tab) ? (
+        ['referrals', 'consultations', 'discharges', 'archives', 'reexaminations'].includes(tab) ? (
           <StatutoryPaperBusinessForm
             tab={tab}
             initialRow={dialog.row}
@@ -223,7 +223,7 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
       )}
       
       {dialog.type==='detail'&&(
-        ['referrals','consultations','discharges','settlements','prescriptions','archives','authorizations'].includes(tab) ? (
+        ['referrals','consultations','discharges','settlements','prescriptions','archives','authorizations','reexaminations'].includes(tab) ? (
           <>
             <MedicalPaperFormViewer
               tab={tab}

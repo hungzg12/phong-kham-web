@@ -144,6 +144,25 @@ export async function seedPaperFormsData() {
     );
   END;
 
+  -- 5. Giấy hẹn khám lại (GiayHenKhamLai - Mẫu 05)
+  IF NOT EXISTS (SELECT 1 FROM dbo.GiayHenKhamLai WHERE maGiayHen = 'GHKL-261122-001')
+  BEGIN
+    INSERT INTO dbo.GiayHenKhamLai (
+      maGiayHen, soVaoSo, maBenhNhan, maLuotKham, maDotDieuTri, ngayHenKham, gioHenKham,
+      khoaPhongHen, lyDoHenKham, chanDoanHienTai, maICD, chiDinhCanLam, loiDanBacSi,
+      maBacSiHen, trangThai
+    ) VALUES (
+      'GHKL-261122-001', '01/2026/GHKL', 'BN-240101-001', 'LK-261122-001', 'BA-261121-EA9A',
+      DATEADD(day, 7, CAST(GETDATE() AS DATE)), '08:30',
+      N'Phòng khám 101 - Khoa Khám bệnh Nội tổng quát',
+      N'Tái khám đánh giá đáp ứng phác đồ hạ áp và kiểm soát đường huyết sau 7 ngày điều trị',
+      N'I10 - Tăng huyết áp vô căn / E11.9 - Đái tháo đường type 2', 'I10',
+      N'Xét nghiệm máu (Glucose đói, Creatinine, AST/ALT), Đo điện tim (ECG 12 cần)',
+      N'Nhịn ăn sáng trước khi lấy máu làm xét nghiệm. Mang theo toàn bộ đơn thuốc cũ và Giấy hẹn này khi đến khám.',
+      'NV-BS01', N'Đang có hiệu lực'
+    );
+  END;
+
   COMMIT TRANSACTION;
   SELECT 'SEED_OK' AS result;
   `;

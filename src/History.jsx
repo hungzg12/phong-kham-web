@@ -539,7 +539,7 @@ export default function History({role='admin',patientId,navigate,notify}){
 
   const curPt = isPatientScoped
     ? (patients.find(p => p.id === (effectivePatientId || selectedPtId)) || patients[0])
-    : (patients.find(p => p.id === selectedPtId) || matchedPatients[0] || patients[0]);
+    : (matchedPatients.find(p => p.id === selectedPtId) || matchedPatients[0] || patients[0]);
   const bh = parseBhytCard(curPt?.insurance);
 
   // Encounters of the currently viewed patient
@@ -639,6 +639,55 @@ export default function History({role='admin',patientId,navigate,notify}){
                   className="his-input"
                   style={{ paddingLeft: '36px', height: '38px', fontSize: '13px' }}
                 />
+                {search.trim() && (
+                  <div style={{ position: 'absolute', top: '44px', left: 0, right: 0, background: '#ffffff', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', border: '1px solid #cbd5e1', zIndex: 9999, maxHeight: '280px', overflowY: 'auto', padding: '6px' }}>
+                    <div style={{ fontSize: '11px', color: '#64748b', padding: '4px 8px', fontWeight: 600 }}>
+                      Tìm thấy {matchedPatients.length} người bệnh phù hợp:
+                    </div>
+                    {matchedPatients.slice(0, 6).map(p => {
+                      const pBh = parseBhytCard(p.insurance);
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => {
+                            setSelectedPtId(p.id);
+                            setSelectedEpisodeId('');
+                            setSearch('');
+                          }}
+                          style={{
+                            padding: '8px 10px',
+                            borderRadius: 6,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            transition: 'background 0.15s ease',
+                            borderBottom: '1px solid #f1f5f9'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#f0fdfa'}
+                          onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}
+                        >
+                          <div>
+                            <b style={{ fontSize: '13px', color: '#0f172a' }}>{p.name}</b>
+                            <span style={{ fontSize: '11.5px', color: '#64748b', marginLeft: 8 }}>Mã: {p.id}</span>
+                            <div style={{ fontSize: '11px', color: '#64748b', marginTop: 2 }}>
+                              SĐT: {p.phone || '—'} · CCCD: {p.cccd || '—'} {p.birth ? `· Sinh: ${p.birth}` : ''}
+                            </div>
+                          </div>
+                          <div>
+                            {pBh.hasInsurance ? (
+                              <span className={`badge ${pBh.benefitBadgeClass}`} style={{ fontSize: '10px' }}>
+                                BHYT {pBh.rate}%
+                              </span>
+                            ) : (
+                              <span className="badge gray" style={{ fontSize: '10px' }}>Viện phí</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -828,10 +877,18 @@ export default function History({role='admin',patientId,navigate,notify}){
                   </p>
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button className="secondary" onClick={() => setModal({ type: 'printSummary', episode: activeEp })} title="In tóm tắt bệnh án (Phụ lục 4 - Thông tư 18/2022/TT-BYT)">
-                    <Printer size={15} /> In tóm tắt bệnh án
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button className="secondary" onClick={() => setModal({ type: 'printReexam', episode: activeEp })} title="In Giấy hẹn khám lại theo Mẫu số 05 (Nghị định 75/2023/NĐ-CP)">
+                    <FileText size={15} /> Giấy hẹn khám lại (Mẫu 05)
                   </button>
+                  <button className="secondary" onClick={() => setModal({ type: 'printSummary', episode: activeEp })} title="In tóm tắt bệnh án (Phụ lục 4 - Thông tư 18/2022/TT-BYT)">
+                    <Printer size={15} /> Tóm tắt bệnh án
+                  </button>
+                  {activeEp.kind === 'Nội trú' && (
+                    <button className="secondary" onClick={() => setModal({ type: 'printDischarge', episode: activeEp })} title="In Giấy ra viện (Phụ lục 3 - Thông tư 18/2022/TT-BYT)">
+                      <FileText size={15} /> Giấy ra viện
+                    </button>
+                  )}
                   {clinical && activeEp.kind === 'Ngoại trú' && (
                     <button className="primary" onClick={() => open({ type: 'exam', row: activeEp })} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                       <Stethoscope size={15} /> Mở phiếu khám
@@ -1043,7 +1100,44 @@ export default function History({role='admin',patientId,navigate,notify}){
               <X size={20}/>
             </button>
 
-            {modal.type === 'printSummary' ? (
+            {modal.type === 'printReexam' ? (
+              <MedicalPaperFormViewer
+                tab="reexaminations"
+                row={{
+                  id: `GHKL-${modal.episode.id}`,
+                  episodeId: modal.episode.id,
+                  appointmentDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+                  appointmentTime: '08:30',
+                  clinicRoom: `Phòng khám ${modal.episode.department || 'Nội tổng quát'}`,
+                  diagnosis: modal.episode.note?.diagnosis || modal.episode.diagnosis || 'Tăng huyết áp / Đái tháo đường',
+                  icd: modal.episode.note?.icd || modal.episode.icd || 'I10',
+                  reason: 'Tái khám đánh giá đáp ứng phác đồ điều trị sau 7 ngày',
+                  testsNeeded: 'Kiểm tra sinh hiệu, xét nghiệm máu cơ bản theo dõi điều trị',
+                  advice: modal.episode.note?.advice || 'Dùng thuốc đúng giờ, nhịn ăn sáng trước khi đến khám',
+                  doctor: modal.episode.doctor || 'BS.CKI Trần Minh Anh'
+                }}
+                patient={curPt}
+                doctorStaff={{ name: modal.episode.doctor || 'BS.CKI Trần Minh Anh' }}
+                onClose={() => setModal(null)}
+              />
+            ) : modal.type === 'printDischarge' ? (
+              <MedicalPaperFormViewer
+                tab="discharges"
+                row={{
+                  id: `RV-${modal.episode.id}`,
+                  episodeId: modal.episode.id,
+                  diagnosis: modal.episode.note?.diagnosis || modal.episode.diagnosis || 'Đợt điều trị nội trú',
+                  icd: modal.episode.note?.icd || modal.episode.icd || 'J18.1',
+                  treatment: modal.episode.note?.plan || 'Điều trị nội trú kháng sinh, truyền dịch và chăm sóc',
+                  outcome: 'Đỡ / giảm',
+                  daysOff: 7,
+                  advice: modal.episode.note?.advice || 'Nghỉ ngơi, dùng thuốc theo đơn và tái khám theo hẹn'
+                }}
+                patient={curPt}
+                doctorStaff={{ name: modal.episode.doctor || 'BS.CKI Trần Minh Anh' }}
+                onClose={() => setModal(null)}
+              />
+            ) : modal.type === 'printSummary' ? (
               <MedicalPaperFormViewer
                 tab="archives"
                 row={{

@@ -1168,7 +1168,254 @@ export function MedicalRecordSummaryPaperForm({ row, patient, doctorStaff, compa
 }
 
 /**
- * 7. VIEWER TỔNG HỢP VỚI TOOLBAR LƯU DỮ LIỆU CSDL, CHỐNG TRÀN TRANG & IN ẤN
+ * 7. MẪU GIẤY HẸN KHÁM LẠI (MẪU SỐ 05)
+ * Ban hành kèm theo Nghị định số 75/2023/NĐ-CP & Thông tư 01/2025/TT-BYT của Bộ Y tế
+ */
+export function ReexaminationPaperForm({ row, patient, doctorStaff, compact = false, onChange = () => {} }) {
+  const bh = parseBhytCard(patient?.insurance || row.insurance);
+  const now = new Date();
+  const todayStr = `ngày ${now.getDate()} tháng ${now.getMonth() + 1} năm ${now.getFullYear()}`;
+  const age = (patient?.birth || row.birth) ? (now.getFullYear() - Number(String(patient?.birth || row.birth).slice(0, 4))) : '—';
+
+  return (
+    <div className={`paper-sheet ${compact ? 'paper-sheet-compact' : ''}`}>
+      {/* Quốc hiệu & Cơ sở y tế */}
+      <div className="paper-header">
+        <div className="paper-header-left">
+          <span>SỞ Y TẾ TP. HỒ CHÍ MINH</span>
+          <strong>BỆNH VIỆN ĐA KHOA MEDICARE</strong>
+          <span>Mã CSKCB: <b>79-012</b></span>
+          <div className="paper-doc-id">
+            Số vào sổ: <input className="paper-input paper-input-inline" style={{ width: 130, fontWeight: 700 }} value={row.soVaoSo || `${row.id || '01'}/GHKL`} onChange={e => onChange('soVaoSo', e.target.value)} title="Số vào sổ hẹn khám lại" />
+          </div>
+        </div>
+        <div className="paper-header-right">
+          <strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong>
+          <span>Độc lập - Tự do - Hạnh phúc</span>
+          <div className="paper-motto-line" />
+          <div className="paper-doc-id">Mẫu số 05 (NĐ 75/2023/NĐ-CP & TT 01/2025/TT-BYT)</div>
+        </div>
+      </div>
+
+      {/* Tiêu đề văn bản */}
+      <div className="paper-title">
+        <h1>GIẤY HẸN KHÁM LẠI</h1>
+        <p className="paper-sub-law">
+          (Ban hành kèm theo Nghị định số 75/2023/NĐ-CP & Thông tư số 01/2025/TT-BYT của Bộ Y tế)
+        </p>
+      </div>
+
+      {/* Phần I: Thông tin người bệnh */}
+      <div className="paper-section-title">I. THÔNG TIN HÀNH CHÍNH NGƯỜI BỆNH:</div>
+      <div className="paper-grid-admin-3col">
+        <div className="paper-field-cell">
+          <span className="paper-label">- Họ và tên người bệnh:</span>
+          <input
+            className="paper-input"
+            style={{ fontWeight: 700, textTransform: 'uppercase' }}
+            value={row.patientName || patient?.name || 'NGUYỄN VĂN AN'}
+            onChange={e => onChange('patientName', e.target.value)}
+          />
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Giới tính:</span>
+          <input
+            className="paper-input"
+            style={{ textAlign: 'center' }}
+            value={row.gender || patient?.gender || 'Nam'}
+            onChange={e => onChange('gender', e.target.value)}
+          />
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Tuổi:</span>
+          <span className="paper-value" style={{ textAlign: 'center' }}>{age}</span>
+        </div>
+      </div>
+
+      <div className="paper-grid-admin-2col">
+        <div className="paper-field-cell">
+          <span className="paper-label">- Ngày, tháng, năm sinh:</span>
+          <input
+            className="paper-input"
+            value={row.birth || patient?.birth || '1985-05-12'}
+            onChange={e => onChange('birth', e.target.value)}
+          />
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Số CCCD / Định danh:</span>
+          <input
+            className="paper-input"
+            style={{ fontFamily: 'monospace', fontWeight: 600 }}
+            value={row.cccd || patient?.cccd || '079085001234'}
+            onChange={e => onChange('cccd', e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="paper-field-row">
+        <span className="paper-label">- Địa chỉ nơi cư trú:</span>
+        <input
+          className="paper-input paper-input-fill"
+          value={row.address || patient?.address || '123 Nguyễn Trãi, P. Bến Thành, Quận 1, TP. Hồ Chí Minh'}
+          onChange={e => onChange('address', e.target.value)}
+        />
+      </div>
+
+      <div className="paper-grid-admin-2col">
+        <div className="paper-field-cell">
+          <span className="paper-label">- Số thẻ BHYT (nếu có):</span>
+          <input
+            className="paper-input"
+            style={{ fontFamily: 'monospace', fontWeight: 700, color: '#047857' }}
+            value={row.insurance || patient?.insurance || 'DN4797931852468'}
+            onChange={e => onChange('insurance', e.target.value)}
+          />
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Mức hưởng & Hạn thẻ:</span>
+          <span className="paper-value">
+            {bh.hasInsurance ? `${bh.benefitBadge} · ${bh.rate}% · Giá trị đến 31/12/2026` : 'Khám tự nguyện (Viện phí)'}
+          </span>
+        </div>
+      </div>
+
+      <div className="paper-field-row">
+        <span className="paper-label">- Đã được khám bệnh/điều trị tại:</span>
+        <input
+          className="paper-input paper-input-fill"
+          value={row.treatedAt || 'Khoa Nội tổng quát - Bệnh viện Đa khoa Medicare'}
+          onChange={e => onChange('treatedAt', e.target.value)}
+        />
+      </div>
+
+      {/* Phần II: Chẩn đoán & Tình trạng đợt điều trị */}
+      <div className="paper-section-title">II. CHẨN ĐOÁN & ĐÁNH GIÁ ĐỢT ĐIỀU TRỊ:</div>
+      <div className="paper-field-row">
+        <span className="paper-label">- Chẩn đoán xác định:</span>
+        <input
+          className="paper-input paper-input-fill"
+          style={{ fontWeight: 600 }}
+          value={row.diagnosis || 'I10 - Tăng huyết áp vô căn (nguyên phát)'}
+          onChange={e => onChange('diagnosis', e.target.value)}
+        />
+      </div>
+      <div className="paper-field-row">
+        <span className="paper-label">- Mã bệnh theo ICD-10:</span>
+        <input
+          className="paper-input"
+          style={{ width: 140, fontFamily: 'monospace', fontWeight: 700 }}
+          value={row.icd || 'I10'}
+          onChange={e => onChange('icd', e.target.value)}
+        />
+        <span className="paper-label" style={{ marginLeft: 16 }}>Bệnh kèm theo:</span>
+        <input
+          className="paper-input paper-input-fill"
+          value={row.comorbidities || 'E11.9 - Đái tháo đường type 2 không biến chứng'}
+          onChange={e => onChange('comorbidities', e.target.value)}
+        />
+      </div>
+
+      {/* Phần III: Nội dung hẹn khám lại */}
+      <div className="paper-section-title">III. NỘI DUNG HẸN KHÁM LẠI:</div>
+      <div className="paper-grid-admin-2col">
+        <div className="paper-field-cell">
+          <span className="paper-label">- Hẹn khám lại vào ngày:</span>
+          <input
+            type="date"
+            className="paper-input"
+            style={{ fontWeight: 700, color: '#0f766e' }}
+            value={row.appointmentDate || '2026-12-01'}
+            onChange={e => onChange('appointmentDate', e.target.value)}
+          />
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Giờ hẹn dự kiến:</span>
+          <input
+            className="paper-input"
+            style={{ width: 120, fontWeight: 700 }}
+            value={row.appointmentTime || '08:30'}
+            onChange={e => onChange('appointmentTime', e.target.value)}
+          />
+          <span style={{ fontSize: 11, color: '#64748b', marginLeft: 6 }}>(Hoặc trước 11:30 cùng ngày)</span>
+        </div>
+      </div>
+
+      <div className="paper-field-row">
+        <span className="paper-label">- Địa điểm / Phòng khám hẹn:</span>
+        <input
+          className="paper-input paper-input-fill"
+          style={{ fontWeight: 600 }}
+          value={row.clinicRoom || 'Phòng khám 101 - Khoa Khám bệnh Nội tổng quát'}
+          onChange={e => onChange('clinicRoom', e.target.value)}
+        />
+      </div>
+
+      <div className="paper-field-row">
+        <span className="paper-label">- Lý do hẹn khám lại:</span>
+        <input
+          className="paper-input paper-input-fill"
+          value={row.reason || 'Tái khám đánh giá đáp ứng phác đồ hạ áp và kiểm soát đường huyết sau 7 ngày điều trị'}
+          onChange={e => onChange('reason', e.target.value)}
+        />
+      </div>
+
+      <div className="paper-field-row">
+        <span className="paper-label">- Xét nghiệm / Cận lâm sàng cần thực hiện lại:</span>
+        <input
+          className="paper-input paper-input-fill"
+          value={row.testsNeeded || 'Xét nghiệm máu (Glucose đói, Creatinine, Men gan AST/ALT), Đo điện tim (ECG 12 cần)'}
+          onChange={e => onChange('testsNeeded', e.target.value)}
+        />
+      </div>
+
+      <div className="paper-field-row">
+        <span className="paper-label">- Lời dặn trước khi đến khám:</span>
+        <input
+          className="paper-input paper-input-fill"
+          value={row.advice || 'Nhịn ăn sáng trước khi lấy máu làm xét nghiệm. Mang theo toàn bộ đơn thuốc cũ và Giấy hẹn này khi đến khám.'}
+          onChange={e => onChange('advice', e.target.value)}
+        />
+      </div>
+
+      {/* Ghi chú pháp lý quan trọng theo Luật BHYT */}
+      <div className="paper-legal-box" style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '10px 14px', borderRadius: 4, margin: '10px 0', fontSize: 12, lineHeight: 1.6, color: '#334155' }}>
+        <b>* Lưu ý quan trọng theo quy định của Luật Bảo hiểm y tế & Nghị định số 75/2023/NĐ-CP:</b>
+        <div style={{ marginLeft: 12 }}>
+          1. Giấy hẹn khám lại chỉ có giá trị sử dụng <b>01 lần</b> trong thời hạn <b>10 ngày làm việc</b> kể từ ngày được hẹn khám lại.<br />
+          2. Nếu quá thời hạn 10 ngày làm việc mà người bệnh không đến khám lại, giấy hẹn khám lại sẽ <b>hết hiệu lực</b> (người bệnh phải đăng ký khám lại hoặc xin giấy chuyển tuyến mới nếu hưởng chế độ BHYT đúng tuyến).<br />
+          3. Khi đi khám lại, người bệnh phải xuất trình Giấy hẹn này cùng thẻ BHYT (hoặc ứng dụng VssID / CCCD gắn chip).
+        </div>
+      </div>
+
+      {/* Ký tên và đóng dấu */}
+      <div className="paper-sign-row" style={{ marginTop: 14 }}>
+        <div className="paper-sign-col">
+          <span className="sign-date">Thành phố Hồ Chí Minh, {todayStr}</span>
+          <span className="sign-title">BÁC SĨ HẸN KHÁM</span>
+          <span className="sign-hint">(Ký và ghi rõ họ tên)</span>
+          <input
+            className="paper-input paper-input-sign"
+            style={{ fontWeight: 700 }}
+            value={row.doctor || doctorStaff?.name || 'BS.CKI Trần Minh Anh'}
+            onChange={e => onChange('doctor', e.target.value)}
+          />
+        </div>
+        <div className="paper-sign-col">
+          <span className="sign-date">&nbsp;</span>
+          <span className="sign-title">ĐẠI DIỆN LÃNH ĐẠO CƠ SỞ KCB / TRƯỞNG KHOA</span>
+          <span className="sign-hint">(Ký, ghi rõ họ tên và đóng dấu)</span>
+          <span className="sign-name">
+            PGS.TS.BS Đặng Quốc Tuấn
+            <span className="paper-badge-stamp">BỆNH VIỆN MEDICARE</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 8. VIEWER TỔNG HỢP VỚI TOOLBAR LƯU DỮ LIỆU CSDL, CHỐNG TRÀN TRANG & IN ẤN
  */
 export default function MedicalPaperFormViewer({
   tab,
@@ -1260,6 +1507,9 @@ export default function MedicalPaperFormViewer({
   if (tab === 'referrals') {
     FormComponent = ReferralPaperForm;
     formTitle = 'Giấy chuyển tuyến BHYT (Mẫu 06 - NĐ 75/2023/NĐ-CP)';
+  } else if (tab === 'reexaminations') {
+    FormComponent = ReexaminationPaperForm;
+    formTitle = 'Giấy hẹn khám lại (Mẫu số 05 - NĐ 75/2023/NĐ-CP & TT 01/2025/TT-BYT)';
   } else if (tab === 'consultations') {
     FormComponent = ConsultationPaperForm;
     formTitle = 'Biên bản hội chẩn chuyên môn (Quy chế Bộ Y tế)';
