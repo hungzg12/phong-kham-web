@@ -11,8 +11,8 @@ export async function getPaperFormData(type, id) {
         p.gioiTinh AS gender,
         CONVERT(varchar(10), p.ngaySinh, 23) AS birth,
         p.soDienThoai AS phone,
-        p.soCCCD AS cccd,
-        p.maSoBHYT AS insurance,
+        p.soDinhDanh AS cccd,
+        p.soBHYT AS insurance,
         p.diaChi AS address,
         g.coSoTiepNhan AS destination,
         g.maCSKCBTiepNhan AS destinationCode,
@@ -24,7 +24,7 @@ export async function getPaperFormData(type, id) {
         g.maICDChuyen AS icd,
         g.phuongPhapDieuTri AS treatment,
         g.tinhTrangNguoiBenh AS condition,
-        g.huongDieuTriTiep AS plan,
+        g.huongDieuTriTiep AS [plan],
         g.phuongTienVanChuyen AS transport,
         g.nguoiHoTong AS escort,
         bs.hoTen AS doctor,
@@ -49,7 +49,7 @@ export async function getPaperFormData(type, id) {
         h.thanhVienThamGia AS participants,
         h.tomTatDienBien AS summary,
         h.chanDoanThongNhat AS conclusion,
-        h.huongDieuTriThongNhat AS plan,
+        h.huongDieuTriThongNhat AS [plan],
         h.trangThai AS status,
         bs.hoTen AS doctor
       FROM dbo.BienBanHoiChan h
@@ -68,7 +68,7 @@ export async function getPaperFormData(type, id) {
         r.maBenhNhan AS patient,
         p.hoTen AS patientName,
         p.gioiTinh AS gender,
-        p.maSoBHYT AS insurance,
+        p.soBHYT AS insurance,
         CONVERT(varchar(10), p.ngaySinh, 23) AS birth,
         r.chanDoanVaoVien AS admissionDiagnosis,
         r.chanDoanRaVien AS diagnosis,
@@ -97,7 +97,7 @@ export async function getPaperFormData(type, id) {
         t.maBenhNhan AS patient,
         p.hoTen AS patientName,
         p.gioiTinh AS gender,
-        p.maSoBHYT AS insurance,
+        p.soBHYT AS insurance,
         CONVERT(varchar(10), p.ngaySinh, 23) AS birth,
         t.quaTrinhBenhLy AS pathology,
         t.tomTatCLS AS labSummary,
@@ -129,32 +129,39 @@ export async function savePaperFormData(type, d) {
       ON target.maGiayChuyenTuyen = source.maGiayChuyenTuyen
       WHEN MATCHED THEN
         UPDATE SET
+          soVaoSo = @soVaoSo,
           coSoTiepNhan = @destination,
+          maCSKCBTiepNhan = @destinationCode,
+          tuyenTiepNhan = @level,
           lyDoChuyen = @reason,
           tomTatBenhSu = @symptoms,
           tomTatCLS = @labSummary,
           chanDoanChuyen = @diagnosis,
+          maICDChuyen = @icd,
           phuongPhapDieuTri = @treatment,
           tinhTrangNguoiBenh = @condition,
           huongDieuTriTiep = @plan,
           phuongTienVanChuyen = @transport,
           nguoiHoTong = @escort
       WHEN NOT MATCHED THEN
-        INSERT (maGiayChuyenTuyen, soVaoSo, maBenhNhan, coSoTiepNhan, lyDoChuyen, tomTatBenhSu, tomTatCLS, chanDoanChuyen, phuongPhapDieuTri, tinhTrangNguoiBenh, huongDieuTriTiep, phuongTienVanChuyen, nguoiHoTong)
-        VALUES (@id, @soVaoSo, @patientId, @destination, @reason, @symptoms, @labSummary, @diagnosis, @treatment, @condition, @plan, @transport, @escort);
+        INSERT (maGiayChuyenTuyen, soVaoSo, maBenhNhan, coSoTiepNhan, maCSKCBTiepNhan, tuyenTiepNhan, lyDoChuyen, tomTatBenhSu, tomTatCLS, chanDoanChuyen, maICDChuyen, phuongPhapDieuTri, tinhTrangNguoiBenh, huongDieuTriTiep, phuongTienVanChuyen, nguoiHoTong)
+        VALUES (@id, @soVaoSo, @patientId, @destination, @destinationCode, @level, @reason, @symptoms, @labSummary, @diagnosis, @icd, @treatment, @condition, @plan, @transport, @escort);
     `, {
       id,
       soVaoSo: d.soVaoSo || '01/2026/GCT',
       patientId: d.patient || d.patientId || 'BN-240101-001',
-      destination: d.destination || 'Bệnh viện Chợ Rẫy',
-      reason: d.reason || 'Vượt khả năng chuyên môn',
+      destination: d.destination || 'Bệnh viện Chợ Rẫy TP. Hồ Chí Minh',
+      destinationCode: d.destinationCode || '79-015',
+      level: d.level || 'Tuyến 1 (Tuyến Trung ương)',
+      reason: d.reason || 'Vượt quá năng lực chuyên môn kỹ thuật can thiệp',
       symptoms: d.symptoms || d.note || '',
       labSummary: d.labSummary || '',
       diagnosis: d.diagnosis || '',
+      icd: d.icd || 'I20.0',
       treatment: d.treatment || '',
-      condition: d.condition || 'Ổn định',
+      condition: d.condition || 'Ổn định, tỉnh táo',
       plan: d.plan || '',
-      transport: d.transport || 'Xe cứu thương',
+      transport: d.transport || 'Xe cứu thương chuyên dụng',
       escort: d.escort || ''
     });
     return { ok: true, id };
@@ -169,6 +176,7 @@ export async function savePaperFormData(type, d) {
       WHEN MATCHED THEN
         UPDATE SET
           diaDiem = @location,
+          hinhThucHoiChan = @formType,
           lyDoHoiChan = @reason,
           thanhVienThamGia = @participants,
           tomTatDienBien = @summary,
@@ -176,11 +184,12 @@ export async function savePaperFormData(type, d) {
           huongDieuTriThongNhat = @plan
       WHEN NOT MATCHED THEN
         INSERT (maBienBan, maDotDieuTri, thoiDiemHoiChan, diaDiem, hinhThucHoiChan, lyDoHoiChan, maChuToa, maThuKy, thanhVienThamGia, tomTatDienBien, chanDoanThongNhat, huongDieuTriThongNhat, trangThai)
-        VALUES (@id, @episodeId, SYSUTCDATETIME(), @location, 'LIEN_KHOA', @reason, @leader, @secretary, @participants, @summary, @conclusion, @plan, 'DA_DUYET');
+        VALUES (@id, @episodeId, SYSUTCDATETIME(), @location, @formType, @reason, @leader, @secretary, @participants, @summary, @conclusion, @plan, 'DA_DUYET');
     `, {
       id,
       episodeId: d.episodeId || 'BA-261121-EA9A',
       location: d.location || 'Phòng Giao ban Bệnh viện',
+      formType: d.formType || 'LIEN_KHOA',
       reason: d.reason || '',
       leader: d.leader || 'NV-BS01',
       secretary: d.secretary || 'NV-DD01',
@@ -200,23 +209,32 @@ export async function savePaperFormData(type, d) {
       ON target.maGiayRaVien = source.maGiayRaVien
       WHEN MATCHED THEN
         UPDATE SET
+          soLuuTru = @soLuuTru,
+          chanDoanVaoVien = @admissionDiagnosis,
           chanDoanRaVien = @diagnosis,
+          maICDRaVien = @icd,
           phuongPhapDieuTri = @treatment,
           ketQuaDieuTri = @outcome,
           soNgayNghiBHXH = @daysOff,
+          tuNgayNghi = @leaveFrom,
+          denNgayNghi = @leaveTo,
           loiDanBacSi = @advice
       WHEN NOT MATCHED THEN
-        INSERT (maGiayRaVien, soLuuTru, maBenhNhan, maDotDieuTri, maKhoaRaVien, ngayVaoVien, ngayRaVien, chanDoanVaoVien, chanDoanRaVien, phuongPhapDieuTri, ketQuaDieuTri, soNgayNghiBHXH, loiDanBacSi, trangThai)
-        VALUES (@id, @soLuuTru, @patientId, @episodeId, 'KHOA_NOI', DATEADD(day, -5, SYSUTCDATETIME()), SYSUTCDATETIME(), @diagnosis, @diagnosis, @treatment, @outcome, @daysOff, @advice, N'Đã hoàn tất');
+        INSERT (maGiayRaVien, soLuuTru, maBenhNhan, maDotDieuTri, maKhoaRaVien, ngayVaoVien, ngayRaVien, chanDoanVaoVien, chanDoanRaVien, maICDRaVien, phuongPhapDieuTri, ketQuaDieuTri, soNgayNghiBHXH, tuNgayNghi, denNgayNghi, loiDanBacSi, trangThai)
+        VALUES (@id, @soLuuTru, @patientId, @episodeId, 'KHOA_NOI', DATEADD(day, -5, SYSUTCDATETIME()), SYSUTCDATETIME(), @admissionDiagnosis, @diagnosis, @icd, @treatment, @outcome, @daysOff, @leaveFrom, @leaveTo, @advice, N'Đã hoàn tất');
     `, {
       id,
       soLuuTru: d.soLuuTru || ('RV-2026/' + id),
       patientId: d.patient || d.patientId || 'BN-240101-001',
       episodeId: d.episodeId || 'BA-261121-EA9A',
+      admissionDiagnosis: d.admissionDiagnosis || d.diagnosis || '',
       diagnosis: d.diagnosis || '',
+      icd: d.icd || 'E11.9',
       treatment: d.treatment || '',
       outcome: d.outcome || 'Đỡ / giảm',
       daysOff: Number(d.daysOff || d.soNgayNghiBHXH || 7),
+      leaveFrom: d.leaveFrom || null,
+      leaveTo: d.leaveTo || null,
       advice: d.advice || d.loiDanBacSi || ''
     });
     return { ok: true, id };
@@ -233,12 +251,13 @@ export async function savePaperFormData(type, d) {
           quaTrinhBenhLy = @pathology,
           tomTatCLS = @labSummary,
           chanDoan = @diagnosis,
+          maICD = @icd,
           phuongPhapDieuTri = @treatment,
           tinhTrangRaVien = @outcome,
           ghiChuLoiDan = @advice
       WHEN NOT MATCHED THEN
-        INSERT (maTomTat, maBenhNhan, maLuotKham, quaTrinhBenhLy, tomTatCLS, chanDoan, phuongPhapDieuTri, tinhTrangRaVien, ghiChuLoiDan, trangThai)
-        VALUES (@id, @patientId, @episodeId, @pathology, @labSummary, @diagnosis, @treatment, @outcome, @advice, N'Đã hoàn tất');
+        INSERT (maTomTat, maBenhNhan, maLuotKham, quaTrinhBenhLy, tomTatCLS, chanDoan, maICD, phuongPhapDieuTri, tinhTrangRaVien, ghiChuLoiDan, trangThai)
+        VALUES (@id, @patientId, @episodeId, @pathology, @labSummary, @diagnosis, @icd, @treatment, @outcome, @advice, N'Đã hoàn tất');
     `, {
       id,
       patientId: d.patient || d.patientId || 'BN-240101-001',
@@ -246,6 +265,7 @@ export async function savePaperFormData(type, d) {
       pathology: d.pathology || d.quaTrinhBenhLy || '',
       labSummary: d.labSummary || d.tomTatCLS || '',
       diagnosis: d.diagnosis || '',
+      icd: d.icd || 'K29.0',
       treatment: d.treatment || d.phuongPhapDieuTri || '',
       outcome: d.outcome || d.tinhTrangRaVien || 'Ổn định',
       advice: d.advice || d.ghiChuLoiDan || ''

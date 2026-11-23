@@ -13,6 +13,7 @@ function formResult(fn){try{return fn()}catch(e){return e.message||'Không thự
 import {actorRoles,allowedTabs,canCreate,canEdit,canAction} from './roles';
 import {parseBhytCard} from './bhyt-utils';
 import MedicalPaperFormViewer from './MedicalPaperForms';
+import StatutoryPaperBusinessForm from './StatutoryPaperBusinessForm';
 
 const currency=n=>new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(Number(n)||0);
 const uid=p=>p+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,5).toUpperCase();
@@ -159,7 +160,65 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
     <section className={'modal business-modal '+(['form','settlement','detail'].includes(dialog.type)?'wide-modal his-large-modal':'')} role="dialog" aria-modal="true" aria-label={dialog.type==='detail'?'Chi tiết bản ghi':'Biểu mẫu nghiệp vụ'} onClick={e=>e.stopPropagation()}>
       <button className="close icon-button" aria-label="Đóng biểu mẫu" onClick={()=>setDialog(null)}><X size={21}/></button>
       
-      {dialog.type==='form'&&<RecordForm tab={tab} episodeTab={episodeTab} inpatientOnly={['rounds','consultations','discharges'].includes(tab)} definition={def} defaults={{doctor:actor.staffId||'',cashier:actor.staffId||'',...(scope?{patient:scope.patientId,episodeId:scope.episodeId}:{})}} initial={dialog.row} stock={stock} optionsFor={optionsFor} onSave={values=>saveRow(values,dialog.row)}/>}
+      {dialog.type==='form' && (
+        ['referrals', 'consultations', 'discharges', 'archives'].includes(tab) ? (
+          <StatutoryPaperBusinessForm
+            tab={tab}
+            initialRow={dialog.row}
+            patients={patients}
+            staff={db.staff}
+            onSave={(payload) => {
+              const record = {
+                ...dialog.row,
+                ...payload,
+                id: payload.id || dialog.row?.id || uid(def?.prefix || 'CT'),
+                createdAt: dialog.row?.createdAt || timestamp(),
+                date: dialog.row?.date || today,
+                status: dialog.row?.status || def?.initialStatus || 'Đã ghi nhận'
+              };
+              commit(prev => ({
+                ...prev,
+                [tab]: dialog.row
+                  ? (prev[tab] || []).map(x => x.id === dialog.row.id ? record : x)
+                  : [record, ...(prev[tab] || [])]
+              }), `${dialog.row ? 'Cập nhật' : 'Tạo'} ${def?.singular || 'chứng từ'} ${record.id}`);
+              setDialog(null);
+              notify?.('Đã lưu thông tin nghiệp vụ vào CSDL SQL Server');
+            }}
+            onSaveAndViewPaper={(payload) => {
+              const record = {
+                ...dialog.row,
+                ...payload,
+                id: payload.id || dialog.row?.id || uid(def?.prefix || 'CT'),
+                createdAt: dialog.row?.createdAt || timestamp(),
+                date: dialog.row?.date || today,
+                status: dialog.row?.status || def?.initialStatus || 'Đã ghi nhận'
+              };
+              commit(prev => ({
+                ...prev,
+                [tab]: dialog.row
+                  ? (prev[tab] || []).map(x => x.id === dialog.row.id ? record : x)
+                  : [record, ...(prev[tab] || [])]
+              }), `${dialog.row ? 'Cập nhật' : 'Tạo'} ${def?.singular || 'chứng từ'} ${record.id}`);
+              notify?.('Đã lưu vào SQL Server và mở biểu mẫu in chuẩn A4');
+              setDialog({ type: 'detail', row: record });
+            }}
+            onClose={() => setDialog(null)}
+          />
+        ) : (
+          <RecordForm
+            tab={tab}
+            episodeTab={episodeTab}
+            inpatientOnly={['rounds','consultations','discharges'].includes(tab)}
+            definition={def}
+            defaults={{doctor:actor.staffId||'',cashier:actor.staffId||'',...(scope?{patient:scope.patientId,episodeId:scope.episodeId}:{})}}
+            initial={dialog.row}
+            stock={stock}
+            optionsFor={optionsFor}
+            onSave={values=>saveRow(values,dialog.row)}
+          />
+        )
+      )}
       
       {dialog.type==='detail'&&(
         ['referrals','consultations','discharges','settlements','prescriptions','archives','authorizations'].includes(tab) ? (
@@ -177,6 +236,7 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
                 }));
                 notify?.('Đã lưu biểu mẫu y tế vào CSDL thành công');
               }}
+              onOpenBusinessForm={() => setDialog({ type: 'form', row: dialog.row })}
               onClose={() => setDialog(null)}
             />
             <div className="dialog-actions no-print" style={{ marginTop: 16 }}>

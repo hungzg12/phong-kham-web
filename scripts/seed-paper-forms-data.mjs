@@ -5,6 +5,42 @@ export async function seedPaperFormsData() {
   SET XACT_ABORT ON;
   BEGIN TRANSACTION;
 
+  -- 0. Đảm bảo dữ liệu danh mục tiên quyết (Khoa, Buồng, Nhân viên, Bệnh nhân, Lượt khám, Đợt điều trị)
+  IF NOT EXISTS (SELECT 1 FROM dbo.Khoa WHERE maKhoa = 'NOI')
+    INSERT INTO dbo.Khoa (maKhoa, tenKhoa, loaiKhoa) VALUES ('NOI', N'Nội tổng quát', 'KHAM_BENH');
+
+  IF NOT EXISTS (SELECT 1 FROM dbo.BuongKham WHERE maBuong = 'BK_NOI_01')
+    INSERT INTO dbo.BuongKham (maBuong, maKhoa, tenBuong) VALUES ('BK_NOI_01', 'NOI', N'Phòng khám 101');
+
+  IF NOT EXISTS (SELECT 1 FROM dbo.NhanVien WHERE maNhanVien = 'NV-BS01')
+    INSERT INTO dbo.NhanVien (maNhanVien, hoTen, maKhoa, chucDanh, chuyenMon) VALUES ('NV-BS01', N'BS.CKI Trần Minh Anh', 'NOI', N'Bác sĩ', 'BAC_SI');
+
+  IF NOT EXISTS (SELECT 1 FROM dbo.NhanVien WHERE maNhanVien = 'NV-BS02')
+    INSERT INTO dbo.NhanVien (maNhanVien, hoTen, maKhoa, chucDanh, chuyenMon) VALUES ('NV-BS02', N'BS.CKII Phạm Hoàng Long', 'NOI', N'Bác sĩ', 'BAC_SI');
+
+  IF NOT EXISTS (SELECT 1 FROM dbo.NhanVien WHERE maNhanVien = 'NV-DD01')
+    INSERT INTO dbo.NhanVien (maNhanVien, hoTen, maKhoa, chucDanh, chuyenMon) VALUES ('NV-DD01', N'ĐD. Nguyễn Thị Mai', 'NOI', N'Điều dưỡng', 'DIEU_DUONG');
+
+  IF NOT EXISTS (SELECT 1 FROM dbo.BenhNhan WHERE maBenhNhan = 'BN-240101-001')
+    INSERT INTO dbo.BenhNhan (maBenhNhan, hoTen, ngaySinh, gioiTinh, soDinhDanh, soBHYT, soDienThoai, diaChi)
+    VALUES ('BN-240101-001', N'Nguyễn Văn An', '1985-05-12', N'Nam', '079085001234', 'DN4797931852468', '0903123456', N'123 Nguyễn Trãi, P. Bến Thành, Q.1, TP. Hồ Chí Minh');
+
+  IF NOT EXISTS (SELECT 1 FROM dbo.BenhNhan WHERE maBenhNhan = 'BN-240101-002')
+    INSERT INTO dbo.BenhNhan (maBenhNhan, hoTen, ngaySinh, gioiTinh, soDinhDanh, soBHYT, soDienThoai, diaChi)
+    VALUES ('BN-240101-002', N'Trần Thị Bích Ngọc', '1992-08-20', N'Nữ', '079192005678', 'GD4797931859999', '0918765432', N'456 Lê Văn Sỹ, P.14, Q.3, TP. Hồ Chí Minh');
+
+  IF NOT EXISTS (SELECT 1 FROM dbo.LuotKham WHERE maLuotKham = 'LK-261122-001')
+    INSERT INTO dbo.LuotKham (maLuotKham, maBenhNhan, maBuong, thoiDiemDangKy, thoiDiemCapSo, soThuTu, lyDoKham)
+    VALUES ('LK-261122-001', 'BN-240101-001', 'BK_NOI_01', '2026-11-22T08:00:00', '2026-11-22T08:00:00', 1, N'Đau ngực khó thở');
+
+  IF NOT EXISTS (SELECT 1 FROM dbo.LuotKham WHERE maLuotKham = 'LK-261122-002')
+    INSERT INTO dbo.LuotKham (maLuotKham, maBenhNhan, maBuong, thoiDiemDangKy, thoiDiemCapSo, soThuTu, lyDoKham)
+    VALUES ('LK-261122-002', 'BN-240101-002', 'BK_NOI_01', '2026-11-22T08:15:00', '2026-11-22T08:15:00', 2, N'Khám định kỳ đái tháo đường');
+
+  IF NOT EXISTS (SELECT 1 FROM dbo.DotDieuTri WHERE maDotDieuTri = 'BA-261121-EA9A')
+    INSERT INTO dbo.DotDieuTri (maDotDieuTri, maBenhNhan, maLuotKham, maKhoaDieuTri, thoiDiemNhapVien, lyDoNhapVien, chanDoanVaoVien, maBacSiDieuTriChinh)
+    VALUES ('BA-261121-EA9A', 'BN-240101-001', 'LK-261122-001', 'NOI', '2026-11-18T08:00:00', N'Điều trị đái tháo đường biến chứng', N'E11.9 - Đái tháo đường type 2', 'NV-BS01');
+
   -- 1. Giấy chuyển tuyến (Mẫu số 06)
   IF NOT EXISTS (SELECT 1 FROM dbo.GiayChuyenTuyen WHERE maGiayChuyenTuyen = 'CT-261122-001')
   BEGIN
