@@ -17,6 +17,7 @@ import StatutoryPaperBusinessForm from './StatutoryPaperBusinessForm';
 import MedicalSuggestInput from './MedicalSuggestInput';
 
 const currency=n=>new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(Number(n)||0);
+const money = currency;
 const uid=p=>p+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,5).toUpperCase();
 const timestamp=()=>new Date().toLocaleString('vi-VN');
 const numeric=new Set(['pulse','temperature','spo2','weight','height','quantity','price','actual','amount','opening','counted','capacity']);
@@ -983,7 +984,7 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
                 <ul style={{ margin: 0, paddingLeft: '16px' }}>
                   <li>Dịch vụ kỹ thuật, Khám bệnh, CĐHA: Thuộc Danh mục BHYT theo giá phê duyệt CSDL SQL Server (QĐ 130/QĐ-BYT).</li>
                   <li>Thuốc thiết yếu (Amoxicillin, Kháng sinh, Paracetamol đơn chất): Đúng danh mục TT 20/2022/TT-BYT.</li>
-                  <li>Quỹ BHYT chi trả: <b>{money(insuranceCoveredAmount)}</b> ({insuranceRate}%) · Bệnh nhân cùng chi trả: <b>{money(patientCopayAmount)}</b> ({100 - insuranceRate}%).</li>
+                  <li>Quỹ BHYT chi trả: <b>{currency(insuranceCoveredAmount)}</b> ({insuranceRate}%) · Bệnh nhân cùng chi trả: <b>{currency(patientCopayAmount)}</b> ({100 - insuranceRate}%).</li>
                 </ul>
               </div>
               <div>
@@ -991,7 +992,7 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
                 <ul style={{ margin: 0, paddingLeft: '16px' }}>
                   <li>Thuốc phối hợp chứa Caffeine (Panadol Extra 500mg/65mg): <b>Khóa cứng BHYT = 0%</b> theo Điều khoản loại trừ TT 20/2022/TT-BYT.</li>
                   <li>Ngăn chặn tuyệt đối hành vi gian lận bảo hiểm y tế theo <b>Điều 215 Bộ luật Hình sự</b>.</li>
-                  <li>Người bệnh tự chi trả 100%: <b>{money(patientOutOfPocketAmount)}</b>.</li>
+                  <li>Người bệnh tự chi trả 100%: <b>{currency(patientOutOfPocketAmount)}</b>.</li>
                 </ul>
               </div>
             </div>
