@@ -14,6 +14,7 @@ import {actorRoles,allowedTabs,canCreate,canEdit,canAction} from './roles';
 import {parseBhytCard} from './bhyt-utils';
 import MedicalPaperFormViewer from './MedicalPaperForms';
 import StatutoryPaperBusinessForm from './StatutoryPaperBusinessForm';
+import MedicalSuggestInput from './MedicalSuggestInput';
 
 const currency=n=>new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(Number(n)||0);
 const uid=p=>p+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,5).toUpperCase();
@@ -286,6 +287,15 @@ function Empty({text}){return <div className="business-empty"><FileText size={30
 
 function Field({field,value,onChange,optionsFor=()=>null}){
   const options=optionsFor(field)||field.options?.map(x=>({label:x,value:x}));
+  const clinicalType = ['reason','reasons'].includes(field.key) ? 'reason'
+    : ['history','allergy','tienSu'].includes(field.key) ? 'history'
+    : ['symptoms','progress','dienBien'].includes(field.key) ? 'symptoms'
+    : ['examination','physicalExam'].includes(field.key) ? 'examination'
+    : ['plan','treatment','huongDieuTri'].includes(field.key) ? 'plan'
+    : ['advice','note','conclusion','finding','loiDan'].includes(field.key) ? 'advice'
+    : ['dose','orders','yLenh'].includes(field.key) ? 'orders'
+    : null;
+
   return <label className={field.type==='textarea'?'span-two his-field-label':'his-field-label'}>
     {field.label}{field.required&&<em> *</em>}
     {options?(
@@ -293,6 +303,16 @@ function Field({field,value,onChange,optionsFor=()=>null}){
         <option value="">Chọn {field.label.toLowerCase()}</option>
         {options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
+    ):clinicalType?(
+      <MedicalSuggestInput
+        type={clinicalType}
+        multiline={field.type==='textarea'}
+        rows={field.type==='textarea'?3:1}
+        value={value??''}
+        onChange={onChange}
+        placeholder={field.placeholder || `Nhập hoặc chọn gợi ý ${field.label.toLowerCase()}...`}
+        className={field.type==='textarea'?'his-textarea':'his-input'}
+      />
     ):field.type==='textarea'?(
       <textarea name={field.key} value={value??''} required={field.required} maxLength={4000} placeholder={field.placeholder} onChange={e=>onChange(e.target.value)} className="his-textarea"/>
     ):(
@@ -492,7 +512,7 @@ function ActionForm({dialog,stock,optionsFor,onSave}){
 
  const fields=action==='result'?[
    {key:'conclusion',label:'Kết luận chuyên môn Cận lâm sàng *',type:'textarea',required:true,placeholder:'Các chỉ số xét nghiệm huyết học và sinh hóa trong giới hạn bình thường.'},
-   {key:'critical',label:'Cảnh báo giá trị nguy kịch (Panic Value)',type:'select',options:['Không','Có - Báo ngay Bác sĩ lâm sàng'],required:true},
+   {key:'critical',label:'Cảnh báo giá trị nguy kịch',type:'select',options:['Không','Có - Báo ngay Bác sĩ lâm sàng'],required:true},
    {key:'pacs',label:'Mã tham chiếu hệ thống PACS / Thiết bị xét nghiệm',placeholder:'SID-2026-88129'}
  ]:['reject','cancel'].includes(action)?[
    {key:'reason',label:'Lý do thao tác *',type:'textarea',required:true}
@@ -586,7 +606,7 @@ function ActionForm({dialog,stock,optionsFor,onSave}){
                         <option>Bình thường</option>
                         <option>Thấp [L]</option>
                         <option>Cao [H]</option>
-                        <option>Nguy kịch [Panic]</option>
+                        <option>Nguy kịch [Cao/Nguy hiểm]</option>
                       </select>
                     </td>
                   </tr>

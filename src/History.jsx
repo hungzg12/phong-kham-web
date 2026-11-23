@@ -7,6 +7,7 @@ import {actorRoles} from './roles';
 import Icd10Search from './Icd10Search';
 import { parseBhytCard } from './bhyt-utils';
 import MedicalPaperFormViewer from './MedicalPaperForms';
+import MedicalSuggestInput from './MedicalSuggestInput';
 
 export function EpisodeField({patientId,value,onChange,inpatientOnly=false}){
   const [visits]=useWorkspace('visits'),[admissions]=useWorkspace('admissions');
@@ -338,12 +339,13 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
             <div className="his-grid-1">
               <label className="his-label">
                 Lý do vào khám & Quá trình bệnh lý đợt này *
-                <textarea
-                  required
+                <MedicalSuggestInput
+                  type="symptoms"
+                  multiline
                   rows={2}
                   value={symptoms}
-                  onChange={e => setSymptoms(e.target.value)}
-                  className="his-textarea"
+                  onChange={val => setSymptoms(val)}
+                  placeholder="Lý do vào khám và diễn biến bệnh..."
                 />
               </label>
             </div>
@@ -351,21 +353,25 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
             <div className="his-grid-2">
               <label className="his-label">
                 Tiền sử bản thân & gia đình
-                <textarea
+                <MedicalSuggestInput
+                  type="history"
+                  multiline
                   rows={2}
                   value={historyNotes}
-                  onChange={e => setHistoryNotes(e.target.value)}
-                  className="his-textarea"
+                  onChange={val => setHistoryNotes(val)}
+                  placeholder="Tiền sử bệnh lý, dị ứng, thuốc đang dùng..."
                 />
               </label>
 
               <label className="his-label">
                 Khám toàn thân & các cơ quan bộ phận
-                <textarea
+                <MedicalSuggestInput
+                  type="examination"
+                  multiline
                   rows={2}
                   value={physicalExam}
-                  onChange={e => setPhysicalExam(e.target.value)}
-                  className="his-textarea"
+                  onChange={val => setPhysicalExam(val)}
+                  placeholder="Tri giác, da niêm, tim phổi, bụng..."
                 />
               </label>
             </div>
@@ -438,11 +444,11 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
             <div className="his-grid-2">
               <label className="his-label">
                 Chỉ định Cận lâm sàng (CLS) đề xuất
-                <input
+                <MedicalSuggestInput
+                  type="orders"
                   value={orders}
-                  onChange={e => setOrders(e.target.value)}
+                  onChange={val => setOrders(val)}
                   placeholder="Xét nghiệm máu, X-quang tim phổi, Siêu âm bụng tổng quát..."
-                  className="his-input"
                 />
               </label>
 
@@ -459,12 +465,13 @@ export function VisitExam({patient,onClose,notify,role='admin',visitId}){
 
               <label className="his-label">
                 Lời dặn dò chế độ điều trị & dinh dưỡng
-                <textarea
+                <MedicalSuggestInput
+                  type="advice"
+                  multiline
                   rows={2}
                   value={advice}
-                  onChange={e => setAdvice(e.target.value)}
+                  onChange={val => setAdvice(val)}
                   placeholder="Uống thuốc đúng giờ, ăn nhạt, kiêng mỡ động vật..."
-                  className="his-textarea"
                 />
               </label>
 

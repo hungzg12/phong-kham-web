@@ -810,7 +810,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                         </label>
 
                         <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
-                          Cảnh báo giá trị nguy kịch (Panic Value Alert)
+                          Cảnh báo giá trị nguy kịch
                           <select
                             value={editing.critical || 'Không'}
                             onChange={e => setEditing({ ...editing, critical: e.target.value })}

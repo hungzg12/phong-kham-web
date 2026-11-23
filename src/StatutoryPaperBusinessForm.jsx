@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { FileText, Save, Printer, AlertTriangle, CheckCircle, ShieldCheck, User, Calendar, MapPin, Building2, Stethoscope, Clock, Activity, Check, X, Info } from 'lucide-react';
 import { parseBhytCard } from './bhyt-utils';
+import MedicalSuggestInput from './MedicalSuggestInput';
 
 const HOSPITALS = [
   { name: 'Bệnh viện Chợ Rẫy TP. Hồ Chí Minh', code: '79-015', level: 'Tuyến 1 (Tuyến Trung ương)' },
@@ -351,11 +352,12 @@ export default function StatutoryPaperBusinessForm({
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
                   1. Dấu hiệu lâm sàng lúc tiếp nhận:
                 </label>
-                <textarea
-                  className="his-textarea"
+                <MedicalSuggestInput
+                  type="symptoms"
+                  multiline
                   rows={3}
                   value={values.symptoms}
-                  onChange={e => handleChange('symptoms', e.target.value)}
+                  onChange={val => handleChange('symptoms', val)}
                   placeholder="Mô tả triệu chứng lâm sàng..."
                 />
               </div>
@@ -364,11 +366,12 @@ export default function StatutoryPaperBusinessForm({
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
                   2. Tóm tắt kết quả cận lâm sàng chính:
                 </label>
-                <textarea
-                  className="his-textarea"
+                <MedicalSuggestInput
+                  type="labSummary"
+                  multiline
                   rows={3}
                   value={values.labSummary}
-                  onChange={e => handleChange('labSummary', e.target.value)}
+                  onChange={val => handleChange('labSummary', val)}
                   placeholder="Kết quả xét nghiệm máu, ECG, X-quang, siêu âm..."
                 />
               </div>
@@ -412,11 +415,12 @@ export default function StatutoryPaperBusinessForm({
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
                   4. Phương pháp / thuốc đã dùng:
                 </label>
-                <textarea
-                  className="his-textarea"
+                <MedicalSuggestInput
+                  type="treatment"
+                  multiline
                   rows={2}
                   value={values.treatment}
-                  onChange={e => handleChange('treatment', e.target.value)}
+                  onChange={val => handleChange('treatment', val)}
                   placeholder="Thuốc, dịch truyền, can thiệp đã xử trí..."
                 />
               </div>
@@ -425,11 +429,12 @@ export default function StatutoryPaperBusinessForm({
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
                   5. Tình trạng lúc chuyển tuyến:
                 </label>
-                <textarea
-                  className="his-textarea"
+                <MedicalSuggestInput
+                  type="condition"
+                  multiline
                   rows={2}
                   value={values.condition}
-                  onChange={e => handleChange('condition', e.target.value)}
+                  onChange={val => handleChange('condition', val)}
                   placeholder="Mạch, Huyết áp, SpO2, tri giác lúc bàn giao..."
                 />
               </div>
@@ -603,11 +608,12 @@ export default function StatutoryPaperBusinessForm({
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
                 Phương pháp điều trị:
               </label>
-              <textarea
-                className="his-textarea"
+              <MedicalSuggestInput
+                type="treatment"
+                multiline
                 rows={2}
                 value={values.treatment}
-                onChange={e => handleChange('treatment', e.target.value)}
+                onChange={val => handleChange('treatment', val)}
                 placeholder="Điều trị nội khoa, chế độ dinh dưỡng..."
               />
             </div>
@@ -616,11 +622,12 @@ export default function StatutoryPaperBusinessForm({
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
                 Lời dặn của thầy thuốc:
               </label>
-              <textarea
-                className="his-textarea"
+              <MedicalSuggestInput
+                type="advice"
+                multiline
                 rows={2}
                 value={values.advice}
-                onChange={e => handleChange('advice', e.target.value)}
+                onChange={val => handleChange('advice', val)}
                 placeholder="Hướng dẫn dùng thuốc, chế độ ăn, hẹn tái khám..."
               />
             </div>
@@ -697,11 +704,12 @@ export default function StatutoryPaperBusinessForm({
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
                 Lý do hội chẩn:
               </label>
-              <textarea
-                className="his-textarea"
+              <MedicalSuggestInput
+                type="reason"
+                multiline
                 rows={2}
                 value={values.reason}
-                onChange={e => handleChange('reason', e.target.value)}
+                onChange={val => handleChange('reason', val)}
                 placeholder="Ca bệnh khó, nhiều bệnh nền phức tạp..."
               />
             </div>
@@ -710,11 +718,13 @@ export default function StatutoryPaperBusinessForm({
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
                 Tóm tắt diễn biến bệnh & điều trị:
               </label>
-              <textarea
-                className="his-textarea"
+              <MedicalSuggestInput
+                type="symptoms"
+                multiline
                 rows={3}
                 value={values.summary}
-                onChange={e => handleChange('summary', e.target.value)}
+                onChange={val => handleChange('summary', val)}
+                placeholder="Tóm tắt quá trình diễn biến bệnh và điều trị..."
               />
             </div>
 
@@ -723,23 +733,27 @@ export default function StatutoryPaperBusinessForm({
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
                   Kết luận & Chẩn đoán thống nhất:
                 </label>
-                <textarea
-                  className="his-textarea"
+                <MedicalSuggestInput
+                  type="advice"
+                  multiline
                   rows={2}
                   style={{ fontWeight: 600 }}
                   value={values.conclusion}
-                  onChange={e => handleChange('conclusion', e.target.value)}
+                  onChange={val => handleChange('conclusion', val)}
+                  placeholder="Chẩn đoán thống nhất của hội đồng..."
                 />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
                   Hướng điều trị thống nhất:
                 </label>
-                <textarea
-                  className="his-textarea"
+                <MedicalSuggestInput
+                  type="plan"
+                  multiline
                   rows={2}
                   value={values.plan}
-                  onChange={e => handleChange('plan', e.target.value)}
+                  onChange={val => handleChange('plan', val)}
+                  placeholder="Phác đồ can thiệp và điều trị tiếp theo..."
                 />
               </div>
             </div>
@@ -753,11 +767,13 @@ export default function StatutoryPaperBusinessForm({
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
                 Quá trình bệnh lý & diễn biến lâm sàng:
               </label>
-              <textarea
-                className="his-textarea"
+              <MedicalSuggestInput
+                type="symptoms"
+                multiline
                 rows={3}
                 value={values.pathology}
-                onChange={e => handleChange('pathology', e.target.value)}
+                onChange={val => handleChange('pathology', val)}
+                placeholder="Quá trình bệnh lý và diễn biến lâm sàng..."
               />
             </div>
 
@@ -765,11 +781,13 @@ export default function StatutoryPaperBusinessForm({
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
                 Tóm tắt kết quả cận lâm sàng có giá trị:
               </label>
-              <textarea
-                className="his-textarea"
+              <MedicalSuggestInput
+                type="labSummary"
+                multiline
                 rows={3}
                 value={values.labSummary}
-                onChange={e => handleChange('labSummary', e.target.value)}
+                onChange={val => handleChange('labSummary', val)}
+                placeholder="Tóm tắt kết quả cận lâm sàng chính..."
               />
             </div>
 
@@ -789,11 +807,13 @@ export default function StatutoryPaperBusinessForm({
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
                 Phương pháp điều trị đã áp dụng:
               </label>
-              <textarea
-                className="his-textarea"
+              <MedicalSuggestInput
+                type="treatment"
+                multiline
                 rows={2}
                 value={values.treatment}
-                onChange={e => handleChange('treatment', e.target.value)}
+                onChange={val => handleChange('treatment', val)}
+                placeholder="Các phương pháp điều trị, phẫu thuật, thủ thuật..."
               />
             </div>
 
@@ -801,11 +821,13 @@ export default function StatutoryPaperBusinessForm({
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 4 }}>
                 Tình trạng người bệnh khi ra viện & Hướng điều trị tiếp theo:
               </label>
-              <textarea
-                className="his-textarea"
+              <MedicalSuggestInput
+                type="advice"
+                multiline
                 rows={2}
                 value={values.advice}
-                onChange={e => handleChange('advice', e.target.value)}
+                onChange={val => handleChange('advice', val)}
+                placeholder="Tình trạng khi xuất viện, chế độ dùng thuốc và tái khám..."
               />
             </div>
           </div>
