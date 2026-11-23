@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BedDouble, User, AlertTriangle, ShieldCheck, Stethoscope, Clock, CreditCard, CheckCircle2, X, FileText, ChevronRight } from 'lucide-react';
+import { BedDouble, User, AlertTriangle, ShieldCheck, Stethoscope, Clock, CreditCard, CheckCircle2, X, FileText, ChevronRight, Sparkles } from 'lucide-react';
 import { hisApi } from './api';
 import { getWorkspace } from './workspace';
 import Icd10Search from './Icd10Search';
