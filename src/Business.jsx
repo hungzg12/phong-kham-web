@@ -2,7 +2,7 @@ import PatientPortal from './PatientPortal';
 import {hisApi} from './api';
 import {syncWithSqlServer} from './workspace';
 import React,{useState,useEffect,useRef} from 'react';
-import {Plus,Search,Download,Eye,Pencil,X,Check,ArrowRight,FileText,Trash2,Printer,ShieldCheck,ShieldAlert,Lock,AlertCircle,Activity,ClipboardList,Wallet,ChevronLeft,ChevronRight,HeartPulse,Pill,FileSpreadsheet,Receipt} from 'lucide-react';
+import {Plus,Search,Download,Eye,Pencil,X,Check,ArrowRight,FileText,Trash2,Printer,Shield,ShieldCheck,ShieldAlert,Lock,AlertCircle,Activity,ClipboardList,Wallet,ChevronLeft,ChevronRight,HeartPulse,Pill,FileSpreadsheet,Receipt} from 'lucide-react';
 import {definitions,pageGroups,extraTitles,permissionNames,specialLabels,today} from './business-data';
 import './business.css';
 import {useWorkspace,getWorkspace,episodeOptions,applyClinicalStock,approveInventoryRow,dischargeAdmission,financialRows} from './workspace';
@@ -751,12 +751,17 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
     }
   }, [episodeId, initialLines, db.labs, db.clinicalCharges, db.prescriptions, db.services, stock]);
 
+  const [showAuditor, setShowAuditor] = useState(false);
+
   useEffect(() => {
     function handleKeyDown(e) {
       if (e.key === 'F4') {
         e.preventDefault();
         const submitBtn = document.getElementById('his-settle-submit-btn');
         if (submitBtn) submitBtn.click();
+      } else if (e.key === 'F10') {
+        e.preventDefault();
+        setShowAuditor(prev => !prev);
       } else if (e.key === 'F12') {
         e.preventDefault();
         setShowPrintPreview(prev => !prev);
@@ -850,6 +855,23 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button
+            type="button"
+            className="secondary no-print his-btn-sm"
+            onClick={() => setShowAuditor(prev => !prev)}
+            title="Xem bảng minh bạch căn cứ pháp lý giám định BHYT theo QĐ 130 và TT 20/2022"
+            style={{
+              background: showAuditor ? '#0f766e' : '#f8fafc',
+              color: showAuditor ? '#ffffff' : '#0f766e',
+              borderColor: '#0d9488',
+              fontWeight: 600,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5
+            }}
+          >
+            <Shield size={13} /> {showAuditor ? 'Đóng căn cứ (F10)' : 'Căn cứ BHYT (F10)'}
+          </button>
           <button type="button" className="secondary no-print his-btn-sm" onClick={() => setShowPrintPreview(true)} title="In bảng kê chi phí A4 chuẩn cho người bệnh ký">
             <Printer size={14} /> In Mẫu 01/BV (F12)
           </button>
@@ -934,6 +956,47 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
             )}
           </div>
         </div>
+
+        {/* BẢNG MINH BẠCH CĂN CỨ PHÁP LÝ BHYT (F10) */}
+        {showAuditor && (
+          <div className="his-auditor-panel" style={{
+            background: '#f0fdfa',
+            border: '1px solid #99f6e4',
+            borderRadius: '6px',
+            padding: '12px 16px',
+            marginBottom: '12px',
+            fontSize: '11.5px',
+            color: '#134e4a',
+            lineHeight: '1.6'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px solid #ccfbf1', paddingBottom: '6px' }}>
+              <b style={{ fontSize: '12.5px', color: '#0f766e', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <ShieldCheck size={16} /> BẢNG MINH BẠCH CĂN CỨ PHÁP LÝ GIÁM ĐỊNH BHYT (QUYẾT ĐỊNH 130 & TT 20/2022/TT-BYT)
+              </b>
+              <span style={{ fontSize: '10px', background: '#ccfbf1', color: '#0f766e', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                BẢO VỆ PHÁP LÝ · 100% TỰ ĐỘNG
+              </span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <p style={{ margin: '0 0 4px', fontWeight: 600, color: '#047857' }}>✓ PHẠM VI THANH TOÁN QUỸ BHYT ({insuranceRate}%):</p>
+                <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                  <li>Dịch vụ kỹ thuật, Khám bệnh, CĐHA: Thuộc Danh mục BHYT theo giá phê duyệt CSDL SQL Server (QĐ 130/QĐ-BYT).</li>
+                  <li>Thuốc thiết yếu (Amoxicillin, Kháng sinh, Paracetamol đơn chất): Đúng danh mục TT 20/2022/TT-BYT.</li>
+                  <li>Quỹ BHYT chi trả: <b>{money(insuranceCoveredAmount)}</b> ({insuranceRate}%) · Bệnh nhân cùng chi trả: <b>{money(patientCopayAmount)}</b> ({100 - insuranceRate}%).</li>
+                </ul>
+              </div>
+              <div>
+                <p style={{ margin: '0 0 4px', fontWeight: 600, color: '#b91c1c' }}>✗ NGOÀI DANH MỤC / TỰ TÚC 100% (NGHIÊM CẤM QUYẾT TOÁN BHYT):</p>
+                <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                  <li>Thuốc phối hợp chứa Caffeine (Panadol Extra 500mg/65mg): <b>Khóa cứng BHYT = 0%</b> theo Điều khoản loại trừ TT 20/2022/TT-BYT.</li>
+                  <li>Ngăn chặn tuyệt đối hành vi gian lận bảo hiểm y tế theo <b>Điều 215 Bộ luật Hình sự</b>.</li>
+                  <li>Người bệnh tự chi trả 100%: <b>{money(patientOutOfPocketAmount)}</b>.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* BẢNG KÊ CHI TIẾT CHI PHÍ (AUDITED DATAGRID) */}
         <div className="his-table-card">

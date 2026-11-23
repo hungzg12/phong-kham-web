@@ -1,5 +1,5 @@
 import React,{useState,useEffect,useRef} from 'react';
-import {Search,Stethoscope,Save,Plus,Printer,LockKeyhole,ArrowRight,X,Check,FileText,Trash2,BookOpen} from 'lucide-react';
+import {Search,Stethoscope,Save,Plus,Printer,LockKeyhole,ArrowRight,X,Check,FileText,Trash2,BookOpen,Sparkles,Shield} from 'lucide-react';
 import {useWorkspace,getWorkspace,transact,id,audit,syncLatestPatient,syncWithSqlServer} from './workspace';
 import {hisApi} from './api';
 import {actorRoles} from './roles';
@@ -13,6 +13,58 @@ import SpecialtyExamModule from './SpecialtyExamModules';
 import MedicalPaperFormViewer from './MedicalPaperForms';
 import MedicalSuggestInput from './MedicalSuggestInput';
 import './clinical-desk.css';
+
+export const CLINICAL_PRESETS = [
+  {
+    name: 'Viêm phế quản cấp',
+    data: {
+      reason: 'Sốt cao kèm rét run, ho có đờm đục, đau tức ngực khi thở sâu',
+      history: 'Chưa ghi nhận tiền sử dị ứng thuốc và bệnh lý mạn tính trước đây',
+      symptoms: 'Người bệnh tỉnh táo, tiếp xúc tốt, ho nhiều cơn có đờm vàng đục, đau rát họng và tức ngực sau ho',
+      examination: 'Phổi thông khí giảm đáy phổi phải, nghe có rale ẩm rải rác vùng giữa và đáy phổi. Tim đều rõ.',
+      plan: 'Điều trị nội khoa theo phác đồ kháng sinh phổ rộng, giảm ho long đờm và hạ sốt bù dịch.',
+      icd: 'J20.9',
+      diagnosis: 'Viêm phế quản cấp không đặc hiệu'
+    }
+  },
+  {
+    name: 'Tăng huyết áp kịch phát',
+    data: {
+      reason: 'Huyết áp đo tại nhà dao động cao trên 170/100 mmHg kèm đau gáy',
+      history: 'Tiền sử Tăng huyết áp 5 năm, đang dùng Amlodipine 5mg/ngày đều đặn',
+      symptoms: 'Chóng mặt, đau tức vùng chẩm gáy, hoa mắt nhẹ khi thay đổi tư thế, không đau ngực',
+      examination: 'Tri giác tỉnh, tiếp xúc tốt. Huyết áp đo tại khám 165/95 mmHg, tim đều rõ không âm thổi.',
+      plan: 'Kiểm soát huyết áp mục tiêu dưới 130/80 mmHg bằng phối hợp ARB và chẹn kênh Canxi.',
+      icd: 'I10',
+      diagnosis: 'Tăng huyết áp vô căn (nguyên phát)'
+    }
+  },
+  {
+    name: 'Đái tháo đường T2',
+    data: {
+      reason: 'Khám sức khỏe định kỳ theo hẹn của bác sĩ điều trị',
+      history: 'Đái tháo đường type 2 phát hiện 8 năm, đang điều trị Insulin kết hợp Metformin',
+      symptoms: 'Người bệnh ổn định, ăn uống sinh hoạt bình thường, không có cơn hạ đường huyết',
+      examination: 'Thể trạng trung bình. Bàn chân ấm, mạch mu chân hai bên bắt rõ, không có vết loét.',
+      plan: 'Tiếp tục duy trì phác đồ hạ đường huyết hiện tại, theo dõi HbA1c định kỳ 3 tháng.',
+      icd: 'E11.9',
+      diagnosis: 'Đái tháo đường type 2 không có biến chứng'
+    }
+  },
+  {
+    name: 'Viêm dạ dày tá tràng',
+    data: {
+      reason: 'Đau bụng vùng thượng vị âm ỉ, ợ hơi, ợ chua nhiều sau ăn',
+      history: 'Viêm loét dạ dày tá tràng mạn tính HP (+), từng có đợt xuất huyết tiêu hóa năm 2021',
+      symptoms: 'Đau bụng vùng thượng vị âm ỉ liên tục, bụng mềm, ấn tức nhẹ, không có phản ứng thành bụng',
+      examination: 'Bụng mềm, di động theo nhịp thở. Gan lách không to. Điểm thượng vị ấn tức nhẹ.',
+      plan: 'Điều trị nội khoa: Giảm tiết acid dạ dày PPI, băng niêm mạc và hẹn nội soi kiểm tra.',
+      icd: 'K29.0',
+      diagnosis: 'Viêm dạ dày cấp tính xuất huyết'
+    }
+  }
+];
+
 const money=n=>new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(n||0);
 export default function ClinicalDesk({role,notify,navigate,inpatient=false}){
  const [globalIcd,setGlobalIcd]=useState(false);
@@ -131,7 +183,7 @@ function EpisodeDesk({episode,patient,role,notify,navigate,inpatient,dirtyRef}){
  <div className="desk-document-state"><span>{locked?<><LockKeyhole size={13}/>Đã khóa · Phiên bản {revision}</>:dirty?'Có nội dung chưa lưu':record?.note?'Đã lưu · Phiên bản '+revision:'Chưa lưu phiếu'}</span>{locked&&writable&&<button className="text-button" onClick={()=>setAction('reopen')}>Mở đính chính có lý do</button>}{!writable&&<span>Chế độ chỉ xem</span>}</div>
  <div className="desk-tabs" role="tablist" aria-label="Các phần hồ sơ">{[['exam',inpatient?'Tờ điều trị':'Khám lâm sàng'],['diagnosis','Chẩn đoán'],['services','Chỉ định CLS'],['results','Kết quả CLS'],['rx','Đơn thuốc'],...(inpatient?[['orders','Y lệnh điều trị']]:[]),['costs','Chi phí'],['history','Lịch sử']].map(([key,title])=><button role="tab" aria-selected={tab===key} key={key} onClick={()=>{setTab(key);setError('')}}>{title}</button>)}</div>
  <div className="desk-tab-panel">
- {tab==='exam'&&<><div className="desk-section-heading"><h3>{inpatient?'Diễn biến & kế hoạch điều trị':'Khám lâm sàng & Đặc thù Chuyên khoa'}</h3></div><fieldset disabled={!canWrite} className="desk-fields"><div className="desk-field-grid">{inpatient&&<label>Ngày điều trị<input type="date" value={note.date||today} onChange={e=>change('date',e.target.value)}/></label>}<label>Lý do khám / vào viện<MedicalSuggestInput type="reason" value={note.reason||episode.reason||''} onChange={val=>change('reason',val)} placeholder="Nhập hoặc chọn lý do khám/vào viện..." disabled={!canWrite}/></label><label>Tiền sử / thuốc đang sử dụng<MedicalSuggestInput type="history" value={note.history||''} onChange={val=>change('history',val)} placeholder="Nhập hoặc chọn tiền sử bệnh, thuốc đang dùng..." disabled={!canWrite}/></label></div><label>{inpatient?'Diễn biến bệnh':'Triệu chứng / bệnh sử'}<MedicalSuggestInput type="symptoms" multiline rows={3} value={note.symptoms||''} onChange={val=>change('symptoms',val)} placeholder="Ghi nhận nội dung khám, diễn biến triệu chứng…" disabled={!canWrite}/></label><label>Khám toàn thân & Thể trạng chung<MedicalSuggestInput type="examination" multiline rows={3} value={note.examination||''} onChange={val=>change('examination',val)} placeholder="Khám toàn thân & thể trạng chung..." disabled={!canWrite}/></label><SpecialtyExamModule roomCode={episode.roomCode} department={episode.department} specialtyData={note.specialty || {}} onChange={handleSpecialtyChange} disabled={!canWrite}/><h4>Chỉ số sinh tồn</h4><div className="desk-vitals">{[['pressure','Huyết áp (mmHg)','text'],['pulse','Mạch (lần/phút)','number'],['temperature','Nhiệt độ (°C)','number'],['respiration','Nhịp thở (lần/phút)','number'],['height','Chiều cao (cm)','number'],['weight','Cân nặng (kg)','number'],['spo2','SpO₂ (%)','number']].map(([key,label,type])=><label key={key}>{label}<input type={type} min={type==='number'?0:undefined} step="any" value={note.vitals?.[key]||''} onChange={e=>{setNote(n=>({...n,vitals:{...n.vitals,[key]:e.target.value}}));setDirty(true)}}/></label>)}<label>BMI<output>{Number(note.vitals?.height)>0&&Number(note.vitals?.weight)>0?(Number(note.vitals.weight)/(Number(note.vitals.height)/100)**2).toFixed(2):'—'}</output></label></div><label>Hướng điều trị / chăm sóc<MedicalSuggestInput type="plan" multiline rows={3} value={note.plan||''} onChange={val=>change('plan',val)} placeholder="Hướng điều trị và kế hoạch chăm sóc..." disabled={!canWrite}/></label><label>Hướng xử trí<select value={note.outcome||(inpatient?'Tiếp tục điều trị nội trú':'Điều trị ngoại trú')} onChange={e=>change('outcome',e.target.value)}>{(inpatient?['Tiếp tục điều trị nội trú','Đề nghị hội chẩn','Đề nghị ra viện','Chuyển tuyến']:['Điều trị ngoại trú','Chờ kết quả CLS','Chỉ định nhập viện','Chuyển tuyến']).map(s=><option key={s}>{s}</option>)}</select></label></fieldset></>}
+ {tab==='exam'&&<><div className="desk-section-heading"><h3>{inpatient?'Diễn biến & kế hoạch điều trị':'Khám lâm sàng & Đặc thù Chuyên khoa'}</h3></div><div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap',marginBottom:'12px',padding:'6px 10px',background:'#f8fafc',borderRadius:'6px',border:'1px solid #e2e8f0'}}><span style={{fontSize:'11px',fontWeight:600,color:'#475569',display:'inline-flex',alignItems:'center',gap:4}}><Sparkles size={12} color="#0f766e"/>Mẫu bệnh án (1-Click):</span>{CLINICAL_PRESETS.map(preset=><button key={preset.name} type="button" disabled={!canWrite} onClick={()=>{setNote(n=>({...n,...preset.data}));setDirty(true);notify(`Đã nạp mẫu: ${preset.name}`);}} style={{background:'#ffffff',border:'1px solid #cbd5e1',borderRadius:'4px',padding:'2px 8px',fontSize:'11px',color:'#0f766e',fontWeight:600,cursor:canWrite?'pointer':'not-allowed'}}>{preset.name}</button>)}</div><fieldset disabled={!canWrite} className="desk-fields"><div className="desk-field-grid">{inpatient&&<label>Ngày điều trị<input type="date" value={note.date||today} onChange={e=>change('date',e.target.value)}/></label>}<label>Lý do khám / vào viện<MedicalSuggestInput type="reason" value={note.reason||episode.reason||''} onChange={val=>change('reason',val)} placeholder="Nhập hoặc chọn lý do khám/vào viện..." disabled={!canWrite}/></label><label>Tiền sử / thuốc đang sử dụng<MedicalSuggestInput type="history" value={note.history||''} onChange={val=>change('history',val)} placeholder="Nhập hoặc chọn tiền sử bệnh, thuốc đang dùng..." disabled={!canWrite}/></label></div><label>{inpatient?'Diễn biến bệnh':'Triệu chứng / bệnh sử'}<MedicalSuggestInput type="symptoms" multiline rows={3} value={note.symptoms||''} onChange={val=>change('symptoms',val)} placeholder="Ghi nhận nội dung khám, diễn biến triệu chứng…" disabled={!canWrite}/></label><label>Khám toàn thân & Thể trạng chung<MedicalSuggestInput type="examination" multiline rows={3} value={note.examination||''} onChange={val=>change('examination',val)} placeholder="Khám toàn thân & thể trạng chung..." disabled={!canWrite}/></label><SpecialtyExamModule roomCode={episode.roomCode} department={episode.department} specialtyData={note.specialty || {}} onChange={handleSpecialtyChange} disabled={!canWrite}/><h4>Chỉ số sinh tồn</h4><div className="desk-vitals">{[['pressure','Huyết áp (mmHg)','text'],['pulse','Mạch (lần/phút)','number'],['temperature','Nhiệt độ (°C)','number'],['respiration','Nhịp thở (lần/phút)','number'],['height','Chiều cao (cm)','number'],['weight','Cân nặng (kg)','number'],['spo2','SpO₂ (%)','number']].map(([key,label,type])=><label key={key}>{label}<input type={type} min={type==='number'?0:undefined} step="any" value={note.vitals?.[key]||''} onChange={e=>{setNote(n=>({...n,vitals:{...n.vitals,[key]:e.target.value}}));setDirty(true)}}/></label>)}<label>BMI<output>{Number(note.vitals?.height)>0&&Number(note.vitals?.weight)>0?(Number(note.vitals.weight)/(Number(note.vitals.height)/100)**2).toFixed(2):'—'}</output></label></div><label>Hướng điều trị / chăm sóc<MedicalSuggestInput type="plan" multiline rows={3} value={note.plan||''} onChange={val=>change('plan',val)} placeholder="Hướng điều trị và kế hoạch chăm sóc..." disabled={!canWrite}/></label><label>Hướng xử trí<select value={note.outcome||(inpatient?'Tiếp tục điều trị nội trú':'Điều trị ngoại trú')} onChange={e=>change('outcome',e.target.value)}>{(inpatient?['Tiếp tục điều trị nội trú','Đề nghị hội chẩn','Đề nghị ra viện','Chuyển tuyến']:['Điều trị ngoại trú','Chờ kết quả CLS','Chỉ định nhập viện','Chuyển tuyến']).map(s=><option key={s}>{s}</option>)}</select></label></fieldset></>}
  {tab==='diagnosis'&&<fieldset disabled={!canWrite} className="desk-fields"><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}><h3 style={{margin:0}}>Chẩn đoán theo mã bệnh ICD-10 (Bộ Y tế)</h3>{note.icd&&<span className="badge teal" style={{fontFamily:'monospace'}}>Mã ICD: {note.icd}</span>}</div><label>Chẩn đoán bệnh chính (Tra cứu mã ICD-10 từ CSDL)<Icd10Search valueCode={note.icd||''} valueName={note.diagnosis||''} onChange={({code,name})=>{change('icd',code);change('diagnosis',name);}} onOpenManager={()=>setShowIcdManager(true)} disabled={!canWrite}/></label><label>Bệnh kèm theo / Biến chứng (Mã hoặc tên bệnh phụ)<MedicalSuggestInput type="comorbidities" multiline rows={2} value={note.comorbidities||''} onChange={val=>change('comorbidities',val)} placeholder="Nhập các mã bệnh kèm theo, ví dụ: E11.9 (Đái tháo đường type 2), K29.0..." disabled={!canWrite}/></label><label>Lời dặn của bác sĩ sau khám<MedicalSuggestInput type="advice" multiline rows={2} value={note.advice||''} onChange={val=>change('advice',val)} placeholder="Chế độ dinh dưỡng, vận động, kiêng cữ và hẹn tái khám..." disabled={!canWrite}/></label>{showIcdManager&&<Icd10ManagerModal onClose={()=>setShowIcdManager(false)} notify={notify}/>}</fieldset>}
  {tab==='services'&&<><div className="desk-section-heading"><h3>Chỉ định theo lượt / đợt đang chọn</h3><span>{episode.id}</span></div><button className="secondary" disabled={!canWrite} onClick={()=>setAction('package')}>Chọn gói dịch vụ mẫu</button><div className="desk-service-layout"><div><label>Tìm dịch vụ<input placeholder="Tên hoặc mã dịch vụ" value={serviceSearch} onChange={e=>setServiceSearch(e.target.value)}/></label><select aria-label="Nhóm dịch vụ bàn khám" value={serviceGroup} onChange={e=>setServiceGroup(e.target.value)}><option value="">Tất cả nhóm</option>{[...new Set(allServices.map(s=>s.kind))].map(s=><option key={s}>{s}</option>)}</select><div className="desk-service-list">{services.map(s=><label key={s.id}><input type="checkbox" disabled={!canWrite} checked={selectedServices.includes(s.id)} onChange={e=>setSelectedServices(old=>e.target.checked?[...old,s.id]:old.filter(x=>x!==s.id))}/><span><b>{s.name}</b><small>{s.id} · {s.kind}</small></span><strong>{money(s.price)}</strong></label>)}</div></div><div className="desk-service-basket"><h4>Phiếu đang chọn · {selectedServices.length} dịch vụ</h4>{selectedServices.map(s=>allServices.find(x=>x.id===s)).filter(Boolean).map(s=><p key={s.id}><span>{s.name}</span><b>{money(s.price)}</b></p>)}{(()=>{
   const bh = parseBhytCard(patient.insurance);
