@@ -1,0 +1,242 @@
+/* ==========================================================================
+   MEDICARE OFFICIAL VIETNAMESE MEDICAL PAPER FORMS STYLESHEET
+   Compliant with Ministry of Health (BYT) & Vietnam Social Security (BHXH)
+   Standard print rules for A4 output & High-fidelity Screen Preview
+   ========================================================================== */
+
+.paper-sheet {
+  background: #ffffff;
+  color: #111827;
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 13.5px;
+  line-height: 1.5;
+  padding: 32px 36px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  margin: 0 auto;
+  max-width: 820px;
+  position: relative;
+}
+
+.paper-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.paper-header-left {
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.paper-header-left strong {
+  font-size: 13px;
+  text-transform: uppercase;
+  display: block;
+}
+
+.paper-header-right {
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.paper-header-right strong {
+  font-size: 13px;
+  text-transform: uppercase;
+  display: block;
+}
+
+.paper-motto-line {
+  display: inline-block;
+  width: 140px;
+  height: 1px;
+  background-color: #111827;
+  margin: 3px 0 6px 0;
+}
+
+.paper-doc-id {
+  font-style: italic;
+  font-size: 11.5px;
+  color: #374151;
+}
+
+.paper-title {
+  text-align: center;
+  margin: 18px 0 14px 0;
+}
+
+.paper-title h1 {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 18px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin: 0 0 4px 0;
+  color: #111827;
+  letter-spacing: 0.5px;
+}
+
+.paper-title .paper-sub-law {
+  font-style: italic;
+  font-size: 11.5px;
+  color: #4b5563;
+  margin: 0;
+}
+
+.paper-recipient {
+  margin: 12px 0 16px 0;
+  font-size: 13.5px;
+  text-align: center;
+}
+
+.paper-section-title {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 13.5px;
+  margin: 14px 0 6px 0;
+  color: #111827;
+}
+
+.paper-row {
+  display: flex;
+  margin-bottom: 5px;
+  align-items: baseline;
+}
+
+.paper-label {
+  font-weight: 600;
+  margin-right: 6px;
+  white-space: nowrap;
+}
+
+.paper-value {
+  flex: 1;
+  border-bottom: 1px dotted #9ca3af;
+  min-height: 18px;
+  padding-left: 4px;
+}
+
+.paper-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 12.5px;
+}
+
+.paper-table th,
+.paper-table td {
+  border: 1px solid #111827;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.paper-table th {
+  background-color: #f3f4f6;
+  font-weight: 700;
+  text-align: center;
+}
+
+.paper-table .text-center {
+  text-align: center;
+}
+
+.paper-table .text-right {
+  text-align: right;
+}
+
+.paper-total-row {
+  font-weight: 700;
+  background-color: #fafafa;
+}
+
+.paper-sign-block {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+  text-align: center;
+  break-inside: avoid;
+}
+
+.paper-sign-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 130px;
+}
+
+.paper-sign-col .sign-title {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 12.5px;
+}
+
+.paper-sign-col .sign-hint {
+  font-style: italic;
+  font-size: 11px;
+  color: #4b5563;
+}
+
+.paper-sign-col .sign-name {
+  font-weight: 700;
+  font-size: 13px;
+  margin-top: 60px;
+}
+
+.paper-badge-stamp {
+  display: inline-block;
+  border: 2px solid #b91c1c;
+  color: #b91c1c;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  transform: rotate(-3deg);
+  margin-left: 8px;
+}
+
+/* Screen action toolbar attached to paper preview */
+.paper-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  padding: 10px 16px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+/* Print specific optimizations */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .paper-sheet {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    page-break-after: always;
+  }
+
+  .no-print,
+  .paper-toolbar,
+  .modal-backdrop button.close {
+    display: none !important;
+  }
+
+  .paper-table th {
+    background-color: #f3f3f3 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
