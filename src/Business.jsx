@@ -802,7 +802,8 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
     const lineGross = qty * price;
     const el = isBhytEligibleItem(l.description);
     // Strict statutory rule: If drug is legally ineligible (e.g. Panadol Extra containing Caffeine), it is ALWAYS false
-    const isCovered = el.eligible && l.insuranceCovered !== false && l.inBhyt !== false && insuranceRate > 0;
+    // Automatic coverage: Reimbursable items are 100% automated by catalog and card benefit rate without manual checkboxes
+    const isCovered = el.eligible && l.inBhyt !== false && insuranceRate > 0;
     const lineBHYT = isCovered ? Math.round((lineGross * insuranceRate) / 100) : 0;
     const lineCopay = isCovered ? (lineGross - lineBHYT) : 0;
     const lineOutOfPocket = !isCovered ? lineGross : 0;
@@ -1015,7 +1016,7 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
                   <th>TÊN DỊCH VỤ / THUỐC / VẬT TƯ</th>
                   <th style={{ width: 60, textAlign: 'center' }}>SL</th>
                   <th style={{ width: 95, textAlign: 'right' }}>ĐƠN GIÁ (₫)</th>
-                  <th style={{ width: 90, textAlign: 'center' }}>BHYT</th>
+                  <th style={{ width: 90, textAlign: 'center' }}>MỨC HƯỞNG</th>
                   <th style={{ width: 110, textAlign: 'right' }}>QUỸ BHYT (₫)</th>
                   <th style={{ width: 115, textAlign: 'right' }}>BN TRẢ (₫)</th>
                   <th style={{ width: 36, textAlign: 'center' }}></th>
@@ -1053,15 +1054,9 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
                           {currency(l.price)}
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-                            <input
-                              type="checkbox"
-                              checked={!!l.insuranceCovered}
-                              onChange={e => changeLine(l.idx, 'insuranceCovered', e.target.checked)}
-                              title="Thuộc phạm vi BHYT thanh toán"
-                            />
-                            <span className="his-rate-active">{l.insuranceCovered ? `${insuranceRate}%` : '0%'}</span>
-                          </label>
+                          <span className="his-rate-active" title={`Quỹ BHYT chi trả tự động ${insuranceRate}% theo quyền lợi thẻ`}>
+                            {insuranceRate}%
+                          </span>
                         </td>
                         <td style={{ textAlign: 'right', color: '#047857', fontWeight: 700 }}>
                           {currency(l.lineBHYT)}
@@ -1124,23 +1119,9 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
                           {currency(l.price)}
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          {!l.isEligible ? (
-                            <span className="his-rate-locked" title="Khóa BHYT theo quy định Bộ Y tế - Người bệnh tự chi trả 100%">
-                              <Lock size={9} style={{ verticalAlign: 'middle', marginRight: 2 }} /> 0% (Khóa)
-                            </span>
-                          ) : (
-                            <label className="his-checkbox-label" title="Nhấn để đưa lại vào danh mục BHYT thanh toán">
-                              <input
-                                type="checkbox"
-                                checked={false}
-                                onChange={() => {
-                                  changeLine(l.idx, 'insuranceCovered', true);
-                                  changeLine(l.idx, 'inBhyt', true);
-                                }}
-                              />
-                              <span className="his-rate-inactive">0%</span>
-                            </label>
-                          )}
+                          <span className="his-rate-locked" title={!l.isEligible ? "Ngoài danh mục BHYT - Người bệnh tự chi trả 100%" : "Khám tự nguyện / Ngoài BHYT"}>
+                            0%
+                          </span>
                         </td>
                         <td style={{ textAlign: 'right', color: '#94a3b8', fontWeight: 600 }}>
                           0 ₫
