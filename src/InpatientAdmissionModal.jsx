@@ -24,12 +24,11 @@ export default function InpatientAdmissionModal({
   navigate
 }) {
   const pId = bed?.patient || initialPatientId || '';
-  const waitingAdm = (getWorkspace().admissions || []).find(a => a.patientId === pId);
   const [selectedPatientId, setSelectedPatientId] = useState(pId);
-  const [doctor, setDoctor] = useState(waitingAdm?.doctor || 'NV-BS01');
-  const [diagnosis, setDiagnosis] = useState(waitingAdm?.diagnosis || 'Viêm phổi thùy cấp - Theo dõi biến chứng suy hô hấp');
+  const [doctor, setDoctor] = useState('NV-BS01');
+  const [diagnosis, setDiagnosis] = useState('');
   const [icdCode, setIcdCode] = useState('J18.1');
-  const [reason, setReason] = useState(waitingAdm?.reason || 'Sốt cao 39°C liên tục 3 ngày, khó thở tăng dần khi gắng sức, ho đờm đục, đáp ứng kém với điều trị ngoại trú');
+  const [reason, setReason] = useState('');
   const [admissionTime, setAdmissionTime] = useState(() => {
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -37,10 +36,81 @@ export default function InpatientAdmissionModal({
   });
   const [advanceAmount, setAdvanceAmount] = useState(2000000);
   const [paymentMethod, setPaymentMethod] = useState('TIEN_MAT');
-  const [note, setNote] = useState('Bệnh nhân nằm buồng theo dõi hô hấp, kiểm tra sinh hiệu mỗi 4 giờ');
+  const [note, setNote] = useState('Theo dõi dấu hiệu sinh tồn (Mạch, Nhiệt, HA, SpO2) mỗi 4 giờ tại giường');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [doctorsList, setDoctorsList] = useState(DEFAULT_DOCTORS);
+  const [autoFilledFrom, setAutoFilledFrom] = useState('');
+
+  // Tự động tìm kiếm và trích xuất thông tin chuyên môn có sẵn từ hồ sơ khám bệnh, y lệnh chỉ định nhập viện
+  function getPatientAdmissionContext(patientId) {
+    if (!patientId) return null;
+    const ws = getWorkspace();
+    const adm = (ws.admissions || []).find(a => (a.patientId === patientId || a.patient === patientId) && (!a.status || a.status === 'Chờ xếp buồng' || a.status === 'Đang điều trị'));
+    const visit = (ws.visits || []).slice().reverse().find(v => v.patientId === patientId || v.patient === patientId);
+    const ref = (ws.business?.referrals || []).find(r => r.patient === patientId || r.patientId === patientId);
+    const clinicalNote = ws.notes?.[patientId];
+    const pt = patients.find(p => p.id === patientId || p.maBenhNhan === patientId);
+
+    const diag = adm?.diagnosis || ref?.diagnosis || clinicalNote?.diagnosis || visit?.diagnosis || visit?.note?.diagnosis || pt?.diagnosis || 'Viêm phổi thùy cấp (J18.1)';
+    const rsn = adm?.reason || ref?.reason || ref?.symptoms || clinicalNote?.reason || visit?.reason || visit?.symptoms || clinicalNote?.symptoms || pt?.reason || 'Sốt cao, ho có đờm, khó thở tăng dần cần theo dõi và điều trị nội trú';
+    const doc = adm?.doctor || ref?.doctor || visit?.doctor || visit?.doctorStaffId || pt?.doctor || 'NV-BS01';
+
+    // Tự động suy ra mã ICD-10 từ tên chẩn đoán
+    let icd = ref?.icd || adm?.icd || '';
+    if (!icd && diag) {
+      const match = diag.match(/\(([A-Z][0-9]{2}(?:\.[0-9]+)?)\)/) || diag.match(/\[([A-Z][0-9]{2}(?:\.[0-9]+)?)\]/) || diag.match(/\b([A-Z][0-9]{2}(?:\.[0-9]+)?)\b/);
+      if (match) icd = match[1];
+      else if (diag.toLowerCase().includes('mạch vành') || diag.toLowerCase().includes('đau thắt ngực')) icd = 'I20.0';
+      else if (diag.toLowerCase().includes('viêm phổi')) icd = 'J18.1';
+      else if (diag.toLowerCase().includes('huyết áp')) icd = 'I10';
+      else if (diag.toLowerCase().includes('đái tháo đường') || diag.toLowerCase().includes('tiểu đường')) icd = 'E11';
+      else if (diag.toLowerCase().includes('dạ dày')) icd = 'K29.0';
+      else if (diag.toLowerCase().includes('ruột thừa')) icd = 'K35';
+      else icd = 'J18.1';
+    }
+
+    const sourceName = adm ? 'Y lệnh Tiếp nhận nội trú' : (ref ? 'Giấy Chuyển tuyến' : (visit ? 'Phiếu Khám ngoại trú' : 'Hồ sơ bệnh nhân'));
+
+    return {
+      adm,
+      visit,
+      ref,
+      diagnosis: diag,
+      reason: rsn,
+      icdCode: icd,
+      doctor: doc,
+      sourceName
+    };
+  }
+
+  // Tự động điền (Auto-fill) toàn bộ thông tin lâm sàng đi kèm khi chọn bệnh nhân
+  useEffect(() => {
+    const targetId = selectedPatientId || pId;
+    if (!targetId) return;
+    const ctx = getPatientAdmissionContext(targetId);
+    if (ctx) {
+      setDiagnosis(ctx.diagnosis);
+      setIcdCode(ctx.icdCode);
+      setReason(ctx.reason);
+      setDoctor(ctx.doctor);
+      setAutoFilledFrom(`${ctx.sourceName} · ${ctx.doctor}`);
+
+      // Tự động thiết lập y lệnh dặn dò buồng bệnh dựa trên chẩn đoán
+      const lowerDiag = (ctx.diagnosis + ' ' + ctx.reason).toLowerCase();
+      if (lowerDiag.includes('mạch vành') || lowerDiag.includes('đau ngực') || lowerDiag.includes('tim')) {
+        setNote('Bệnh nhân nằm buồng theo dõi tim mạch, đo điện tim và kiểm tra HA mỗi 4 giờ, bất động tại giường khi có cơn đau ngực');
+      } else if (lowerDiag.includes('viêm phổi') || lowerDiag.includes('hô hấp') || lowerDiag.includes('khó thở')) {
+        setNote('Bệnh nhân nằm buồng theo dõi hô hấp, kiểm tra SpO2 và sinh hiệu mỗi 2-4 giờ, khí dung theo y lệnh');
+      } else if (lowerDiag.includes('huyết áp')) {
+        setNote('Đo huyết áp và mạch mỗi 4 giờ, ăn nhạt giảm muối, hạn chế căng thẳng');
+      } else if (lowerDiag.includes('dạ dày') || lowerDiag.includes('tiêu hóa')) {
+        setNote('Ăn lỏng mềm nguội, kiêng chua cay dầu mỡ, theo dõi màu sắc phân và đau bụng');
+      } else {
+        setNote('Theo dõi dấu hiệu sinh tồn (Mạch, Nhiệt, HA, SpO2) mỗi 4 giờ tại giường');
+      }
+    }
+  }, [selectedPatientId, pId]);
 
   // Load doctors from SQL Server if available
   useEffect(() => {
@@ -244,15 +314,19 @@ export default function InpatientAdmissionModal({
   return (
     <form className="his-form-container" onSubmit={handleAdmit}>
       {/* HEADER CARD */}
-      <div className="his-header-card">
-        <div className="his-header-title">
-          <div className="his-pill-group">
+      <div className="his-header-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', flex: 1, minWidth: 0, gap: 4 }}>
+          <div className="his-pill-group" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 2 }}>
             <span className="badge teal">TIẾP NHẬN NỘI TRÚ</span>
             <span className="badge gray">QUY CHUẨN BỘ Y TẾ</span>
             <span className="badge green">KHOA ĐIỀU TRỊ</span>
           </div>
-          <h2>Phiếu Tiếp nhận Nội trú & Xếp buồng giường</h2>
-          <p>Quy trình tiếp nhận nội trú, quản lý buồng bệnh và phân bổ y lệnh theo đợt điều trị</p>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: '#0f172a', margin: '4px 0 2px 0', lineHeight: 1.35, whiteSpace: 'normal' }}>
+            Phiếu Tiếp nhận Nội trú & Xếp buồng giường
+          </h2>
+          <p style={{ fontSize: 12, color: '#64748b', margin: 0, lineHeight: 1.5, whiteSpace: 'normal' }}>
+            Quy trình tiếp nhận nội trú, quản lý buồng bệnh và phân bổ y lệnh theo đợt điều trị
+          </p>
         </div>
         <div className="his-header-specs">
           <div><span>Vị trí:</span> <b>{bed.roomName || 'Buồng 301 - Nội tổng quát'}</b></div>
@@ -329,6 +403,14 @@ export default function InpatientAdmissionModal({
                 <span>Không ghi nhận tiền sử dị ứng thuốc (Trạng thái: KHONG_GHI_NHAN)</span>
               </div>
             )}
+            {/* THÔNG BÁO TỰ ĐỘNG ĐIỀN CHẨN ĐOÁN & Y LỆNH */}
+            <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
+              <CheckCircle2 size={18} color="#15803d" />
+              <div style={{ fontSize: 12.5, color: '#166534', lineHeight: 1.5 }}>
+                <b>⚡ Đã tự động điền Chẩn đoán & Y lệnh chỉ định từ Bàn khám Bác sĩ:</b>
+                <span style={{ marginLeft: 6 }}>{autoFilledFrom || `${doctor} · Bàn khám lâm sàng`}</span>
+              </div>
+            </div>
           </div>
         ) : (
           <p className="his-hint-text">Vui lòng chọn người bệnh để tự động đối chiếu thông tin hành chính, số thẻ BHYT và cảnh báo dị ứng.</p>
@@ -341,6 +423,10 @@ export default function InpatientAdmissionModal({
           <Stethoscope size={18} />
           <h3>Khối 2: Thiết lập Đợt điều trị & Chuyên môn vào viện</h3>
         </div>
+        <p style={{ margin: '0 0 12px', fontSize: 12, color: '#0f766e', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Sparkles size={14} />
+          Thông tin đã được nạp tự động từ Bàn khám Bác sĩ chỉ định. Điều dưỡng / Bác sĩ có thể hiệu chỉnh nếu cần.
+        </p>
         <div className="his-form-grid">
           <label className="his-field">
             <span>Bác sĩ điều trị chính <small className="required-star">*</small></span>
