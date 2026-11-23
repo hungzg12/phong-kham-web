@@ -1,5 +1,6 @@
 import React from 'react';
 import { Stethoscope, Activity, Heart, Eye, Sparkles, Baby, Bone, CheckCircle2, AlertCircle } from 'lucide-react';
+import MedicalSuggestInput from './MedicalSuggestInput';
 
 /**
  * 6 Specialty Clinical Exam Modules
@@ -136,49 +137,53 @@ export default function SpecialtyExamModule({ roomCode, department, specialtyDat
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
             <label className="his-label">
               Khám Tuần hoàn & Hô hấp
-              <textarea
+              <MedicalSuggestInput
+                type="specialtyCardioResp"
+                multiline
                 rows={2}
                 disabled={disabled}
                 value={specialtyData.cardioResp || ''}
-                onChange={e => update('cardioResp', e.target.value)}
+                onChange={val => update('cardioResp', val)}
                 placeholder="Tim đều, T1 T2 rõ, không âm thổi bệnh lý. Phổi thông khí đều 2 bên, không rale..."
-                className="his-textarea"
               />
             </label>
 
             <label className="his-label">
               Khám Tiêu hóa & Bụng
-              <textarea
+              <MedicalSuggestInput
+                type="specialtyGI"
+                multiline
                 rows={2}
                 disabled={disabled}
                 value={specialtyData.giExam || ''}
-                onChange={e => update('giExam', e.target.value)}
+                onChange={val => update('giExam', val)}
                 placeholder="Bụng mềm, không chướng, gan lách không sờ chạm, không có điểm đau khu trú..."
-                className="his-textarea"
               />
             </label>
 
             <label className="his-label">
               Khám Thận - Tiết niệu & Thần kinh
-              <textarea
+              <MedicalSuggestInput
+                type="specialtyRenalNeuro"
+                multiline
                 rows={2}
                 disabled={disabled}
                 value={specialtyData.renalNeuro || ''}
-                onChange={e => update('renalNeuro', e.target.value)}
+                onChange={val => update('renalNeuro', val)}
                 placeholder="Chạm thận âm tính, bập bềnh thận âm tính. Cổ mềm, không dấu thần kinh khu trú..."
-                className="his-textarea"
               />
             </label>
 
             <label className="his-label">
               Đánh giá Bệnh lý chuyển hóa & Bệnh nền kết hợp
-              <textarea
+              <MedicalSuggestInput
+                type="specialtyMetabolic"
+                multiline
                 rows={2}
                 disabled={disabled}
                 value={specialtyData.metabolicNotes || ''}
-                onChange={e => update('metabolicNotes', e.target.value)}
+                onChange={val => update('metabolicNotes', val)}
                 placeholder="Đánh giá kiểm soát đường huyết, huyết áp, lipid máu và nguy cơ tim mạch..."
-                className="his-textarea"
               />
             </label>
           </div>
@@ -278,37 +283,40 @@ export default function SpecialtyExamModule({ roomCode, department, specialtyDat
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
             <label className="his-label">
               Khám Tai & Màng nhĩ (Phải / Trái)
-              <textarea
+              <MedicalSuggestInput
+                type="specialtyEar"
+                multiline
                 rows={3}
                 disabled={disabled}
                 value={specialtyData.earExam || ''}
-                onChange={e => update('earExam', e.target.value)}
+                onChange={val => update('earExam', val)}
                 placeholder="Ống tai ngoài thông thoáng. Màng nhĩ sáng, nón sáng rõ, không thủng, không ứ mủ..."
-                className="his-textarea"
               />
             </label>
 
             <label className="his-label">
               Khám Mũi & Xoang
-              <textarea
+              <MedicalSuggestInput
+                type="specialtyNose"
+                multiline
                 rows={3}
                 disabled={disabled}
                 value={specialtyData.noseExam || ''}
-                onChange={e => update('noseExam', e.target.value)}
+                onChange={val => update('noseExam', val)}
                 placeholder="Cuốn mũi hồng, không phì đại. Vách ngăn thẳng. Khe giữa sạch, không polyp..."
-                className="his-textarea"
               />
             </label>
 
             <label className="his-label">
               Khám Họng & Thanh quản
-              <textarea
+              <MedicalSuggestInput
+                type="specialtyThroat"
+                multiline
                 rows={3}
                 disabled={disabled}
                 value={specialtyData.throatExam || ''}
-                onChange={e => update('throatExam', e.target.value)}
+                onChange={val => update('throatExam', val)}
                 placeholder="Niêm mạc họng hồng. Amidan độ I-II, không hốc mủ. Dây thanh khép kín khi phát âm..."
-                className="his-textarea"
               />
             </label>
 
@@ -545,25 +553,27 @@ export default function SpecialtyExamModule({ roomCode, department, specialtyDat
 
             <label className="his-label" style={{ gridColumn: 'span 2' }}>
               Khám Tầm vận động (ROM) & Vị trí khớp viêm đau
-              <textarea
+              <MedicalSuggestInput
+                type="specialtyJoint"
+                multiline
                 rows={2}
                 disabled={disabled}
                 value={specialtyData.jointExam || ''}
-                onChange={e => update('jointExam', e.target.value)}
+                onChange={val => update('jointExam', val)}
                 placeholder="Khớp gối 2 bên: Gập 120 độ, duỗi 0 độ. Không sưng nóng đỏ, có lạo xạo nhẹ khi gập duỗi..."
-                className="his-textarea"
               />
             </label>
 
             <label className="his-label">
               Nghiệm pháp Cột sống (Schober, Lasegue)
-              <textarea
+              <MedicalSuggestInput
+                type="specialtySpine"
+                multiline
                 rows={2}
                 disabled={disabled}
                 value={specialtyData.spineExam || ''}
-                onChange={e => update('spineExam', e.target.value)}
+                onChange={val => update('spineExam', val)}
                 placeholder="Schober test: 14/10 cm (Bình thường). Lasegue 2 bên: 80 độ âm tính..."
-                className="his-textarea"
               />
             </label>
           </div>

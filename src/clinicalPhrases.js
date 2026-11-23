@@ -160,6 +160,98 @@ export const CLINICAL_PHRASE_DICTIONARY = {
     'K21.0 - Bệnh trào ngược dạ dày - thực quản có viêm thực quản',
     'N18.3 - Bệnh thận mạn tính, giai đoạn 3',
     'I25.1 - Bệnh tim do xơ vữa động mạch'
+  ],
+
+  // 12. Lý do hủy hoặc điều chuyển (Cancel & Transfer reasons)
+  cancel: [
+    'Người bệnh xin hoãn hoặc chuyển lịch hẹn do bận việc đột xuất',
+    'Người bệnh có nguyện vọng chuyển tuyến chuyên khoa sâu điều trị',
+    'Trùng thông tin đăng ký lượt khám tại bàn tiếp đón',
+    'Người bệnh không có mặt khi gọi số thứ tự quá 3 lần',
+    'Bác sĩ điều chuyển buồng khám phù hợp tình trạng chuyên môn người bệnh',
+    'Người bệnh xin xuất viện về điều trị ngoại trú tại nhà theo nguyện vọng gia đình',
+    'Không liên hệ được với người bệnh qua số điện thoại đã đăng ký'
+  ],
+
+  // 13. Chẩn đoán và lý do nhập viện nội trú (Inpatient admission reasons)
+  admission: [
+    'Theo dõi và điều trị nội trú đợt cấp bệnh phổi tắc nghẽn mạn tính (COPD)',
+    'Cơn đau thắt ngực không ổn định nguy cơ cao cần theo dõi tim mạch liên tục',
+    'Sốt nhiễm trùng chưa rõ nguyên nhân cần làm xét nghiệm cấy máu chuyên sâu',
+    'Đái tháo đường type 2 mất bù có nhiễm toan ceton cần truyền Insulin liên tục',
+    'Chấn thương cần theo dõi diễn biến ngoại khoa và hội chẩn phẫu thuật',
+    'Xuất huyết tiêu hóa mức độ vừa cần theo dõi sát huyết động và nội soi can thiệp',
+    'Tăng huyết áp kịch phát có tổn thương cơ quan đích cần hạ áp qua đường tĩnh mạch'
+  ],
+
+  // 14. Mô tả hình ảnh tổn thương CĐHA (Imaging findings)
+  imagingFindings: [
+    'Hình ảnh tim không to, cung động mạch chủ bình thường, góc tâm hoành sáng rõ hai bên.',
+    'Đám mờ rải rác vùng rốn phổi và đáy phổi phải, không thấy hình ảnh tràn dịch màng phổi.',
+    'Hình ảnh thâm nhiễm phế nang vùng thùy dưới phổi trái nghĩ nhiều do viêm phổi cấp.',
+    'Khung xương lồng ngực và xương sườn hai bên liên tục, không thấy gãy xương hay nứt xương.',
+    'Bóng gan lách thận kích thước bình thường, không thấy sỏi cản quang hệ tiết niệu hai bên.',
+    'Hình ảnh thoái hóa thân đốt sống thắt lưng L4-L5 có gai xương nhỏ ở bờ trước.'
+  ],
+
+  // 15. Kết luận Chẩn đoán hình ảnh (Imaging conclusions)
+  imagingConclusion: [
+    'X-quang ngực thẳng: Hình ảnh tim phổi hiện tại trong giới hạn bình thường.',
+    'X-quang ngực thẳng: Theo dõi đám mờ thâm nhiễm thùy dưới phổi phải nghĩ do viêm.',
+    'X-quang xương khớp: Không thấy hình ảnh gãy xương hay trật khớp trên phim chụp.',
+    'X-quang cột sống thắt lưng: Thoái hóa cột sống thắt lưng L4-L5 mức độ trung bình.',
+    'Siêu âm ổ bụng: Gan nhiễm mỡ độ 1 rải rác, các tạng khác trong ổ bụng chưa thấy bất thường.',
+    'Theo dõi viêm xoang hàm hai bên mức độ nhẹ, niêm mạc xoang phù nề.'
+  ],
+
+  // 16. Kết luận Xét nghiệm chuyên môn (Lab conclusions)
+  labConclusion: [
+    'Công thức máu: Bạch cầu tăng nhẹ BC 11.8 G/L, ưu thế Neutrophil nghĩ nhiễm trùng cấp.',
+    'Sinh hóa máu: Glucose và HbA1c trong giới hạn kiểm soát tốt, chức năng gan thận bình thường.',
+    'Men gan AST/ALT tăng nhẹ dưới 2 lần giới hạn trên bình thường, cần theo dõi định kỳ.',
+    'Nước tiểu: Có bạch cầu và vi khuẩn (+), theo dõi nhiễm khuẩn đường tiết niệu.',
+    'Xét nghiệm mỡ máu: Tăng Cholesterol toàn phần và LDL-c, đề nghị điều chỉnh chế độ ăn.',
+    'Các chỉ số sinh hóa và huyết học cơ bản trong giới hạn bình thường.'
+  ],
+
+  // 17. Khám chuyên khoa lâm sàng (Specialty clinical notes)
+  specialtyCardioResp: [
+    'Tim đều, T1 T2 rõ, không âm thổi bệnh lý. Phổi thông khí đều hai bên, rì rào phế nang êm dịu, không rale.',
+    'Mạch đập rõ đều tần số 78 ck/p. Huyết áp 120/80 mmHg. Phổi nghe có rale ẩm rải rác đáy phổi phải.',
+    'Tiếng tim mờ nhẹ, không cọ màng tim. Khó thở co kéo cơ hô hấp phụ nhẹ, thở nhanh nông 22 l/p.'
+  ],
+  specialtyGI: [
+    'Bụng mềm, không chướng, gan lách không sờ chạm, không có điểm đau khu trú, phản ứng thành bụng (-).',
+    'Bụng mềm, ấn đau tức vùng thượng vị, không đề kháng thành bụng, nhu động ruột bình thường.',
+    'Bụng chướng nhẹ quanh rốn, gõ vang, ấn tức nhẹ hạ sườn phải, Murphy (-).'
+  ],
+  specialtyRenalNeuro: [
+    'Chạm thận âm tính, bập bềnh thận âm tính, các điểm đau niệu quản không đau. Cổ mềm, không dấu thần kinh khu trú.',
+    'Tiểu tự chủ, nước tiểu vàng trong, không tiểu buốt rắt. Tri giác tỉnh táo, 12 đôi dây thần kinh sọ chưa ghi nhận tổn thương.'
+  ],
+  specialtyMetabolic: [
+    'Đánh giá kiểm soát đường huyết và huyết áp ổn định, nguy cơ tim mạch mức độ trung bình.',
+    'Đái tháo đường type 2 kiểm soát chưa tối ưu, cần tăng cường theo dõi chế độ dinh dưỡng và vận động.'
+  ],
+  specialtyEar: [
+    'Ống tai ngoài thông thoáng, sạch, không sưng đỏ. Màng nhĩ hai bên sáng bóng, nón sáng rõ, không thủng, không ứ dịch.',
+    'Ống tai ngoài sung huyết nhẹ, màng nhĩ đục, nón sáng thu nhỏ, theo dõi viêm tai giữa thanh dịch.'
+  ],
+  specialtyNose: [
+    'Niêm mạc mũi hồng, cuốn mũi dưới hai bên không phì đại. Vách ngăn mũi thẳng, khe giữa sạch không có polyp hay dịch đục.',
+    'Niêm mạc mũi sung huyết đỏ, cuốn mũi phù nề thoái hóa nhẹ, khe giữa có dịch nhầy trong.'
+  ],
+  specialtyThroat: [
+    'Niêm mạc họng hồng, thành sau họng sạch không có hạt lympho. Amidan độ I hai bên không sưng đỏ, không hốc mủ. Dây thanh khép kín tốt.',
+    'Họng đỏ rực, Amidan hai bên sưng to độ II sung huyết, có vài chấm mủ trắng rải rác.'
+  ],
+  specialtyJoint: [
+    'Khớp gối hai bên: Tầm vận động gập 130 độ, duỗi 0 độ. Không sưng nóng đỏ, có tiếng lạo xạo nhẹ khi vận động.',
+    'Khớp cổ chân và bàn chân không biến dạng, vận động trong giới hạn bình thường, bập bềnh bánh chè (-).'
+  ],
+  specialtySpine: [
+    'Độ giãn cột sống thắt lưng (Schober) 14/10 cm (bình thường). Dấu Lasegue hai bên 85 độ âm tính.',
+    'Cột sống thắt lưng thẳng trục, ấn các gai sau không đau chói, cơ cạnh sống không co cứng.'
   ]
 };
 
@@ -180,7 +272,7 @@ export function removeVietnameseAccents(str) {
  * Lọc danh sách gợi ý (tối đa 5 dòng) dựa trên ký tự gõ vào
  */
 export function getClinicalSuggestions(type, query, limit = 5) {
-  const bank = CLINICAL_PHRASE_DICTIONARY[type] || [];
+  const bank = CLINICAL_PHRASE_DICTIONARY[type] || CLINICAL_PHRASE_DICTIONARY.reason || [];
   if (!query || !query.trim()) {
     return bank.slice(0, limit);
   }
@@ -188,10 +280,28 @@ export function getClinicalSuggestions(type, query, limit = 5) {
   const cleanQuery = removeVietnameseAccents(query.trim());
   const words = cleanQuery.split(/\s+/).filter(Boolean);
 
-  const matched = bank.filter(item => {
+  // 1. Khớp toàn bộ các từ gõ vào (All words match)
+  const allMatch = bank.filter(item => {
     const cleanItem = removeVietnameseAccents(item);
     return words.every(w => cleanItem.includes(w));
   });
 
-  return matched.slice(0, limit);
+  if (allMatch.length >= limit) {
+    return allMatch.slice(0, limit);
+  }
+
+  // 2. Nếu chưa đủ 5 dòng, lấy thêm các câu khớp một phần (Any word match)
+  const anyMatch = bank.filter(item => {
+    if (allMatch.includes(item)) return false;
+    const cleanItem = removeVietnameseAccents(item);
+    return words.some(w => cleanItem.includes(w));
+  });
+
+  const combined = [...allMatch, ...anyMatch];
+  if (combined.length > 0) {
+    return combined.slice(0, limit);
+  }
+
+  // 3. Nếu không khớp chữ nào, trả về các mục tiêu biểu đầu tiên để người dùng luôn có gợi ý chuẩn
+  return bank.slice(0, limit);
 }

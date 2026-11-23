@@ -1112,7 +1112,7 @@ export default function History({role='admin',patientId,navigate,notify}){
                   {modal.type==='cancel' ? (
                     <>
                       <div className="confirm-warning">Hủy lượt này sẽ loại lượt khỏi hàng đợi khám. Các thông tin đã ghi nhận vẫn được lưu nhật ký.</div>
-                      <label className="his-field-label">Lý do hủy *<textarea name="reason" required className="his-textarea"/></label>
+                      <label className="his-field-label">Lý do hủy *<MedicalSuggestInput type="cancel" name="reason" required placeholder="Nhập hoặc chọn lý do hủy lượt chuẩn y tế..."/></label>
                     </>
                   ) : (
                     <>
@@ -1173,7 +1173,7 @@ export default function History({role='admin',patientId,navigate,notify}){
                           </div>
                           <label className="his-field-label">
                             Chẩn đoán và lý do nhập viện *
-                            <textarea name="reason" required placeholder="Chẩn đoán xác định, tình trạng nặng cần theo dõi..." className="his-textarea"/>
+                            <MedicalSuggestInput type="admission" name="reason" multiline rows={2} required placeholder="Chẩn đoán xác định, tình trạng nặng cần theo dõi..."/>
                           </label>
                         </>
                       )}

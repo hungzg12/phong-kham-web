@@ -4,6 +4,7 @@ import { useWorkspace, transact } from './workspace';
 import { actorRoles, canAction } from './roles';
 import { hisApi } from './api';
 import { parseBhytCard } from './bhyt-utils';
+import MedicalSuggestInput from './MedicalSuggestInput';
 
 export const LAB_ROOMS = [
   { id: 'ALL', name: 'Tất cả phòng CLS toàn viện', dept: 'Toàn viện' },
@@ -702,23 +703,25 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
 
                         <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
                           Mô tả hình ảnh tổn thương chuyên môn *
-                          <textarea
-                            rows={4}
+                          <MedicalSuggestInput
+                            type="imagingFindings"
+                            multiline
+                            rows={3}
                             value={editing.findings || ''}
                             placeholder="Mô tả chi tiết tổn thương hình ảnh quan sát được..."
-                            onChange={e => setEditing({ ...editing, findings: e.target.value })}
-                            style={{ marginTop: '4px', width: '100%', fontFamily: 'inherit' }}
+                            onChange={val => setEditing({ ...editing, findings: val })}
                           />
                         </label>
 
                         <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
                           Kết luận Chẩn đoán Hình ảnh (Chuyên môn) *
-                          <textarea
+                          <MedicalSuggestInput
+                            type="imagingConclusion"
+                            multiline
                             rows={2}
                             value={editing.conclusion || ''}
                             placeholder="Ghi rõ kết luận chẩn đoán hình ảnh..."
-                            onChange={e => setEditing({ ...editing, conclusion: e.target.value })}
-                            style={{ marginTop: '4px', width: '100%', fontWeight: 600, color: '#0f766e', fontFamily: 'inherit' }}
+                            onChange={val => setEditing({ ...editing, conclusion: val })}
                           />
                         </label>
 
@@ -800,12 +803,13 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
 
                         <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
                           Kết luận Xét nghiệm chuyên môn *
-                          <textarea
+                          <MedicalSuggestInput
+                            type="labConclusion"
+                            multiline
                             rows={2}
                             value={editing.conclusion || ''}
                             placeholder="Ghi nhận kết luận xét nghiệm của Bác sĩ / KTV..."
-                            onChange={e => setEditing({ ...editing, conclusion: e.target.value })}
-                            style={{ marginTop: '4px', width: '100%', fontFamily: 'inherit' }}
+                            onChange={val => setEditing({ ...editing, conclusion: val })}
                           />
                         </label>
 

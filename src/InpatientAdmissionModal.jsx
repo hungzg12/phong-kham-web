@@ -4,6 +4,7 @@ import { hisApi } from './api';
 import { getWorkspace } from './workspace';
 import Icd10Search from './Icd10Search';
 import { parseBhytCard } from './bhyt-utils';
+import MedicalSuggestInput from './MedicalSuggestInput';
 
 const DEFAULT_DOCTORS = [
   { id: 'NV-BS01', name: 'BS. Trần Minh Anh (Nội tổng quát)' },
@@ -393,10 +394,12 @@ export default function InpatientAdmissionModal({
 
           <label className="his-field col-span-2">
             <span>Lý do nhập viện <small className="required-star">*</small></span>
-            <textarea
+            <MedicalSuggestInput
+              type="admission"
+              multiline
               rows={2}
               value={reason}
-              onChange={e => setReason(e.target.value)}
+              onChange={val => setReason(val)}
               required
               placeholder="Mô tả triệu chứng lâm sàng cấp tính và lý do cần nhập viện theo dõi..."
             />

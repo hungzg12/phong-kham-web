@@ -3,6 +3,7 @@ import { CalendarDays, List, Plus, Search, Check, X, ChevronLeft, ChevronRight, 
 import { clinics, today } from './business-data';
 import './calendar.css';
 import { syncWithSqlServer } from './workspace';
+import MedicalSuggestInput from './MedicalSuggestInput';
 
 export default function Appointments({ appointments, setAppointments, patients, setPatients, notify, request = 0 }) {
   const [view, setView] = useState('list');
@@ -359,7 +360,9 @@ export default function Appointments({ appointments, setAppointments, patients, 
                 <form
                   onSubmit={cancel}
                 >
-                  <label>Lý do hủy<textarea name="reason" required maxLength={500} /></label>
+                  <label>Lý do hủy
+                    <MedicalSuggestInput type="cancel" name="reason" multiline rows={2} required maxLength={500} placeholder="Nhập hoặc chọn lý do hủy lịch hẹn..." />
+                  </label>
                   {error && <p className="form-error" role="alert">{error}</p>}
                   <button className="primary full" disabled={saving}>Xác nhận hủy lịch</button>
                 </form>

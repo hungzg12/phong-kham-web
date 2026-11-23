@@ -4,6 +4,7 @@ import { clinics, today } from './business-data';
 import { syncWithSqlServer, useWorkspace } from './workspace';
 import { HeartPulse, Search, AlertTriangle, IdCard, Shield, Stethoscope, Check, X, UserCheck } from 'lucide-react';
 import { parseBhytCard } from './bhyt-utils';
+import MedicalSuggestInput from './MedicalSuggestInput';
 
 const CLINIC_ROOMS = [
   { code: 'PK-NOI', name: 'Phòng khám 101 - Nội tổng quát', dept: 'Nội tổng quát', doctor: 'BS.CKI Trần Minh Anh' },
@@ -274,12 +275,14 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
 
               <label className="his-label his-col-2">
                 Lý do điều chuyển hoặc hủy *
-                <textarea
+                <MedicalSuggestInput
+                  type="cancel"
                   name="reason"
+                  multiline
+                  rows={2}
                   required
                   maxLength={255}
                   placeholder="Nhập chi tiết lý do chuyên môn điều chuyển buồng hoặc hủy tiếp đón..."
-                  className="his-textarea"
                 />
               </label>
             </div>

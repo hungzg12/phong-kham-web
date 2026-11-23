@@ -73,15 +73,23 @@ export function HighlightMatch({ text, query }) {
  */
 export default function MedicalSuggestInput({
   type = 'reason',
-  value = '',
+  value: controlledValue,
+  defaultValue = '',
   onChange,
   multiline = false,
   placeholder = '',
   disabled = false,
   rows = 3,
   className = '',
-  style = {}
+  style = {},
+  name,
+  required = false,
+  maxLength
 }) {
+  const isControlled = controlledValue !== undefined;
+  const [internalValue, setInternalValue] = useState(defaultValue || '');
+  const currentValue = isControlled ? (controlledValue || '') : internalValue;
+
   const [isOpen, setIsOpen] = useState(false);
   const [highlightIdx, setHighlightIdx] = useState(-1);
   const [suggestions, setSuggestions] = useState([]);
@@ -89,10 +97,10 @@ export default function MedicalSuggestInput({
 
   // Cập nhật gợi ý mỗi khi value hoặc type thay đổi
   useEffect(() => {
-    const list = getClinicalSuggestions(type, value, 5);
+    const list = getClinicalSuggestions(type, currentValue, 5);
     setSuggestions(list);
     setHighlightIdx(-1);
-  }, [type, value]);
+  }, [type, currentValue]);
 
   // Đóng dropdown khi click ra ngoài
   useEffect(() => {
@@ -106,9 +114,10 @@ export default function MedicalSuggestInput({
   }, []);
 
   function handleSelect(suggestion) {
-    if (onChange) {
-      onChange(suggestion);
+    if (!isControlled) {
+      setInternalValue(suggestion);
     }
+    onChange?.(suggestion);
     setIsOpen(false);
   }
 
@@ -135,9 +144,16 @@ export default function MedicalSuggestInput({
   }
 
   const inputProps = {
-    value: value || '',
+    name,
+    required,
+    maxLength,
+    value: currentValue,
     onChange: e => {
-      onChange?.(e.target.value);
+      const val = e.target.value;
+      if (!isControlled) {
+        setInternalValue(val);
+      }
+      onChange?.(val);
       if (!isOpen) setIsOpen(true);
     },
     onFocus: () => setIsOpen(true),
