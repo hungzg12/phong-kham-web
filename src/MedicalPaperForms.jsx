@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Printer, X, Download, ShieldCheck, FileText, CheckCircle2, Save, Edit3, AlertCircle } from 'lucide-react';
 import { parseBhytCard, isBhytEligibleItem } from './bhyt-utils';
 import './medical-paper-forms.css';
