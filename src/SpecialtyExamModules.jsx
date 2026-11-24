@@ -1,5 +1,5 @@
-import React from 'react';
-import { Stethoscope, Activity, Heart, Eye, Sparkles, Baby, Bone, CheckCircle2, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Stethoscope, Activity, Heart, Eye, Sparkles, Baby, Bone, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import MedicalSuggestInput from './MedicalSuggestInput';
 
 /**
@@ -74,6 +74,8 @@ export default function SpecialtyExamModule({ roomCode, department, specialtyDat
   const code = getSpecialtyCode(roomCode, department);
   const cfg = SPECIALTY_CONFIGS[code] || SPECIALTY_CONFIGS['PK-NOI'];
   const Icon = cfg.icon;
+  const hasData = Object.values(specialtyData).some(v => Boolean(v && v !== 'NYHA_0' && v !== 'CCS_0'));
+  const [open, setOpen] = useState(true);
 
   const update = (field, val) => {
     if (disabled) return;
@@ -85,8 +87,9 @@ export default function SpecialtyExamModule({ roomCode, department, specialtyDat
 
   return (
     <div className="his-specialty-exam-card" style={{
-      marginTop: '16px',
-      border: `1.5px solid ${cfg.borderColor}`,
+      marginTop: '12px',
+      marginBottom: '12px',
+      border: `1px solid ${cfg.borderColor}`,
       borderRadius: '8px',
       background: '#ffffff',
       overflow: 'hidden'
@@ -96,42 +99,40 @@ export default function SpecialtyExamModule({ roomCode, department, specialtyDat
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '12px 18px',
+        padding: '10px 14px',
         background: cfg.bgColor,
-        borderBottom: `1px solid ${cfg.borderColor}`
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        borderBottom: open ? `1px solid ${cfg.borderColor}` : 'none',
+        cursor: 'pointer'
+      }} onClick={() => setOpen(v => !v)}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '6px',
+            width: '26px',
+            height: '26px',
+            borderRadius: '5px',
             background: cfg.color,
             color: '#ffffff',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center'
           }}>
-            <Icon size={18} />
+            <Icon size={15} />
           </div>
           <div>
-            <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>{cfg.title}</h4>
-            <small style={{ color: '#64748b', fontSize: '11.5px' }}>
-              Phòng khám: <b>{cfg.dept}</b> ({cfg.code}) · Khám chuyên sâu kế thừa từ hồ sơ bệnh án
+            <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>{cfg.title}</span>
+            <small style={{ color: '#64748b', fontSize: '11px', marginLeft: '8px' }}>
+              Phòng: <b>{cfg.dept}</b> ({cfg.code})
             </small>
           </div>
         </div>
-        <span className="badge" style={{
-          backgroundColor: '#ffffff',
-          color: cfg.color,
-          border: `1px solid ${cfg.borderColor}`,
-          fontSize: '11px',
-          fontWeight: 600
-        }}>
-          Module Chuyên Khoa
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button type="button" className="text-button" style={{ fontSize: '11.5px', color: cfg.color, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+            {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            {open ? 'Thu gọn' : 'Mở rộng khám chuyên khoa'}
+          </button>
+        </div>
       </div>
 
-      <div style={{ padding: '16px 20px' }}>
+      {open && <div style={{ padding: '14px 16px' }}>
         {/* 1. NỘI TỔNG QUÁT */}
         {code === 'PK-NOI' && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
@@ -608,7 +609,7 @@ export default function SpecialtyExamModule({ roomCode, department, specialtyDat
             </label>
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
