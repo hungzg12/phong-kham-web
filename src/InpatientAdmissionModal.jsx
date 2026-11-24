@@ -40,6 +40,8 @@ export default function InpatientAdmissionModal({
   const [doctorsList, setDoctorsList] = useState(DEFAULT_DOCTORS);
   const [autoFilledFrom, setAutoFilledFrom] = useState('');
 
+  const canManageAdvance = ['admin', 'cashier'].includes(role);
+
   // Tự động tìm kiếm và trích xuất thông tin chuyên môn từ y lệnh chỉ định nhập viện / hồ sơ khám bệnh tại viện
   function getPatientAdmissionContext(patientId) {
     if (!patientId) return null;
@@ -126,7 +128,7 @@ export default function InpatientAdmissionModal({
         icdCode,
         reason,
         admissionTime,
-        advanceAmount: Number(advanceAmount) || 0,
+        advanceAmount: canManageAdvance ? (Number(advanceAmount) || 0) : 0,
         paymentMethod,
         staffId: actor?.staffId,
         note
@@ -468,42 +470,57 @@ export default function InpatientAdmissionModal({
         </div>
       </div>
 
-      {/* CARD 3: PHÂN GIƯỜNG & TẠM ỨNG VIỆN PHÍ */}
+      {/* CARD 3: KẾ HOẠCH CHĂM SÓC & VIỆN PHÍ */}
       <div className="his-card">
         <div className="his-card-title">
           <CreditCard size={18} />
-          <h3>3. Tạm ứng và ghi chú</h3>
+          <h3>3. Kế hoạch chăm sóc & Viện phí</h3>
         </div>
-        <div className="his-form-grid">
-          <label className="his-field">
-            <span>Số tiền tạm ứng nội trú</span>
-            <input
-              type="number"
-              min="0"
-              step="100000"
-              value={advanceAmount}
-              onChange={e => setAdvanceAmount(Number(e.target.value))}
-            />
-            <div className="quick-presets">
-              <button type="button" className="preset-pill" onClick={() => setAdvanceAmount(1000000)}>1.000.000 đ</button>
-              <button type="button" className="preset-pill" onClick={() => setAdvanceAmount(2000000)}>2.000.000 đ</button>
-              <button type="button" className="preset-pill" onClick={() => setAdvanceAmount(5000000)}>5.000.000 đ</button>
-              <button type="button" className="preset-pill" onClick={() => setAdvanceAmount(0)}>0 đ (Miễn tạm ứng)</button>
+
+        {!canManageAdvance ? (
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderLeft: '4px solid #3b82f6', borderRadius: '6px', padding: '10px 14px', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1e40af', fontWeight: 600, fontSize: '13px' }}>
+              <ShieldCheck size={16} />
+              <span>Quy định tài chính viện phí:</span>
             </div>
-          </label>
+            <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#475569', lineHeight: 1.5 }}>
+              Tạm ứng viện phí do <b>Quầy thu ngân / Phòng tài chính</b> phụ trách. Điều dưỡng chuyên trách tiếp nhận chuyên môn, xếp buồng giường và ghi nhận kế hoạch chăm sóc.
+            </p>
+          </div>
+        ) : (
+          <div className="his-form-grid" style={{ marginBottom: '12px' }}>
+            <label className="his-field">
+              <span>Số tiền tạm ứng nội trú</span>
+              <input
+                type="number"
+                min="0"
+                step="100000"
+                value={advanceAmount}
+                onChange={e => setAdvanceAmount(Number(e.target.value))}
+              />
+              <div className="quick-presets">
+                <button type="button" className="preset-pill" onClick={() => setAdvanceAmount(1000000)}>1.000.000 đ</button>
+                <button type="button" className="preset-pill" onClick={() => setAdvanceAmount(2000000)}>2.000.000 đ</button>
+                <button type="button" className="preset-pill" onClick={() => setAdvanceAmount(5000000)}>5.000.000 đ</button>
+                <button type="button" className="preset-pill" onClick={() => setAdvanceAmount(0)}>0 đ (Miễn tạm ứng)</button>
+              </div>
+            </label>
 
-          <label className="his-field">
-            <span>Hình thức thanh toán</span>
-            <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
-              <option value="TIEN_MAT">Tiền mặt tại quầy thu ngân</option>
-              <option value="CHUYEN_KHOAN">Chuyển khoản ngân hàng</option>
-              <option value="VIETQR">Quét mã VietQR động</option>
-              <option value="THE_POS">Thẻ ngân hàng (POS)</option>
-            </select>
-          </label>
+            <label className="his-field">
+              <span>Hình thức thanh toán</span>
+              <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+                <option value="TIEN_MAT">Tiền mặt tại quầy thu ngân</option>
+                <option value="CHUYEN_KHOAN">Chuyển khoản ngân hàng</option>
+                <option value="VIETQR">Quét mã VietQR động</option>
+                <option value="THE_POS">Thẻ ngân hàng (POS)</option>
+              </select>
+            </label>
+          </div>
+        )}
 
+        <div className="his-form-grid">
           <label className="his-field col-span-2">
-            <span>Dặn dò chăm sóc và ghi chú</span>
+            <span>Dặn dò chăm sóc và ghi chú chuyên môn</span>
             <MedicalSuggestInput
               type="note"
               value={note}
