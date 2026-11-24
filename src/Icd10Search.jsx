@@ -66,7 +66,7 @@ export default function Icd10Search({ valueCode = '', valueName = '', onChange, 
   };
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', zIndex: open ? 99999 : 'auto' }}>
       <div style={{ display: 'flex', gap: 6 }}>
         <div style={{ position: 'relative', flex: 1 }}>
           <input
@@ -93,19 +93,21 @@ export default function Icd10Search({ valueCode = '', valueName = '', onChange, 
           )}
         </div>
 
-        <button
-          type="button"
-          className="secondary"
-          onClick={onOpenManager}
-          title="Mở từ điển ICD-10 & Cập nhật từ Excel"
-          style={{ padding: '0 10px', display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', fontSize: 13 }}
-        >
-          <BookOpen size={14} />
-          <span>Từ điển Excel</span>
-        </button>
+        {onOpenManager && (
+          <button
+            type="button"
+            className="secondary"
+            onClick={onOpenManager}
+            title="Mở từ điển ICD-10 & Cập nhật từ Excel"
+            style={{ padding: '0 10px', display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', fontSize: 13 }}
+          >
+            <BookOpen size={14} />
+            <span>Từ điển Excel</span>
+          </button>
+        )}
       </div>
 
-      {/* Autocomplete Dropdown */}
+      {/* Autocomplete Dropdown - Luôn nằm trên cùng mọi form */}
       {open && (results.length > 0 || loading) && (
         <div
           style={{
@@ -113,11 +115,11 @@ export default function Icd10Search({ valueCode = '', valueName = '', onChange, 
             top: '100%',
             left: 0,
             right: 0,
-            zIndex: 1000,
+            zIndex: 999999,
             background: '#ffffff',
-            border: '1px solid #cbd5e1',
-            borderRadius: 6,
-            boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)',
+            border: '1px solid #0f766e',
+            borderRadius: 8,
+            boxShadow: '0 20px 45px rgba(15, 23, 42, 0.4), 0 8px 18px rgba(15, 23, 42, 0.25)',
             maxHeight: 260,
             overflowY: 'auto',
             marginTop: 4

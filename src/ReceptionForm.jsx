@@ -4,6 +4,7 @@ import { clinics, today } from './business-data';
 import { syncWithSqlServer, useWorkspace } from './workspace';
 import { HeartPulse, Search, AlertTriangle, IdCard, Shield, Stethoscope, Check, X, UserCheck } from 'lucide-react';
 import { parseBhytCard } from './bhyt-utils';
+import MedicalSuggestInput from './MedicalSuggestInput';
 
 const CLINIC_ROOMS = [
   { code: 'PK-NOI', name: 'Phòng khám 101 - Nội tổng quát', dept: 'Nội tổng quát', doctor: 'BS.CKI Trần Minh Anh' },
@@ -274,12 +275,14 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
 
               <label className="his-label his-col-2">
                 Lý do điều chuyển hoặc hủy *
-                <textarea
+                <MedicalSuggestInput
+                  type="cancel"
                   name="reason"
+                  multiline
+                  rows={2}
                   required
                   maxLength={255}
                   placeholder="Nhập chi tiết lý do chuyên môn điều chuyển buồng hoặc hủy tiếp đón..."
-                  className="his-textarea"
                 />
               </label>
             </div>
@@ -368,39 +371,59 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
 
                 <label className="his-label">
                   Địa chỉ thường trú / Tạm trú *
-                  <input
-                    name="address"
+                  <MedicalSuggestInput
+                    type="address"
                     required
                     maxLength={255}
                     value={address}
-                    onChange={e => setAddress(e.target.value)}
-                    placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/TP"
-                    className="his-input"
+                    onChange={val => setAddress(val)}
+                    placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/TP..."
                   />
                 </label>
 
                 <label className="his-label his-col-2">
                   Tiền sử bệnh lý bản thân
-                  <input
-                    name="history"
-                    maxLength={500}
+                  <MedicalSuggestInput
+                    type="history"
                     value={patientHistory}
-                    onChange={e => setPatientHistory(e.target.value)}
+                    onChange={val => setPatientHistory(val)}
                     placeholder="Tăng huyết áp, đái tháo đường, hen suyễn, bệnh lý mạn tính..."
-                    className="his-input"
                   />
+                  <div style={{display:'flex',gap:'6px',flexWrap:'wrap',marginTop:'4px'}}>
+                    {['Chưa ghi nhận tiền sử mạn tính', 'Tăng huyết áp vô căn', 'Đái tháo đường type 2', 'Hen phế quản'].map(tag => (
+                      <button
+                        type="button"
+                        key={tag}
+                        onClick={() => setPatientHistory(prev => prev ? `${prev}; ${tag}` : tag)}
+                        style={{background:'#f8fafc',border:'1px solid #cbd5e1',borderRadius:'4px',padding:'2px 6px',fontSize:'10.5px',color:'#475569',cursor:'pointer'}}
+                      >
+                        + {tag}
+                      </button>
+                    ))}
+                  </div>
                 </label>
 
                 <label className="his-label">
                   Dị ứng thuốc & dị nguyên
-                  <input
-                    name="allergy"
+                  <MedicalSuggestInput
+                    type="allergy"
                     maxLength={255}
                     value={allergyNote}
-                    onChange={e => setAllergyNote(e.target.value)}
+                    onChange={val => setAllergyNote(val)}
                     placeholder="Penicillin, NSAIDs, Paracetamol..."
-                    className="his-input"
                   />
+                  <div style={{display:'flex',gap:'6px',flexWrap:'wrap',marginTop:'4px'}}>
+                    {['Không ghi nhận dị ứng', 'Penicillin', 'Aspirin / NSAIDs', 'Paracetamol'].map(tag => (
+                      <button
+                        type="button"
+                        key={tag}
+                        onClick={() => setAllergyNote(tag)}
+                        style={{background:'#f8fafc',border:'1px solid #cbd5e1',borderRadius:'4px',padding:'2px 6px',fontSize:'10.5px',color:'#b91c1c',cursor:'pointer'}}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
                 </label>
               </div>
             </div>
@@ -502,14 +525,25 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
 
                   <label className="his-label">
                     Lý do khám / Triệu chứng ban đầu *
-                    <input
+                    <MedicalSuggestInput
+                      type="reason"
                       value={intakeReason}
-                      onChange={e => setIntakeReason(e.target.value)}
+                      onChange={val => setIntakeReason(val)}
                       placeholder="Đau đầu, ho kéo dài, đau ngực, kiểm tra sức khỏe..."
-                      className="his-input"
                       required
-                      maxLength={255}
                     />
+                    <div style={{display:'flex',gap:'6px',flexWrap:'wrap',marginTop:'4px'}}>
+                      {['Khám sức khỏe định kỳ', 'Tái khám theo hẹn', 'Sốt cao, mệt mỏi', 'Đau đầu, chóng mặt', 'Ho, đau rát họng', 'Đau ngực', 'Đau bụng'].map(tag => (
+                        <button
+                          type="button"
+                          key={tag}
+                          onClick={() => setIntakeReason(tag)}
+                          style={{background:'#f1f5f9',border:'1px solid #cbd5e1',borderRadius:'4px',padding:'2px 6px',fontSize:'10.5px',color:'#0f766e',cursor:'pointer'}}
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
                   </label>
                 </div>
 

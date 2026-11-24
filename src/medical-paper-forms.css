@@ -2,7 +2,13 @@
    MEDICARE OFFICIAL VIETNAMESE MEDICAL PAPER FORMS STYLESHEET
    Compliant with Ministry of Health (BYT) & Vietnam Social Security (BHXH)
    Standard print rules for A4 output & High-fidelity Screen Preview
+   Anti-overflow, Strict Column Alignment & Continuous Dotted Leader Lines
    ========================================================================== */
+
+@page {
+  size: A4 portrait;
+  margin: 10mm 14mm 10mm 14mm;
+}
 
 .paper-sheet {
   background: #ffffff;
@@ -10,20 +16,85 @@
   font-family: 'Times New Roman', Times, serif;
   font-size: 13.5px;
   line-height: 1.5;
-  padding: 32px 36px;
+  padding: 30px 36px;
   border: 1px solid #d1d5db;
   border-radius: 4px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   margin: 0 auto;
   max-width: 820px;
+  min-height: 1050px;
   position: relative;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Compact A4 Auto-fit Mode: Prevents text overflow and guarantees single-page A4 fit */
+.paper-sheet.paper-sheet-compact {
+  font-size: 12px;
+  line-height: 1.35;
+  padding: 20px 28px;
+  min-height: 980px;
+}
+
+.paper-sheet.paper-sheet-compact .paper-header {
+  margin-bottom: 12px;
+}
+
+.paper-sheet.paper-sheet-compact .paper-title {
+  margin: 10px 0 8px 0;
+}
+
+.paper-sheet.paper-sheet-compact .paper-title h1 {
+  font-size: 16px;
+}
+
+.paper-sheet.paper-sheet-compact .paper-section-title {
+  margin: 8px 0 4px 0;
+  font-size: 12.5px;
+}
+
+.paper-sheet.paper-sheet-compact .paper-row,
+.paper-sheet.paper-sheet-compact .paper-grid-admin-3col,
+.paper-sheet.paper-sheet-compact .paper-grid-admin-2col {
+  margin-bottom: 3px;
+}
+
+.paper-sheet.paper-sheet-compact .paper-multiline-leader,
+.paper-sheet.paper-sheet-compact .paper-textarea-leader {
+  line-height: 20px;
+  min-height: 40px;
+  background-size: 100% 20px;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 19px,
+    #94a3b8 19px,
+    #94a3b8 20px
+  );
+  font-size: 12px;
+}
+
+.paper-sheet.paper-sheet-compact .paper-sign-block {
+  margin-top: 14px;
+}
+
+.paper-sheet.paper-sheet-compact .paper-sign-col {
+  min-height: 90px;
+}
+
+.paper-sheet.paper-sheet-compact .paper-sign-col .sign-name {
+  margin-top: 36px;
 }
 
 .paper-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .paper-header-left {
@@ -66,7 +137,7 @@
 
 .paper-title {
   text-align: center;
-  margin: 18px 0 14px 0;
+  margin: 16px 0 12px 0;
 }
 
 .paper-title h1 {
@@ -87,7 +158,7 @@
 }
 
 .paper-recipient {
-  margin: 12px 0 16px 0;
+  margin: 10px 0 14px 0;
   font-size: 13.5px;
   text-align: center;
 }
@@ -96,20 +167,63 @@
   font-weight: 700;
   text-transform: uppercase;
   font-size: 13.5px;
-  margin: 14px 0 6px 0;
+  margin: 12px 0 5px 0;
   color: #111827;
+}
+
+/* ==========================================================================
+   STABLE GRID LAYOUTS FOR ADMINISTRATIVE DATA (Chống xô lệch hàng kép)
+   ========================================================================== */
+
+/* 3-Column Administrative Row: [Họ tên (co giãn)] [Giới tính (cố định)] [Tuổi (cố định)] */
+.paper-grid-admin-3col {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 115px 85px;
+  gap: 12px;
+  align-items: baseline;
+  margin-bottom: 5px;
+  width: 100%;
+}
+
+/* 2-Column Administrative Row: [Trường 1 (co giãn)] [Trường 2 (cố định 220px)] */
+.paper-grid-admin-2col {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 14px;
+  align-items: baseline;
+  margin-bottom: 5px;
+  width: 100%;
+}
+
+/* 2-Column Equal Row */
+.paper-grid-admin-half {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: baseline;
+  margin-bottom: 5px;
+  width: 100%;
+}
+
+.paper-field-cell {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+  width: 100%;
 }
 
 .paper-row {
   display: flex;
   margin-bottom: 5px;
   align-items: baseline;
+  width: 100%;
 }
 
 .paper-label {
   font-weight: 600;
   margin-right: 6px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .paper-value {
@@ -117,6 +231,73 @@
   border-bottom: 1px dotted #9ca3af;
   min-height: 18px;
   padding-left: 4px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   CONTINUOUS DOTTED LEADER LINES FOR MULTILINE CLINICAL NARRATIVES
+   (Dòng kẻ chấm lặp lại liên tục chuẩn Bộ Y tế)
+   ========================================================================== */
+
+.paper-multiline-leader {
+  position: relative;
+  width: 100%;
+  line-height: 24px;
+  min-height: 48px;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 23px,
+    #94a3b8 23px,
+    #94a3b8 24px
+  );
+  background-size: 100% 24px;
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 13.5px;
+  color: #0f172a;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  padding: 0 4px;
+  box-sizing: border-box;
+  text-align: justify;
+}
+
+.paper-textarea-leader {
+  width: 100%;
+  line-height: 24px;
+  min-height: 48px;
+  background-color: transparent;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 23px,
+    #cbd5e1 23px,
+    #cbd5e1 24px
+  );
+  background-size: 100% 24px;
+  border: none;
+  outline: none;
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 13.5px;
+  color: #0f172a;
+  resize: vertical;
+  box-sizing: border-box;
+  padding: 0 4px;
+  overflow-wrap: break-word;
+  transition: background-image 0.2s ease;
+}
+
+.paper-textarea-leader:focus {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 23px,
+    #3b82f6 23px,
+    #3b82f6 24px
+  );
 }
 
 .paper-table {
@@ -147,25 +328,22 @@
   text-align: right;
 }
 
-.paper-total-row {
-  font-weight: 700;
-  background-color: #fafafa;
-}
-
 .paper-sign-block {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 16px;
-  margin-top: 24px;
+  margin-top: auto;
+  padding-top: 18px;
   text-align: center;
   break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .paper-sign-col {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 130px;
+  min-height: 120px;
 }
 
 .paper-sign-col .sign-title {
@@ -183,7 +361,7 @@
 .paper-sign-col .sign-name {
   font-weight: 700;
   font-size: 13px;
-  margin-top: 60px;
+  margin-top: 54px;
 }
 
 .paper-badge-stamp {
@@ -209,6 +387,8 @@
   padding: 10px 16px;
   border-radius: 6px;
   margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 /* Print specific optimizations */
@@ -216,6 +396,8 @@
   body {
     background: #ffffff !important;
     color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   .paper-sheet {
@@ -225,7 +407,14 @@
     margin: 0 !important;
     max-width: 100% !important;
     width: 100% !important;
-    page-break-after: always;
+    min-height: auto !important;
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  .paper-sheet-compact {
+    font-size: 11.5px !important;
+    line-height: 1.3 !important;
   }
 
   .no-print,
@@ -239,4 +428,130 @@
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+
+  .paper-input,
+  .paper-textarea,
+  .paper-textarea-leader {
+    border: none !important;
+    border-bottom: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    color: #000000 !important;
+    resize: none !important;
+    font-family: 'Times New Roman', Times, serif !important;
+    font-size: inherit !important;
+    width: 100% !important;
+  }
+
+  .paper-sign-block {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .paper-edit-hint,
+  .paper-save-btn {
+    display: none !important;
+  }
 }
+
+/* Editable Paper Form Fields (Screen preview mode) */
+.paper-input,
+.paper-textarea {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 13.5px;
+  color: #0f172a;
+  background: rgba(241, 245, 249, 0.45);
+  border: none;
+  border-bottom: 1px dotted #64748b;
+  border-radius: 3px;
+  padding: 2px 6px;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  transition: all 0.15s ease-in-out;
+}
+
+.paper-input:hover,
+.paper-textarea:hover {
+  background: rgba(226, 232, 240, 0.75);
+  border-bottom-color: #2563eb;
+}
+
+.paper-input:focus,
+.paper-textarea:focus {
+  background: #ffffff;
+  border-bottom: 1.5px solid #2563eb;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.15);
+}
+
+.paper-input-inline {
+  display: inline-block;
+  width: auto;
+  min-width: 80px;
+}
+
+.paper-edit-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #0369a1;
+  background: #e0f2fe;
+  border: 1px solid #bae6fd;
+  border-radius: 5px;
+  padding: 5px 12px;
+}
+
+.paper-save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: none;
+  background: #059669;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.paper-save-btn:hover {
+  background: #047857;
+}
+
+.paper-save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.paper-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: #e2e8f0;
+  padding: 2px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.paper-mode-toggle button {
+  border: none;
+  background: transparent;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.paper-mode-toggle button.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+

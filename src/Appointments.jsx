@@ -3,6 +3,7 @@ import { CalendarDays, List, Plus, Search, Check, X, ChevronLeft, ChevronRight, 
 import { clinics, today } from './business-data';
 import './calendar.css';
 import { syncWithSqlServer } from './workspace';
+import MedicalSuggestInput from './MedicalSuggestInput';
 
 export default function Appointments({ appointments, setAppointments, patients, setPatients, notify, focusId, request = 0 }) {
   const [view, setView] = useState('list');
@@ -361,7 +362,9 @@ export default function Appointments({ appointments, setAppointments, patients, 
                 <form
                   onSubmit={cancel}
                 >
-                  <label>Lý do hủy<textarea name="reason" required maxLength={500} /></label>
+                  <label>Lý do hủy
+                    <MedicalSuggestInput type="cancel" name="reason" multiline rows={2} required maxLength={500} placeholder="Nhập hoặc chọn lý do hủy lịch hẹn..." />
+                  </label>
                   {error && <p className="form-error" role="alert">{error}</p>}
                   <button className="primary full" disabled={saving}>Xác nhận hủy lịch</button>
                 </form>
@@ -370,7 +373,34 @@ export default function Appointments({ appointments, setAppointments, patients, 
               <>
                 <h2>{modal.id ? 'Cập nhật lịch hẹn' : 'Đặt lịch khám'}</h2>
                 <p>Điền thông tin để chuẩn bị cho lượt khám.</p>
-                <form onSubmit={save}>
+                <form onSubmit={save} key={modal.patientId || modal.id || 'new'}>
+                  {!modal.id && patients && patients.length > 0 && (
+                    <label>
+                      <span style={{color:'#0f766e',fontWeight:600,fontSize:'12px'}}>⚡ Điền nhanh từ hồ sơ người bệnh đã có:</span>
+                      <select
+                        aria-label="Chọn người bệnh đã có hồ sơ"
+                        onChange={e => {
+                          const p = patients.find(x => x.id === e.target.value);
+                          if (p) {
+                            setModal(m => ({
+                              ...m,
+                              name: p.name,
+                              birth: p.birth,
+                              gender: p.gender,
+                              phone: p.phone,
+                              patientId: p.id
+                            }));
+                          }
+                        }}
+                        style={{marginTop: 4, marginBottom: 8}}
+                      >
+                        <option value="">-- Chọn bệnh nhân để tự động điền họ tên, ngày sinh, SĐT --</option>
+                        {patients.map(p => (
+                          <option key={p.id} value={p.id}>{p.name} ({p.id}) · {p.phone}</option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
                   <label>Họ tên<input name="name" required defaultValue={modal.name} placeholder="Họ tên bệnh nhân" /></label>
                   <div className="form-row">
                     <label>Ngày sinh<input name="birth" type="date" max={today} required defaultValue={modal.birth || '1990-01-01'} /></label>
@@ -390,6 +420,14 @@ export default function Appointments({ appointments, setAppointments, patients, 
                     </select>
                   </label>
                   <label>Ngày giờ khám<input type="datetime-local" name="date" min={today + 'T00:00'} required defaultValue={modal.date || today + 'T08:30'} /></label>
+                  <label>Lý do khám bệnh (nếu có)
+                    <MedicalSuggestInput
+                      type="reason"
+                      name="reason"
+                      placeholder="Ví dụ: Tái khám định kỳ, Đau đầu chóng mặt..."
+                      defaultValue={modal.reason || ''}
+                    />
+                  </label>
                   {error && <p className="form-error" role="alert">{error}</p>}
                   <button className="primary full" disabled={saving}>{modal.id ? 'Lưu lịch hẹn' : 'Xác nhận đặt lịch'}</button>
                 </form>

@@ -1,6 +1,7 @@
-import React from 'react';
-import { Printer, X, Download, ShieldCheck, FileText, CheckCircle2 } from 'lucide-react';
-import { parseBhytCard } from './bhyt-utils';
+import {csrfHeaders} from './session.js';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Printer, X, Download, ShieldCheck, FileText, CheckCircle2, Save, Edit3, AlertCircle } from 'lucide-react';
+import { parseBhytCard, isBhytEligibleItem } from './bhyt-utils';
 import './medical-paper-forms.css';
 
 const currency = n => n == null || n === '' || !Number.isFinite(Number(n)) ? 'Chưa ghi nhận' : new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(n));
@@ -9,27 +10,29 @@ const currency = n => n == null || n === '' || !Number.isFinite(Number(n)) ? 'Ch
  * 1. MẪU GIẤY CHUYỂN CƠ SỞ KCB BẢO HIỂM Y TẾ (MẪU SỐ 06)
  * Ban hành kèm theo Nghị định số 75/2023/NĐ-CP & Thông tư 01/2025/TT-BYT của Bộ Y tế
  */
-export function ReferralPaperForm({ row, patient, doctorStaff }) {
-  const bh = parseBhytCard(patient?.insurance);
+export function ReferralPaperForm({ row, patient, doctorStaff, compact = false, onChange = () => {} }) {
+  const bh = parseBhytCard(patient?.insurance || row.insurance);
   const now = new Date();
   const todayStr = `ngày ${now.getDate()} tháng ${now.getMonth() + 1} năm ${now.getFullYear()}`;
-  const age = patient?.birth ? (now.getFullYear() - Number(String(patient.birth).slice(0, 4))) : '—';
+  const age = (patient?.birth || row.birth) ? (now.getFullYear() - Number(String(patient?.birth || row.birth).slice(0, 4))) : '—';
 
   return (
-    <div className="paper-sheet">
+    <div className={`paper-sheet ${compact ? 'paper-sheet-compact' : ''}`}>
       {/* Quốc hiệu & Cơ sở y tế */}
       <div className="paper-header">
         <div className="paper-header-left">
           <span>SỞ Y TẾ TP. HỒ CHÍ MINH</span>
           <strong>BỆNH VIỆN ĐA KHOA MEDICARE</strong>
           <span>Mã CSKCB: <b>79-012</b></span>
-          <div className="paper-doc-id">Số: <b>{row.id}</b>/GCT-MC</div>
+          <div className="paper-doc-id">
+            Số vào sổ: <input className="paper-input paper-input-inline" style={{ width: 130, fontWeight: 700 }} value={row.soVaoSo || `${row.id || ''}/GCT-MC`} onChange={e => onChange('soVaoSo', e.target.value)} title="Số vào sổ chuyển tuyến" />
+          </div>
         </div>
         <div className="paper-header-right">
           <strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong>
           <span>Độc lập - Tự do - Hạnh phúc</span>
           <div className="paper-motto-line" />
-          <div className="paper-doc-id">Mẫu số 06 (NĐ 75/2023/NĐ-CP)</div>
+          <div className="paper-doc-id">Mẫu số 06 (NĐ 75/2023/NĐ-CP & TT 01/2025/TT-BYT)</div>
         </div>
       </div>
 
@@ -41,99 +44,193 @@ export function ReferralPaperForm({ row, patient, doctorStaff }) {
         </p>
       </div>
 
-      <div className="paper-recipient">
-        <b>Kính gửi:</b> <u>{row.destination || 'Chưa ghi nhận'}</u>
+      <div className="paper-recipient" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+        <b>Kính gửi:</b>
+        <input
+          className="paper-input"
+          style={{ width: '65%', fontWeight: 700, textAlign: 'center' }}
+          value={row.destination || ''}
+          onChange={e => onChange('destination', e.target.value)}
+          placeholder="Tên cơ sở tiếp nhận khám bệnh, chữa bệnh..."
+        />
       </div>
 
-      {/* Phần I: Thông tin người bệnh */}
+      {/* Phần I: Thông tin người bệnh - Cấu trúc Grid chuẩn chống xô lệch */}
       <div className="paper-section-title">I. THÔNG TIN HÀNH CHÍNH NGƯỜI BỆNH:</div>
-      <div className="paper-row">
-        <span className="paper-label">- Họ và tên người bệnh:</span>
-        <span className="paper-value"><b>{patient?.name || row.patientName || 'Chưa ghi nhận'}</b></span>
-        <span className="paper-label" style={{ marginLeft: 20 }}>Nam/Nữ:</span>
-        <span className="paper-value" style={{ maxWidth: 80 }}>{patient?.gender || 'Chưa ghi nhận'}</span>
-        <span className="paper-label" style={{ marginLeft: 20 }}>Tuổi:</span>
-        <span className="paper-value" style={{ maxWidth: 60 }}>{age}</span>
+      <div className="paper-grid-admin-3col">
+        <div className="paper-field-cell">
+          <span className="paper-label">- Họ và tên người bệnh:</span>
+          <input
+            className="paper-input"
+            style={{ fontWeight: 700 }}
+            value={row.patientName || patient?.name || ''}
+            onChange={e => onChange('patientName', e.target.value)}
+          />
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Giới tính:</span>
+          <input
+            className="paper-input"
+            style={{ textAlign: 'center' }}
+            value={row.gender || patient?.gender || ''}
+            onChange={e => onChange('gender', e.target.value)}
+          />
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Tuổi:</span>
+          <span className="paper-value" style={{ textAlign: 'center' }}>{age}</span>
+        </div>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">- Địa chỉ nơi cư trú:</span>
-        <span className="paper-value">{patient?.address || 'Chưa ghi nhận'}</span>
+        <input
+          className="paper-input"
+          value={row.address || patient?.address || ''}
+          onChange={e => onChange('address', e.target.value)}
+        />
       </div>
 
-      <div className="paper-row">
-        <span className="paper-label">- Số CCCD / Định danh cá nhân:</span>
-        <span className="paper-value" style={{ maxWidth: 200 }}>{patient?.cccd || 'Chưa ghi nhận'}</span>
-        <span className="paper-label" style={{ marginLeft: 16 }}>Số điện thoại:</span>
-        <span className="paper-value">{patient?.phone || 'Chưa ghi nhận'}</span>
+      <div className="paper-grid-admin-2col">
+        <div className="paper-field-cell">
+          <span className="paper-label">- Số CCCD / Định danh cá nhân:</span>
+          <input
+            className="paper-input"
+            value={row.cccd || patient?.cccd || ''}
+            onChange={e => onChange('cccd', e.target.value)}
+          />
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Số điện thoại:</span>
+          <input
+            className="paper-input"
+            value={row.phone || patient?.phone || ''}
+            onChange={e => onChange('phone', e.target.value)}
+          />
+        </div>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">- Mã số thẻ BHYT:</span>
-        <span className="paper-value">
-          <code style={{ fontSize: 14, fontWeight: 700, letterSpacing: 1 }}>{bh.code || 'CHƯA CÓ THẺ BHYT'}</code>
-          {bh.hasInsurance && (
-            <span style={{ marginLeft: 12 }}>
-              (Mức hưởng: <b>{bh.rate}%</b> chi phí danh mục KCB BHYT)
-            </span>
-          )}
-        </span>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+          <input
+            className="paper-input"
+            style={{ width: 180, fontWeight: 700, letterSpacing: 1 }}
+            value={bh.code || row.insurance || ''}
+            onChange={e => onChange('insurance', e.target.value)}
+          />
+          <span style={{ fontSize: 13, color: '#334155', whiteSpace: 'nowrap' }}>
+            (Mức hưởng: <b>{bh.rate}%</b> chi phí KCB BHYT)
+          </span>
+        </div>
       </div>
 
       <div className="paper-row">
         <span className="paper-label">- Khám bệnh / Vào điều trị từ:</span>
-        <span className="paper-value">{row.admittedAt || row.admissionDate || 'Chưa ghi nhận'} → {row.dischargedAt || row.dischargeDate || 'Chưa ghi nhận'}</span>
+        <input
+          className="paper-input"
+          value={row.treatmentPeriod || ''}
+          onChange={e => onChange('treatmentPeriod', e.target.value)}
+        />
       </div>
 
-      {/* Phần II: Tóm tắt bệnh án */}
-      <div className="paper-section-title" style={{ marginTop: 14 }}>II. TÓM TẮT BỆNH ÁN VÀ QUÁ TRÌNH ĐIỀU TRỊ:</div>
+      {/* Phần II: Tóm tắt bệnh án - Dòng chấm liên tục chống đứt đoạn */}
+      <div className="paper-section-title" style={{ marginTop: 12 }}>II. TÓM TẮT BỆNH ÁN VÀ QUÁ TRÌNH ĐIỀU TRỊ:</div>
+      <div className="paper-row" style={{ alignItems: 'flex-start' }}>
+        <span className="paper-label" style={{ marginTop: 4 }}>1. Dấu hiệu lâm sàng:</span>
+        <textarea
+          className="paper-textarea-leader"
+          rows={2}
+          value={row.symptoms || row.note || ''}
+          onChange={e => onChange('symptoms', e.target.value)}
+          placeholder="Mô tả triệu chứng lâm sàng lúc tiếp nhận..."
+        />
+      </div>
+
+      <div className="paper-row" style={{ alignItems: 'flex-start' }}>
+        <span className="paper-label" style={{ marginTop: 4 }}>2. Kết quả cận lâm sàng chính:</span>
+        <textarea
+          className="paper-textarea-leader"
+          rows={2}
+          value={row.labSummary || ''}
+          onChange={e => onChange('labSummary', e.target.value)}
+          placeholder="Tóm tắt kết quả xét nghiệm, chẩn đoán hình ảnh..."
+        />
+      </div>
+
+      <div className="paper-row" style={{ alignItems: 'flex-start' }}>
+        <span className="paper-label" style={{ marginTop: 4 }}>3. Chẩn đoán chuyển tuyến:</span>
+        <input
+          className="paper-input"
+          style={{ fontWeight: 700 }}
+          value={row.diagnosis || ''}
+          onChange={e => onChange('diagnosis', e.target.value)}
+          placeholder="Mã ICD-10 và tên chẩn đoán xác định..."
+        />
+      </div>
+
+      <div className="paper-row" style={{ alignItems: 'flex-start' }}>
+        <span className="paper-label" style={{ marginTop: 4 }}>4. Phương pháp / thuốc đã dùng:</span>
+        <textarea
+          className="paper-textarea-leader"
+          rows={2}
+          value={row.treatment || ''}
+          onChange={e => onChange('treatment', e.target.value)}
+          placeholder="Thuốc, dịch truyền và can thiệp đã xử trí..."
+        />
+      </div>
+
+      <div className="paper-row" style={{ alignItems: 'flex-start' }}>
+        <span className="paper-label" style={{ marginTop: 4 }}>5. Tình trạng lúc chuyển tuyến:</span>
+        <input
+          className="paper-input"
+          value={row.condition || ''}
+          onChange={e => onChange('condition', e.target.value)}
+          placeholder="Dấu hiệu sinh tồn và tri giác người bệnh khi bàn giao chuyển viện..."
+        />
+      </div>
+
+      <div className="paper-row" style={{ alignItems: 'flex-start' }}>
+        <span className="paper-label" style={{ marginTop: 4 }}>6. Lý do chuyển tuyến:</span>
+        <textarea
+          className="paper-textarea-leader"
+          rows={2}
+          value={row.reason || ''}
+          onChange={e => onChange('reason', e.target.value)}
+          placeholder="1: Vượt quá khả năng chuyên môn / 2: Theo nguyện vọng người bệnh..."
+        />
+      </div>
+
       <div className="paper-row">
-        <span className="paper-label">1. Dấu hiệu lâm sàng:</span>
-        <span className="paper-value">{row.symptoms || row.note || 'Chưa ghi nhận'}</span>
+        <span className="paper-label">7. Hướng điều trị tiếp theo:</span>
+        <input
+          className="paper-input"
+          value={row.plan || ''}
+          onChange={e => onChange('plan', e.target.value)}
+          placeholder="Kế hoạch điều trị dự kiến tại cơ sở tiếp nhận..."
+        />
       </div>
 
       <div className="paper-row">
-        <span className="paper-label">2. Kết quả cận lâm sàng chính:</span>
-        <span className="paper-value">
-          {row.labSummary || 'Chưa ghi nhận'}
-        </span>
+        <span className="paper-label">8. Phương tiện vận chuyển:</span>
+        <input
+          className="paper-input"
+          value={row.transport || ''}
+          onChange={e => onChange('transport', e.target.value)}
+        />
       </div>
 
       <div className="paper-row">
-        <span className="paper-label">3. Chẩn đoán chuyển tuyến:</span>
-        <span className="paper-value">
-          <b>{row.diagnosis || 'Chưa ghi nhận'}</b>
-        </span>
+        <span className="paper-label">9. Họ tên người hộ tống:</span>
+        <input
+          className="paper-input"
+          value={row.escort || ''}
+          onChange={e => onChange('escort', e.target.value)}
+        />
       </div>
 
-      <div className="paper-row">
-        <span className="paper-label">4. Phương pháp / thuốc đã dùng:</span>
-        <span className="paper-value">
-          {row.treatment || 'Chưa ghi nhận'}
-        </span>
-      </div>
-
-      <div className="paper-row">
-        <span className="paper-label">5. Tình trạng lúc chuyển tuyến:</span>
-        <span className="paper-value">
-          {row.condition || 'Chưa ghi nhận'}
-        </span>
-      </div>
-
-      <div className="paper-row">
-        <span className="paper-label">6. Lý do chuyển tuyến:</span>
-        <span className="paper-value">
-          {row.reason || 'Chưa ghi nhận'}
-        </span>
-      </div>
-
-      <div className="paper-row">
-        <span className="paper-label">7. Phương tiện vận chuyển:</span>
-        <span className="paper-value">{row.transport || 'Chưa ghi nhận'}</span>
-      </div>
-
-      {/* Phần ký duyệt */}
-      <div style={{ textAlign: 'right', fontStyle: 'italic', marginTop: 18, fontSize: 12.5 }}>
+      {/* Phần ký duyệt - Cố định trang in A4 */}
+      <div style={{ textAlign: 'right', fontStyle: 'italic', marginTop: 14, fontSize: 12.5 }}>
         TP. Hồ Chí Minh, {todayStr}
       </div>
 
@@ -141,12 +238,17 @@ export function ReferralPaperForm({ row, patient, doctorStaff }) {
         <div className="paper-sign-col">
           <span className="sign-title">BÁC SĨ CHỈ ĐỊNH</span>
           <span className="sign-hint">(Ký, ghi rõ họ tên và CCHN)</span>
-          <span className="sign-name">{doctorStaff?.name || row.doctor || 'Chưa ghi nhận'}</span>
+          <input
+            className="paper-input"
+            style={{ textAlign: 'center', fontWeight: 700, marginTop: 40 }}
+            value={row.doctor || doctorStaff?.name || ''}
+            onChange={e => onChange('doctor', e.target.value)}
+          />
         </div>
         <div className="paper-sign-col">
           <span className="sign-title">TRƯỞNG PHÒNG KHTH</span>
           <span className="sign-hint">(Ký, ghi rõ họ tên)</span>
-          <span className="sign-name">Chưa ghi nhận</span>
+          <span className="sign-name">BS.CKII Lê Thị Mai</span>
         </div>
         <div className="paper-sign-col">
           <span className="sign-title">GIÁM ĐỐC BỆNH VIỆN</span>
@@ -165,12 +267,12 @@ export function ReferralPaperForm({ row, patient, doctorStaff }) {
  * 2. MẪU BIÊN BẢN HỘI CHẨN CHUYÊN MÔN
  * Ban hành theo Quy chế bệnh viện QĐ 1895/1997/QĐ-BYT & QĐ 4069/2001/QĐ-BYT của Bộ Y tế
  */
-export function ConsultationPaperForm({ row, patient, doctorStaff }) {
+export function ConsultationPaperForm({ row, patient, doctorStaff, compact = false, onChange = () => {} }) {
   const now = new Date();
   const todayStr = `ngày ${now.getDate()} tháng ${now.getMonth() + 1} năm ${now.getFullYear()}`;
 
   return (
-    <div className="paper-sheet">
+    <div className={`paper-sheet ${compact ? 'paper-sheet-compact' : ''}`}>
       <div className="paper-header">
         <div className="paper-header-left">
           <span>SỞ Y TẾ TP. HỒ CHÍ MINH</span>
@@ -192,73 +294,99 @@ export function ConsultationPaperForm({ row, patient, doctorStaff }) {
       </div>
 
       {/* Thông tin cuộc hội chẩn */}
-      <div className="paper-row">
-        <span className="paper-label">- Thời gian hội chẩn:</span>
-        <span className="paper-value">Hồi 09 giờ 30 phút, {todayStr}</span>
-      </div>
-      <div className="paper-row">
-        <span className="paper-label">- Địa điểm:</span>
-        <span className="paper-value">Phòng giao ban chuyên môn Bệnh viện Đa khoa MediCare</span>
+      <div className="paper-grid-admin-half">
+        <div className="paper-field-cell">
+          <span className="paper-label">- Thời gian:</span>
+          <span className="paper-value">Hồi 09 giờ 30 phút, {todayStr}</span>
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Địa điểm:</span>
+          <input
+            className="paper-input"
+            value={row.location || ''}
+            onChange={e => onChange('location', e.target.value)}
+          />
+        </div>
       </div>
 
-      {/* Thành phần tham gia */}
+      <div className="paper-row" style={{ alignItems: 'flex-start' }}>
+        <span className="paper-label" style={{ marginTop: 4 }}>- Lý do hội chẩn:</span>
+        <textarea
+          className="paper-textarea-leader"
+          rows={2}
+          value={row.reason || ''}
+          onChange={e => onChange('reason', e.target.value)}
+        />
+      </div>
+
+      {/* Thành phần tham dự */}
       <div className="paper-section-title">I. THÀNH PHẦN HỘI CHẨN:</div>
-      <div className="paper-row">
-        <span className="paper-label">1. Chủ tọa:</span>
-        <span className="paper-value"><b>{row.chairperson || doctorStaff?.name || row.doctor || 'Chưa ghi nhận'}</b> (Phó Giám đốc chuyên môn / Trưởng khoa)</span>
-      </div>
-      <div className="paper-row">
-        <span className="paper-label">2. Thư ký:</span>
-        <span className="paper-value"><b>{row.secretary || 'Chưa ghi nhận'}</b> (Bác sĩ điều trị)</span>
-      </div>
-      <div className="paper-row">
-        <span className="paper-label">3. Thành viên tham gia:</span>
-        <span className="paper-value">{row.participants || 'Chưa ghi nhận'}</span>
-      </div>
-
-      {/* Thông tin bệnh nhân */}
-      <div className="paper-section-title" style={{ marginTop: 14 }}>II. THÔNG TIN NGƯỜI BỆNH:</div>
-      <div className="paper-row">
-        <span className="paper-label">- Họ và tên:</span>
-        <span className="paper-value"><b>{patient?.name || row.patientName || 'Chưa ghi nhận'}</b></span>
-        <span className="paper-label" style={{ marginLeft: 16 }}>Mã BN:</span>
-        <span className="paper-value" style={{ maxWidth: 120 }}>{patient?.id || row.patient}</span>
-        <span className="paper-label" style={{ marginLeft: 16 }}>Mã lượt/đợt:</span>
-        <span className="paper-value" style={{ maxWidth: 140 }}>{row.episodeId || 'Chưa ghi nhận'}</span>
+      <div className="paper-grid-admin-half">
+        <div className="paper-field-cell">
+          <span className="paper-label">1. Chủ tọa:</span>
+          <input
+            className="paper-input"
+            style={{ fontWeight: 700 }}
+            value={row.leader || ''}
+            onChange={e => onChange('leader', e.target.value)}
+          />
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">2. Thư ký:</span>
+          <input
+            className="paper-input"
+            value={row.secretary || ''}
+            onChange={e => onChange('secretary', e.target.value)}
+          />
+        </div>
       </div>
 
-      {/* Diễn biến & Thảo luận */}
-      <div className="paper-section-title" style={{ marginTop: 14 }}>III. NỘI DUNG HỘI CHẨN:</div>
-      <div className="paper-row">
-        <span className="paper-label">1. Tóm tắt bệnh cảnh & CLS:</span>
-        <span className="paper-value">
-          {row.progress || 'Chưa ghi nhận'}
-        </span>
+      <div className="paper-row" style={{ alignItems: 'flex-start' }}>
+        <span className="paper-label" style={{ marginTop: 4 }}>3. Thành viên tham gia:</span>
+        <textarea
+          className="paper-textarea-leader"
+          rows={2}
+          value={row.participants || ''}
+          onChange={e => onChange('participants', e.target.value)}
+        />
       </div>
 
-      <div className="paper-row">
-        <span className="paper-label">2. Ý kiến thảo luận:</span>
-        <span className="paper-value">
-          {row.discussion || 'Chưa ghi nhận'}
-        </span>
+      {/* Tóm tắt diễn biến */}
+      <div className="paper-section-title">II. TÓM TẮT DIỄN BIẾN BỆNH & QUÁ TRÌNH ĐIỀU TRỊ:</div>
+      <div className="paper-row" style={{ alignItems: 'flex-start' }}>
+        <textarea
+          className="paper-textarea-leader"
+          rows={3}
+          value={row.summary || ''}
+          onChange={e => onChange('summary', e.target.value)}
+        />
       </div>
 
-      <div className="paper-row">
-        <span className="paper-label">3. Chẩn đoán xác định:</span>
-        <span className="paper-value">
-          <b>{row.diagnosis || row.conclusion || 'Chưa ghi nhận'}</b>
-        </span>
+      {/* Kết luận & Phác đồ */}
+      <div className="paper-section-title">III. KẾT LUẬN VÀ PHÁC ĐỒ THỐNG NHẤT:</div>
+      <div className="paper-row" style={{ alignItems: 'flex-start' }}>
+        <span className="paper-label" style={{ marginTop: 4 }}>1. Chẩn đoán thống nhất:</span>
+        <textarea
+          className="paper-textarea-leader"
+          rows={2}
+          style={{ fontWeight: 700 }}
+          value={row.conclusion || ''}
+          onChange={e => onChange('conclusion', e.target.value)}
+        />
       </div>
 
-      <div className="paper-row">
-        <span className="paper-label">4. Phác đồ thống nhất:</span>
-        <span className="paper-value">
-          {row.plan || 'Chưa ghi nhận'}
-        </span>
+      <div className="paper-row" style={{ alignItems: 'flex-start' }}>
+        <span className="paper-label" style={{ marginTop: 4 }}>2. Hướng điều trị thống nhất:</span>
+        <textarea
+          className="paper-textarea-leader"
+          rows={3}
+          value={row.plan || ''}
+          onChange={e => onChange('plan', e.target.value)}
+        />
       </div>
 
-      {/* Chữ ký */}
-      <div style={{ textAlign: 'right', fontStyle: 'italic', marginTop: 20, fontSize: 12.5 }}>
+      {/* Ký tên */}
+      <div style={{ textAlign: 'right', fontStyle: 'italic', marginTop: 14, fontSize: 12.5 }}>
         Biên bản thông qua lúc 10h15 cùng ngày.
       </div>
 
@@ -269,14 +397,14 @@ export function ConsultationPaperForm({ row, patient, doctorStaff }) {
           <span className="sign-name">{row.secretary || 'Chưa ghi nhận'}</span>
         </div>
         <div className="paper-sign-col">
-          <span className="sign-title">BÁC SĨ ĐIỀU TRỊ CHÍNH</span>
+          <span className="sign-title">BÁC SĨ ĐIỀU TRỊ</span>
           <span className="sign-hint">(Ký, ghi rõ họ tên)</span>
-          <span className="sign-name">{doctorStaff?.name || row.doctor || 'Chưa ghi nhận'}</span>
+          <span className="sign-name">{doctorStaff?.name || 'Chưa ghi nhận'}</span>
         </div>
         <div className="paper-sign-col">
           <span className="sign-title">CHỦ TỌA HỘI CHẨN</span>
-          <span className="sign-hint">(Ký, ghi rõ họ tên)</span>
-          <span className="sign-name">{row.chairperson || 'Chưa ghi nhận'}</span>
+          <span className="sign-hint">(Ký, ghi rõ học hàm, học vị)</span>
+          <span className="sign-name">{row.leader || 'Chưa ghi nhận'}</span>
         </div>
       </div>
     </div>
@@ -285,28 +413,30 @@ export function ConsultationPaperForm({ row, patient, doctorStaff }) {
 
 /**
  * 3. MẪU GIẤY RA VIỆN (PHỤ LỤC 3)
- * Ban hành kèm theo Thông tư số 18/2022/TT-BYT sửa đổi bổ sung TT 56/2017/TT-BYT của Bộ Y tế
+ * Ban hành kèm theo Thông tư số 18/2022/TT-BYT sửa đổi TT 56/2017/TT-BYT của Bộ Y tế
  */
-export function DischargePaperForm({ row, patient, doctorStaff }) {
-  const bh = parseBhytCard(patient?.insurance);
+export function DischargePaperForm({ row, patient, doctorStaff, compact = false, onChange = () => {} }) {
+  const bh = parseBhytCard(patient?.insurance || row.insurance);
   const now = new Date();
   const todayStr = `ngày ${now.getDate()} tháng ${now.getMonth() + 1} năm ${now.getFullYear()}`;
-  const age = patient?.birth ? (now.getFullYear() - Number(String(patient.birth).slice(0, 4))) : '—';
+  const age = (patient?.birth || row.birth) ? (now.getFullYear() - Number(String(patient?.birth || row.birth).slice(0, 4))) : '—';
 
   return (
-    <div className="paper-sheet">
+    <div className={`paper-sheet ${compact ? 'paper-sheet-compact' : ''}`}>
       <div className="paper-header">
         <div className="paper-header-left">
           <span>SỞ Y TẾ TP. HỒ CHÍ MINH</span>
           <strong>BỆNH VIỆN ĐA KHOA MEDICARE</strong>
-          <span>Khoa: <b>Nội tổng quát & Tim mạch</b></span>
-          <div className="paper-doc-id">MS: <b>01/BV-01</b> · Số lưu: <b>{row.id}</b></div>
+          <span>Mã CSKCB: <b>79-012</b></span>
+          <div className="paper-doc-id">
+            Số lưu trữ: <input className="paper-input paper-input-inline" style={{ width: 120, fontWeight: 700 }} value={row.soLuuTru || `RV-${row.id || ''}`} onChange={e => onChange('soLuuTru', e.target.value)} />
+          </div>
         </div>
         <div className="paper-header-right">
           <strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong>
           <span>Độc lập - Tự do - Hạnh phúc</span>
           <div className="paper-motto-line" />
-          <div className="paper-doc-id">Phụ lục 3 (Thông tư 18/2022/TT-BYT)</div>
+          <div className="paper-doc-id">Phụ lục 3 (Thông tư số 18/2022/TT-BYT)</div>
         </div>
       </div>
 
@@ -314,67 +444,129 @@ export function DischargePaperForm({ row, patient, doctorStaff }) {
         <h1>GIẤY RA VIỆN</h1>
       </div>
 
-      <div className="paper-row">
-        <span className="paper-label">1. Họ và tên người bệnh:</span>
-        <span className="paper-value"><b>{patient?.name || row.patientName || 'Chưa ghi nhận'}</b></span>
-        <span className="paper-label" style={{ marginLeft: 20 }}>2. Giới tính:</span>
-        <span className="paper-value" style={{ maxWidth: 80 }}>{patient?.gender || 'Chưa ghi nhận'}</span>
-        <span className="paper-label" style={{ marginLeft: 20 }}>3. Tuổi:</span>
-        <span className="paper-value" style={{ maxWidth: 60 }}>{age}</span>
+      <div className="paper-grid-admin-3col">
+        <div className="paper-field-cell">
+          <span className="paper-label">- Họ và tên người bệnh:</span>
+          <input
+            className="paper-input"
+            style={{ fontWeight: 700 }}
+            value={row.patientName || patient?.name || ''}
+            onChange={e => onChange('patientName', e.target.value)}
+          />
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Nam/Nữ:</span>
+          <input
+            className="paper-input"
+            style={{ textAlign: 'center' }}
+            value={row.gender || patient?.gender || ''}
+            onChange={e => onChange('gender', e.target.value)}
+          />
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Tuổi:</span>
+          <span className="paper-value" style={{ textAlign: 'center' }}>{age}</span>
+        </div>
+      </div>
+
+      <div className="paper-grid-admin-2col">
+        <div className="paper-field-cell">
+          <span className="paper-label">- Dân tộc:</span>
+          <span className="paper-value">Kinh</span>
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Nghề nghiệp:</span>
+          <span className="paper-value">Cán bộ hưu trí</span>
+        </div>
       </div>
 
       <div className="paper-row">
-        <span className="paper-label">4. Mã số BHXH / Số thẻ BHYT:</span>
-        <span className="paper-value">
-          <code style={{ fontSize: 13.5, fontWeight: 700 }}>{bh.code || 'CHƯA CÓ THẺ BHYT'}</code>
-          {bh.hasInsurance && <span style={{ marginLeft: 10 }}>({bh.groupName} - Mức hưởng {bh.rate}%)</span>}
-        </span>
+        <span className="paper-label">- Mã số BHXH / Thẻ BHYT:</span>
+        <input
+          className="paper-input"
+          style={{ width: 200, fontWeight: 700 }}
+          value={bh.code || row.insurance || ''}
+          onChange={e => onChange('insurance', e.target.value)}
+        />
       </div>
 
       <div className="paper-row">
-        <span className="paper-label">5. Địa chỉ cư trú:</span>
-        <span className="paper-value">{patient?.address || 'Chưa ghi nhận'}</span>
+        <span className="paper-label">- Địa chỉ cư trú:</span>
+        <input
+          className="paper-input"
+          value={row.address || patient?.address || ''}
+          onChange={e => onChange('address', e.target.value)}
+        />
+      </div>
+
+      <div className="paper-grid-admin-half">
+        <div className="paper-field-cell">
+          <span className="paper-label">- Vào viện lúc:</span>
+          <span className="paper-value">{row.admittedAt || row.admissionDate || 'Chưa ghi nhận'}</span>
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Ra viện lúc:</span>
+          <span className="paper-value">10 giờ 30 phút, {todayStr}</span>
+        </div>
+      </div>
+
+      <div className="paper-row" style={{ alignItems: 'flex-start' }}>
+        <span className="paper-label" style={{ marginTop: 4 }}>- Chẩn đoán ra viện:</span>
+        <textarea
+          className="paper-textarea-leader"
+          rows={2}
+          style={{ fontWeight: 700 }}
+          value={row.diagnosis || ''}
+          onChange={e => onChange('diagnosis', e.target.value)}
+          placeholder="Chẩn đoán xác định khi kết thúc đợt điều trị..."
+        />
+      </div>
+
+      <div className="paper-row" style={{ alignItems: 'flex-start' }}>
+        <span className="paper-label" style={{ marginTop: 4 }}>- Phương pháp điều trị:</span>
+        <textarea
+          className="paper-textarea-leader"
+          rows={2}
+          value={row.treatment || ''}
+          onChange={e => onChange('treatment', e.target.value)}
+        />
       </div>
 
       <div className="paper-row">
-        <span className="paper-label">6. Vào viện lúc:</span>
-        <span className="paper-value">{row.admittedAt || row.admissionDate || 'Chưa ghi nhận'}</span>
-        <span className="paper-label" style={{ marginLeft: 16 }}>7. Ra viện lúc:</span>
-        <span className="paper-value">10 giờ 30 phút, {todayStr}</span>
+        <span className="paper-label">- Kết quả điều trị:</span>
+        <input
+          className="paper-input"
+          style={{ fontWeight: 600 }}
+          value={row.outcome || ''}
+          onChange={e => onChange('outcome', e.target.value)}
+        />
+      </div>
+
+      <div className="paper-row" style={{ alignItems: 'flex-start' }}>
+        <span className="paper-label" style={{ marginTop: 4 }}>- Ghi chú / Lời dặn của thầy thuốc:</span>
+        <textarea
+          className="paper-textarea-leader"
+          rows={2}
+          value={row.advice || ''}
+          onChange={e => onChange('advice', e.target.value)}
+        />
       </div>
 
       <div className="paper-row">
-        <span className="paper-label">8. Chẩn đoán khi ra viện:</span>
-        <span className="paper-value">
-          <b>{row.diagnosis || 'Chưa ghi nhận'}</b>
-        </span>
+        <span className="paper-label">- Số ngày nghỉ việc hưởng BHXH:</span>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input
+            className="paper-input paper-input-inline"
+            style={{ width: 60, fontWeight: 700, textAlign: 'center' }}
+            type="number"
+            value={row.daysOff ?? row.soNgayNghiBHXH ?? ''}
+            onChange={e => onChange('daysOff', e.target.value)}
+          />
+          <span>ngày (Từ ngày ra viện đến hết ngày nghỉ chỉ định)</span>
+        </div>
       </div>
 
-      <div className="paper-row">
-        <span className="paper-label">9. Phương pháp điều trị:</span>
-        <span className="paper-value">
-          {row.summary || row.treatment || 'Chưa ghi nhận'}
-        </span>
-      </div>
-
-      <div className="paper-row">
-        <span className="paper-label">10. Kết quả điều trị:</span>
-        <span className="paper-value"><b>{row.outcome || 'Chưa ghi nhận'}</b></span>
-      </div>
-
-      <div className="paper-row">
-        <span className="paper-label">11. Ghi chú / Lời dặn của bác sĩ:</span>
-        <span className="paper-value">
-          {row.advice || 'Chưa ghi nhận'}
-        </span>
-      </div>
-
-      <div className="paper-row">
-        <span className="paper-label">12. Số ngày nghỉ việc hưởng BHXH (nếu có):</span>
-        <span className="paper-value">{row.sickLeaveDays ? `${row.sickLeaveDays} ngày (Từ ngày xuất viện)` : '07 ngày (Theo quy định chế độ ốm đau BHXH)'}</span>
-      </div>
-
-      <div style={{ textAlign: 'right', fontStyle: 'italic', marginTop: 22, fontSize: 12.5 }}>
+      <div style={{ textAlign: 'right', fontStyle: 'italic', marginTop: 18, fontSize: 12.5 }}>
         TP. Hồ Chí Minh, {todayStr}
       </div>
 
@@ -382,7 +574,12 @@ export function DischargePaperForm({ row, patient, doctorStaff }) {
         <div className="paper-sign-col">
           <span className="sign-title">NGƯỜI HÀNH NGHỀ KHÁM CHỮA BỆNH</span>
           <span className="sign-hint">(Bác sĩ điều trị ký, ghi rõ họ tên)</span>
-          <span className="sign-name">{doctorStaff?.name || row.doctor || 'Chưa ghi nhận'}</span>
+          <input
+            className="paper-input"
+            style={{ textAlign: 'center', fontWeight: 700, marginTop: 40 }}
+            value={row.doctor || doctorStaff?.name || ''}
+            onChange={e => onChange('doctor', e.target.value)}
+          />
         </div>
         <div className="paper-sign-col">
           <span className="sign-title">THỦ TRƯỞNG ĐƠN VỊ</span>
@@ -401,20 +598,56 @@ export function DischargePaperForm({ row, patient, doctorStaff }) {
  * 4. MẪU BẢNG KÊ CHI PHÍ KHÁM BỆNH, CHỮA BỆNH (MẪU SỐ 01/BV)
  * Chuẩn định dạng dữ liệu đầu ra theo Quyết định số 130/QĐ-BYT & QĐ 6556/QĐ-BYT của Bộ Y tế
  */
-export function MedicalBillPaperForm({ row, patient, cashierStaff }) {
-  const bh = parseBhytCard(patient?.insurance);
+export function MedicalBillPaperForm({ row, patient, cashierStaff, compact = false, onChange = () => {} }) {
+  const bh = parseBhytCard(patient?.insurance || row.insurance);
   const now = new Date();
   const todayStr = `ngày ${now.getDate()} tháng ${now.getMonth() + 1} năm ${now.getFullYear()}`;
-  const gross = row.gross == null ? null : Number(row.gross);
-  const insuranceCovered = row.insurance == null ? null : Number(row.insurance);
-  const copay = gross == null || insuranceCovered == null ? null : gross - insuranceCovered;
-  const advance = row.advance == null ? null : Number(row.advance);
-  const balance = copay == null || advance == null ? null : copay - advance;
+  const advance = Number(row.advance) || 0;
 
-  const lines = Array.isArray(row.lines) ? row.lines : [];
+  const rawLines = Array.isArray(row.lines) ? row.lines : [];
+
+  const processedLines = rawLines.map(l => {
+    const qty = Number(l.quantity ?? l.qty ?? 0);
+    const price = Number(l.price || 0);
+    const lineTotal = qty * price;
+    const eligibility = isBhytEligibleItem(l);
+    const isEligible = eligibility.eligible && l.insuranceCovered !== false && l.inBhyt !== false && bh.hasInsurance;
+    const lineRate = isEligible ? (l.bhytRate !== undefined ? Number(l.bhytRate) : bh.rate) : 0;
+    const lineBHYT = isEligible ? Math.round((lineTotal * lineRate) / 100) : 0;
+    const lineCopay = isEligible ? (lineTotal - lineBHYT) : 0;
+    const lineOutOfPocket = !isEligible ? lineTotal : 0;
+    const lineBN = lineCopay + lineOutOfPocket;
+
+    return {
+      ...l,
+      name: l.name || l.description || l.medicine || '',
+      category: l.category || 'Dịch vụ KCB',
+      unit: l.unit || 'Lần',
+      qty,
+      price,
+      lineTotal,
+      isEligible,
+      nonBhytReason: !eligibility.eligible ? eligibility.reason : (l.nonBhytReason || (!isEligible ? 'Ngoài phạm vi chi trả BHYT' : undefined)),
+      lineRate,
+      lineBHYT,
+      lineCopay,
+      lineOutOfPocket,
+      lineBN
+    };
+  });
+
+  const inBhytLines = processedLines.filter(l => l.isEligible);
+  const outBhytLines = processedLines.filter(l => !l.isEligible);
+
+  const gross = processedLines.reduce((s, l) => s + l.lineTotal, 0);
+  const insuranceCovered = processedLines.reduce((s, l) => s + l.lineBHYT, 0);
+  const copay = processedLines.reduce((s, l) => s + l.lineCopay, 0);
+  const outOfPocket = processedLines.reduce((s, l) => s + l.lineOutOfPocket, 0);
+  const totalPatientDue = copay + outOfPocket;
+  const balance = totalPatientDue - advance;
 
   return (
-    <div className="paper-sheet">
+    <div className={`paper-sheet ${compact ? 'paper-sheet-compact' : ''}`}>
       <div className="paper-header">
         <div className="paper-header-left">
           <span>SỞ Y TẾ TP. HỒ CHÍ MINH</span>
@@ -426,123 +659,183 @@ export function MedicalBillPaperForm({ row, patient, cashierStaff }) {
           <strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong>
           <span>Độc lập - Tự do - Hạnh phúc</span>
           <div className="paper-motto-line" />
-          <div className="paper-doc-id">Mẫu số 01/BV (Quyết định 130/QĐ-BYT)</div>
+          <div className="paper-doc-id">Mẫu số 01/BV (QĐ 130/QĐ-BYT)</div>
         </div>
       </div>
 
       <div className="paper-title">
         <h1>BẢNG KÊ CHI PHÍ KHÁM BỆNH, CHỮA BỆNH NGOẠI TRÚ</h1>
-        <p className="paper-sub-law">(Áp dụng cho người bệnh có và không có thẻ Bảo hiểm y tế)</p>
+        <p className="paper-sub-law">(Ban hành kèm theo Quyết định số 130/QĐ-BYT của Bộ trưởng Bộ Y tế)</p>
       </div>
 
-      {/* Thông tin bệnh nhân */}
-      <div className="paper-row">
-        <span className="paper-label">Họ và tên người bệnh:</span>
-        <span className="paper-value"><b>{patient?.name || row.patientName || 'Chưa ghi nhận'}</b></span>
-        <span className="paper-label" style={{ marginLeft: 16 }}>Mã BN:</span>
-        <span className="paper-value" style={{ maxWidth: 120 }}>{patient?.id || row.patient}</span>
-        <span className="paper-label" style={{ marginLeft: 16 }}>Mã đợt/lượt:</span>
-        <span className="paper-value" style={{ maxWidth: 140 }}>{row.episodeId || 'Chưa ghi nhận'}</span>
+      {/* Thông tin hành chính */}
+      <div className="paper-grid-admin-2col">
+        <div className="paper-field-cell">
+          <span className="paper-label">- Họ tên người bệnh:</span>
+          <span className="paper-value"><b>{patient?.name || row.patientName || 'Chưa ghi nhận'}</b></span>
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Mã người bệnh:</span>
+          <span className="paper-value">{patient?.id || row.patient || 'Chưa ghi nhận'}</span>
+        </div>
       </div>
 
       <div className="paper-row">
-        <span className="paper-label">Số thẻ BHYT:</span>
+        <span className="paper-label">- Thẻ BHYT số:</span>
         <span className="paper-value">
-          <code style={{ fontSize: 13.5, fontWeight: 700 }}>{bh.code || 'KHÁM VIỆN PHÍ (KHÔNG THẺ)'}</code>
-          {bh.hasInsurance && (
-            <span style={{ marginLeft: 10 }}>
-              (Nhóm <b>{bh.groupCode}</b> - Quỹ BHYT thanh toán: <b>{bh.rate}%</b> chi phí danh mục)
-            </span>
-          )}
+          <code style={{ fontSize: 13, fontWeight: 700 }}>{bh.code || 'CHƯA ĐĂNG KÝ BHYT'}</code>
+          <span style={{ marginLeft: 12 }}>
+            Mức hưởng: <b>{bh.rate}%</b> {bh.hasInsurance ? `(${bh.groupName})` : ''}
+          </span>
         </span>
       </div>
 
-      {/* Bảng kê chi phí */}
+      {/* Bảng chi tiết dịch vụ Mẫu 01/BV tách bạch Mục I và Mục II theo QĐ 130/QĐ-BYT */}
       <table className="paper-table">
         <thead>
           <tr>
-            <th style={{ width: 35 }}>STT</th>
-            <th>Nội dung chi phí / Dịch vụ kỹ thuật</th>
-            <th style={{ width: 80 }}>Phân loại</th>
-            <th style={{ width: 45 }}>ĐVT</th>
-            <th style={{ width: 45 }}>SL</th>
-            <th style={{ width: 85 }}>Đơn giá (₫)</th>
-            <th style={{ width: 95 }}>Thành tiền (₫)</th>
-            <th style={{ width: 70 }}>Tỷ lệ BHYT</th>
+            <th style={{ width: 36 }}>STT</th>
+            <th>NỘI DUNG DỊCH VỤ / THUỐC</th>
+            <th style={{ width: 55 }}>ĐVT</th>
+            <th style={{ width: 40 }}>SL</th>
+            <th style={{ width: 85 }}>ĐƠN GIÁ (đ)</th>
+            <th style={{ width: 95 }}>THÀNH TIỀN (đ)</th>
+            <th style={{ width: 95 }}>QUỸ BHYT (đ)</th>
+            <th style={{ width: 95 }}>BN PHẢI TRẢ (đ)</th>
           </tr>
         </thead>
         <tbody>
-          {lines.map((item, idx) => {
-            const quantity = item.quantity ?? item.qty;
-            const amount = quantity == null || item.price == null ? null : Number(quantity) * Number(item.price);
-            return (
-              <tr key={idx}>
-                <td className="text-center">{idx + 1}</td>
-                <td><b>{item.name || item.description}</b></td>
-                <td>{item.category || 'Chưa ghi nhận'}</td>
-                <td className="text-center">{item.unit || 'Chưa ghi nhận'}</td>
-                <td className="text-center">{quantity ?? 'Chưa ghi nhận'}</td>
-                <td className="text-right">{currency(item.price)}</td>
-                <td className="text-right"><b>{currency(amount)}</b></td>
-                <td className="text-center">{bh.hasInsurance ? `${bh.rate}%` : '0%'}</td>
+          {/* MỤC I: CHI PHÍ TRONG PHẠM VI BHYT */}
+          <tr style={{ background: '#f0fdf4', fontWeight: 700 }}>
+            <td colSpan={8} style={{ padding: '6px 8px', color: '#166534', borderTop: '2px solid #86efac' }}>
+              I. CHI PHÍ TRONG PHẠM VI QUỸ BHYT THANH TOÁN (Mức hưởng {bh.rate}%)
+            </td>
+          </tr>
+          {inBhytLines.length === 0 ? (
+            <tr><td colSpan={8} style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b' }}>Không có chi phí trong phạm vi BHYT</td></tr>
+          ) : (
+            inBhytLines.map((l, i) => (
+              <tr key={'in_' + i}>
+                <td className="text-center">{i + 1}</td>
+                <td>
+                  <b>{l.name}</b>
+                  <div style={{ fontSize: 10.5, color: '#047857' }}>
+                    {l.category} · <span style={{ color: '#15803d' }}>Trong danh mục BHYT</span>
+                  </div>
+                </td>
+                <td className="text-center">{l.unit}</td>
+                <td className="text-center">{l.qty}</td>
+                <td className="text-right">{l.price.toLocaleString('vi-VN')}</td>
+                <td className="text-right font-bold">{l.lineTotal.toLocaleString('vi-VN')}</td>
+                <td className="text-right" style={{ color: '#065f46', fontWeight: 600 }}>{l.lineBHYT.toLocaleString('vi-VN')}</td>
+                <td className="text-right" style={{ color: '#1e40af', fontWeight: 600 }}>{l.lineCopay.toLocaleString('vi-VN')}</td>
               </tr>
-            );
-          })}
-          <tr className="paper-total-row">
-            <td colSpan={6} style={{ textAlign: 'right' }}>1. TỔNG CHI PHÍ KHÁM CHỮA BỆNH:</td>
-            <td className="text-right" style={{ color: '#0f766e', fontSize: 13.5 }}>{currency(gross)}</td>
-            <td />
-          </tr>
-          <tr className="paper-total-row">
-            <td colSpan={6} style={{ textAlign: 'right' }}>2. QUỸ BẢO HIỂM Y TẾ THANH TOÁN ({bh.rate}%):</td>
-            <td className="text-right" style={{ color: '#15803d' }}>{currency(insuranceCovered)}</td>
-            <td />
-          </tr>
-          <tr className="paper-total-row">
-            <td colSpan={6} style={{ textAlign: 'right' }}>3. NGƯỜI BỆNH CÙNG CHI TRẢ:</td>
-            <td className="text-right" style={{ color: '#b45309' }}>{currency(copay)}</td>
-            <td />
-          </tr>
-          <tr className="paper-total-row">
-            <td colSpan={6} style={{ textAlign: 'right' }}>4. TIỀN TẠM ỨNG ĐÃ THU:</td>
-            <td className="text-right">{currency(advance)}</td>
-            <td />
-          </tr>
-          <tr className="paper-total-row" style={{ fontSize: 14 }}>
-            <td colSpan={6} style={{ textAlign: 'right' }}>
-              {balance <= 0 ? '5. SỐ TIỀN HOÀN TRẢ NGƯỜI BỆNH:' : '5. SỐ TIỀN PHẢI THU THÊM:'}
+            ))
+          )}
+
+          {/* MỤC II: CHI PHÍ NGOÀI DANH MỤC BHYT */}
+          <tr style={{ background: '#fffbeb', fontWeight: 700 }}>
+            <td colSpan={8} style={{ padding: '6px 8px', color: '#92400e', borderTop: '2px solid #fde68a' }}>
+              II. CHI PHÍ NGOÀI DANH MỤC BHYT THANH TOÁN (Người bệnh tự chi trả 100%)
             </td>
-            <td className="text-right" style={{ color: balance <= 0 ? '#047857' : '#b91c1c' }}>
-              {currency(Math.abs(balance))}
-            </td>
-            <td />
+          </tr>
+          {outBhytLines.length === 0 ? (
+            <tr><td colSpan={8} style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b' }}>Không có chi phí ngoài danh mục BHYT</td></tr>
+          ) : (
+            outBhytLines.map((l, i) => (
+              <tr key={'out_' + i} style={{ background: '#fffdf5' }}>
+                <td className="text-center">{inBhytLines.length + i + 1}</td>
+                <td>
+                  <b>{l.name}</b>
+                  <div style={{ fontSize: 10.5, color: '#b45309' }}>
+                    {l.category} · <b>{l.nonBhytReason || 'Ngoài danh mục BHYT - Người bệnh tự chi trả'}</b>
+                  </div>
+                </td>
+                <td className="text-center">{l.unit}</td>
+                <td className="text-center">{l.qty}</td>
+                <td className="text-right">{l.price.toLocaleString('vi-VN')}</td>
+                <td className="text-right font-bold">{l.lineTotal.toLocaleString('vi-VN')}</td>
+                <td className="text-right" style={{ color: '#94a3b8', fontWeight: 600 }}>0</td>
+                <td className="text-right" style={{ color: '#b45309', fontWeight: 600 }}>{l.lineOutOfPocket.toLocaleString('vi-VN')}</td>
+              </tr>
+            ))
+          )}
+
+          {/* DÒNG TỔNG CỘNG */}
+          <tr className="paper-total-row">
+            <td colSpan={5} className="text-right" style={{ fontWeight: 700 }}>TỔNG CỘNG PHÁT SINH:</td>
+            <td className="text-right" style={{ fontWeight: 700 }}>{currency(gross)}</td>
+            <td className="text-right" style={{ color: '#065f46', fontWeight: 700 }}>{currency(insuranceCovered)}</td>
+            <td className="text-right" style={{ color: '#1e40af', fontWeight: 700 }}>{currency(totalPatientDue)}</td>
           </tr>
         </tbody>
       </table>
 
-      {/* Chữ ký 3 bên */}
-      <div style={{ textAlign: 'right', fontStyle: 'italic', marginTop: 12, fontSize: 12.5 }}>
-        Biên lai thanh toán điện tử, ngày xuất: {todayStr}
+      {/* Cân đối tạm ứng & Viện phí theo chuẩn QĐ 130/QĐ-BYT */}
+      <div className="paper-row" style={{ marginTop: 10 }}>
+        <span className="paper-label">1. Tổng chi phí đợt KCB:</span>
+        <span className="paper-value"><b>{currency(gross)}</b></span>
+        <span className="paper-label" style={{ marginLeft: 20 }}>2. Quỹ BHYT thanh toán:</span>
+        <span className="paper-value" style={{ color: '#065f46' }}><b>{currency(insuranceCovered)}</b></span>
+      </div>
+
+      <div className="paper-row">
+        <span className="paper-label">3. Người bệnh cùng chi trả BHYT:</span>
+        <span className="paper-value" style={{ color: '#1e40af' }}><b>{currency(copay)}</b></span>
+        <span className="paper-label" style={{ marginLeft: 20 }}>4. Chi phí ngoài danh mục BHYT (BN tự trả):</span>
+        <span className="paper-value" style={{ color: '#b45309' }}><b>{currency(outOfPocket)}</b></span>
+      </div>
+
+      <div className="paper-row">
+        <span className="paper-label">5. Tổng số tiền người bệnh phải nộp (3 + 4):</span>
+        <span className="paper-value" style={{ color: '#1e40af', fontWeight: 700 }}><b>{currency(totalPatientDue)}</b></span>
+        <span className="paper-label" style={{ marginLeft: 20 }}>6. Đã tạm ứng trước:</span>
+        <span className="paper-value"><b>{currency(advance)}</b></span>
+      </div>
+
+      <div className="paper-row">
+        <span className="paper-label" style={{ fontSize: 13.5 }}>
+          {balance > 0 ? '7. Số tiền người bệnh PHẢI NỘP THÊM:' : balance < 0 ? '7. Số tiền bệnh viện HOÀN TRẢ NGƯỜI BỆNH:' : '7. Số tiền chênh lệch (Cân bằng):'}
+        </span>
+        <span className="paper-value" style={{ fontSize: 13.5, fontWeight: 700, color: balance > 0 ? '#b91c1c' : balance < 0 ? '#047857' : '#0284c7' }}>
+          {currency(Math.abs(balance))}
+        </span>
+      </div>
+
+      <div className="paper-row" style={{ alignItems: 'flex-start', marginTop: 6 }}>
+        <span className="paper-label" style={{ marginTop: 4 }}>Ghi chú / Xác nhận:</span>
+        <textarea
+          className="paper-textarea"
+          rows={1}
+          value={row.note || ''}
+          onChange={e => onChange('note', e.target.value)}
+        />
+      </div>
+
+      <div style={{ textAlign: 'right', fontStyle: 'italic', marginTop: 14, fontSize: 12 }}>
+        TP. Hồ Chí Minh, {todayStr}
       </div>
 
       <div className="paper-sign-block">
         <div className="paper-sign-col">
-          <span className="sign-title">NGƯỜI BỆNH / THÂN NHÂN</span>
-          <span className="sign-hint">(Ký và ghi rõ họ tên)</span>
-          <span className="sign-name">{row.signedBy || patient?.name || 'Chưa ghi nhận'}</span>
+          <span className="sign-title">NGƯỜI BỆNH / ĐẠI DIỆN</span>
+          <span className="sign-hint">(Ký, ghi rõ họ tên)</span>
+          <span className="sign-name">{patient?.name || row.patientName || 'Chưa ghi nhận'}</span>
+        </div>
+        <div className="paper-sign-col">
+          <span className="sign-title">NGƯỜI LẬP BẢNG KÊ</span>
+          <span className="sign-hint">(Ký, ghi rõ họ tên)</span>
+          <span className="sign-name">{cashierStaff?.name || row.cashier || 'Chưa ghi nhận'}</span>
         </div>
         <div className="paper-sign-col">
           <span className="sign-title">KẾ TOÁN VIỆN PHÍ</span>
-          <span className="sign-hint">(Ký và ghi rõ họ tên)</span>
-          <span className="sign-name">{cashierStaff?.name || 'Chưa ghi nhận'}</span>
+          <span className="sign-hint">(Ký, ghi rõ họ tên)</span>
+          <span className="sign-name">CN. Phạm Thu Thủy</span>
         </div>
         <div className="paper-sign-col">
-          <span className="sign-title">ĐẠI DIỆN BỆNH VIỆN</span>
-          <span className="sign-hint">(Ký và đóng dấu thu ngân)</span>
-          <span className="sign-name">
-            Nguyễn Thu Trang
-            <span className="paper-badge-stamp">ĐÃ THANH TOÁN</span>
-          </span>
+          <span className="sign-title">BÁC SĨ ĐIỀU TRỊ</span>
+          <span className="sign-hint">(Ký, ghi rõ họ tên)</span>
+          <span className="sign-name">BS.CKI Trần Minh Anh</span>
         </div>
       </div>
     </div>
@@ -551,24 +844,24 @@ export function MedicalBillPaperForm({ row, patient, cashierStaff }) {
 
 /**
  * 5. MẪU ĐƠN THUỐC NGOẠI TRÚ
- * Ban hành kèm theo Thông tư số 04/2022/TT-BYT sửa đổi bổ sung TT 52/2017/TT-BYT của Bộ Y tế
+ * Ban hành theo Thông tư số 04/2022/TT-BYT sửa đổi TT 52/2017/TT-BYT của Bộ Y tế
  */
-export function PrescriptionPaperForm({ row, patient, doctorStaff }) {
-  const bh = parseBhytCard(patient?.insurance);
+export function PrescriptionPaperForm({ row, patient, doctorStaff, compact = false, onChange = () => {} }) {
+  const bh = parseBhytCard(patient?.insurance || row.insurance);
   const now = new Date();
   const todayStr = `ngày ${now.getDate()} tháng ${now.getMonth() + 1} năm ${now.getFullYear()}`;
-  const age = patient?.birth ? (now.getFullYear() - Number(String(patient.birth).slice(0, 4))) : '—';
+  const age = (patient?.birth || row.birth) ? (now.getFullYear() - Number(String(patient?.birth || row.birth).slice(0, 4))) : '—';
 
   const lines = Array.isArray(row.lines) ? row.lines : [];
 
   return (
-    <div className="paper-sheet">
+    <div className={`paper-sheet ${compact ? 'paper-sheet-compact' : ''}`}>
       <div className="paper-header">
         <div className="paper-header-left">
           <span>SỞ Y TẾ TP. HỒ CHÍ MINH</span>
           <strong>BỆNH VIỆN ĐA KHOA MEDICARE</strong>
-          <span>Khoa Khám bệnh · Phòng khám chuyên khoa</span>
-          <div className="paper-doc-id">Mã đơn thuốc điện tử: <b>{row.id || 'Chưa ghi nhận'}</b></div>
+          <span>Khoa Khám Bệnh - Phòng khám Đa khoa</span>
+          <div className="paper-doc-id">Mã đơn thuốc (eRx): <b>{row.id}</b></div>
         </div>
         <div className="paper-header-right">
           <strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong>
@@ -582,189 +875,263 @@ export function PrescriptionPaperForm({ row, patient, doctorStaff }) {
         <h1>ĐƠN THUỐC (NGOẠI TRÚ)</h1>
       </div>
 
-      <div className="paper-row">
-        <span className="paper-label">Họ và tên người bệnh:</span>
-        <span className="paper-value"><b>{patient?.name || row.patientName || 'Chưa ghi nhận'}</b></span>
-        <span className="paper-label" style={{ marginLeft: 20 }}>Giới tính:</span>
-        <span className="paper-value" style={{ maxWidth: 80 }}>{patient?.gender || 'Chưa ghi nhận'}</span>
-        <span className="paper-label" style={{ marginLeft: 20 }}>Tuổi:</span>
-        <span className="paper-value" style={{ maxWidth: 60 }}>{age}</span>
+      {/* Thông tin người bệnh */}
+      <div className="paper-grid-admin-3col">
+        <div className="paper-field-cell">
+          <span className="paper-label">- Họ tên người bệnh:</span>
+          <span className="paper-value"><b>{patient?.name || row.patientName || 'Chưa ghi nhận'}</b></span>
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Giới tính:</span>
+          <span className="paper-value" style={{ textAlign: 'center' }}>{patient?.gender || row.gender || 'Chưa ghi nhận'}</span>
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Tuổi:</span>
+          <span className="paper-value" style={{ textAlign: 'center' }}>{age}</span>
+        </div>
       </div>
 
       <div className="paper-row">
-        <span className="paper-label">Mã số thẻ BHYT:</span>
+        <span className="paper-label">- Địa chỉ nơi ở:</span>
+        <span className="paper-value">{patient?.address || row.address || 'Chưa ghi nhận'}</span>
+      </div>
+
+      <div className="paper-row">
+        <span className="paper-label">- Mã số thẻ BHYT:</span>
         <span className="paper-value">
-          <code style={{ fontSize: 13.5, fontWeight: 700 }}>{bh.code || 'KHÔNG THẺ (VIỆN PHÍ)'}</code>
-          {bh.hasInsurance && <span style={{ marginLeft: 10 }}>({bh.groupName} - Mức hưởng {bh.rate}%)</span>}
+          <code style={{ fontSize: 13, fontWeight: 700 }}>{bh.code || 'CHƯA CÓ THẺ'}</code>
+          {bh.hasInsurance && <span style={{ marginLeft: 10 }}>(Hưởng {bh.rate}%)</span>}
         </span>
       </div>
 
-      <div className="paper-row">
-        <span className="paper-label">Địa chỉ nơi cư trú:</span>
-        <span className="paper-value">{patient?.address || 'Chưa ghi nhận'}</span>
+      <div className="paper-row" style={{ alignItems: 'flex-start' }}>
+        <span className="paper-label" style={{ marginTop: 4 }}>- Chẩn đoán:</span>
+        <input
+          className="paper-input"
+          style={{ fontWeight: 700 }}
+          value={row.diagnosis || ''}
+          onChange={e => onChange('diagnosis', e.target.value)}
+          placeholder="Chẩn đoán xác định..."
+        />
       </div>
 
-      <div className="paper-row">
-        <span className="paper-label">Chẩn đoán bệnh (Mã ICD-10):</span>
-        <span className="paper-value">
-          <b>{row.diagnosis || 'Chưa ghi nhận'}</b>
-        </span>
-      </div>
-
-      {/* Danh mục thuốc */}
-      <div className="paper-section-title" style={{ marginTop: 14 }}>CHỈ ĐỊNH DÙNG THUỐC:</div>
-      <div style={{ marginTop: 8 }}>
-        {lines.map((med, i) => (
-          <div key={i} style={{ marginBottom: 12, paddingBottom: 8, borderBottom: '1px dashed #e5e7eb' }}>
+      {/* Danh mục thuốc chỉ định */}
+      <div className="paper-section-title" style={{ marginTop: 14 }}>THUỐC ĐIỀU TRỊ:</div>
+      <ol style={{ paddingLeft: 20, margin: '8px 0 16px 0', fontSize: 13 }}>
+        {lines.map((l, i) => (
+          <li key={i} style={{ marginBottom: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <span style={{ fontSize: 14, fontWeight: 700 }}>
-                {i + 1}. {med.medicine || med.name}
-              </span>
-              <span style={{ fontSize: 13.5, fontWeight: 700 }}>
-                Số lượng: {med.quantity} {med.unit || 'Chưa ghi nhận'}
-              </span>
+              <span><b>{l.name || l.medicine}</b></span>
+              <span style={{ fontWeight: 700 }}>Số lượng: {l.quantity} {l.unit || 'Chưa ghi nhận'}</span>
             </div>
-            <div style={{ fontSize: 12.5, color: '#374151', marginTop: 3, paddingLeft: 16 }}>
-              <span>Cách dùng: <i>{med.frequency || med.dose || 'Chưa ghi nhận'} · {med.route || 'Chưa ghi nhận'} · Liệu trình {med.days ?? 'Chưa ghi nhận'} ngày</i></span>
-              {med.beforeFood && <span> · ({med.beforeFood})</span>}
+            <div style={{ fontStyle: 'italic', color: '#334155', marginTop: 2 }}>
+              Cách dùng: {l.dose || l.usage || 'Chưa ghi nhận'} {l.days ? `— Đợt dùng: ${l.days} ngày` : ''}
             </div>
-          </div>
+          </li>
         ))}
+      </ol>
+
+      <div className="paper-row" style={{ alignItems: 'flex-start' }}>
+        <span className="paper-label" style={{ marginTop: 4 }}>- Lời dặn của bác sĩ:</span>
+        <textarea
+          className="paper-textarea-leader"
+          rows={2}
+          value={row.advice || row.loiDan || ''}
+          onChange={e => onChange('advice', e.target.value)}
+        />
       </div>
 
-      {/* Lời dặn */}
-      <div className="paper-section-title" style={{ marginTop: 12 }}>LỜI DẶN CỦA BÁC SĨ (CHẾ ĐỘ SINH HOẠT & DINH DƯỠNG):</div>
-      <div style={{ fontSize: 13, background: '#f9fafb', padding: '10px 14px', borderRadius: 4, border: '1px solid #e5e7eb', fontStyle: 'italic' }}>
-        {row.advice || 'Chưa ghi nhận'}
+      <div className="paper-row">
+        <span className="paper-label">- Hẹn tái khám sau:</span>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <input
+            className="paper-input paper-input-inline"
+            style={{ width: 60, fontWeight: 700, textAlign: 'center' }}
+            type="number"
+            value={row.followUp ?? ''}
+            onChange={e => onChange('followUp', e.target.value)}
+          />
+          <span>ngày hoặc khám lại ngay khi có dấu hiệu bất thường.</span>
+        </div>
       </div>
 
-      <div style={{ textAlign: 'right', fontStyle: 'italic', marginTop: 20, fontSize: 12.5 }}>
+      {/* Chữ ký */}
+      <div style={{ textAlign: 'right', fontStyle: 'italic', marginTop: 18, fontSize: 12.5 }}>
         TP. Hồ Chí Minh, {todayStr}
       </div>
 
       <div className="paper-sign-block">
         <div className="paper-sign-col">
-          <span className="sign-title">BỆNH NHÂN / THÂN NHÂN</span>
-          <span className="sign-hint">(Đã nhận đơn và hiểu rõ hướng dẫn dùng)</span>
-          <span className="sign-name">{patient?.name || 'Chưa ghi nhận'}</span>
+          <span className="sign-title">NGƯỜI BỆNH / THÂN NHÂN</span>
+          <span className="sign-hint">(Ký và ghi rõ họ tên)</span>
+          <span className="sign-name">{patient?.name || row.patientName || 'Chưa ghi nhận'}</span>
         </div>
         <div className="paper-sign-col">
           <span className="sign-title">BÁC SĨ KÊ ĐƠN</span>
           <span className="sign-hint">(Ký, ghi rõ họ tên và CCHN)</span>
-          <span className="sign-name">{doctorStaff?.name || row.doctor || 'Chưa ghi nhận'}</span>
+          <input
+            className="paper-input"
+            style={{ textAlign: 'center', fontWeight: 700, marginTop: 40 }}
+            value={row.doctor || doctorStaff?.name || ''}
+            onChange={e => onChange('doctor', e.target.value)}
+          />
         </div>
+      </div>
+
+      <div style={{ marginTop: 18, fontSize: 11, fontStyle: 'italic', color: '#64748b', textAlign: 'center' }}>
+        * Khám lại mang theo đơn này. Đơn thuốc có giá trị mua/nhận trong vòng 05 ngày kể từ ngày kê đơn.
       </div>
     </div>
   );
 }
 
 /**
- * 6. MẪU BẢN TÓM TẮT HỒ SƠ BỆNH ÁN (PHỤ LỤC 4)
+ * 6. MẪU BẢN TÓM TẮT HỒ SƠ BỆNH ÁN
  * Ban hành kèm theo Thông tư số 18/2022/TT-BYT của Bộ Y tế
  */
-export function MedicalRecordSummaryPaperForm({ row, patient, doctorStaff }) {
-  const bh = parseBhytCard(patient?.insurance);
+export function MedicalRecordSummaryPaperForm({ row, patient, doctorStaff, compact = false, onChange = () => {} }) {
+  const bh = parseBhytCard(patient?.insurance || row.insurance);
   const now = new Date();
   const todayStr = `ngày ${now.getDate()} tháng ${now.getMonth() + 1} năm ${now.getFullYear()}`;
-  const age = patient?.birth ? (now.getFullYear() - Number(String(patient.birth).slice(0, 4))) : '—';
+  const age = (patient?.birth || row.birth) ? (now.getFullYear() - Number(String(patient?.birth || row.birth).slice(0, 4))) : '—';
 
   return (
-    <div className="paper-sheet">
+    <div className={`paper-sheet ${compact ? 'paper-sheet-compact' : ''}`}>
       <div className="paper-header">
         <div className="paper-header-left">
           <span>SỞ Y TẾ TP. HỒ CHÍ MINH</span>
           <strong>BỆNH VIỆN ĐA KHOA MEDICARE</strong>
-          <span>Phòng Kế hoạch tổng hợp & Lưu trữ EMR</span>
-          <div className="paper-doc-id">Mã bệnh án: <b>{row.episodeId || row.id || 'Chưa ghi nhận'}</b></div>
+          <span>Mã CSKCB: <b>79-012</b></span>
+          <div className="paper-doc-id">Mã hồ sơ lưu trữ: <b>{row.id || 'Chưa ghi nhận'}</b></div>
         </div>
         <div className="paper-header-right">
           <strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong>
           <span>Độc lập - Tự do - Hạnh phúc</span>
           <div className="paper-motto-line" />
-          <div className="paper-doc-id">Phụ lục 4 (Thông tư 18/2022/TT-BYT)</div>
+          <div className="paper-doc-id">Phụ lục 4 (Thông tư số 18/2022/TT-BYT)</div>
         </div>
       </div>
 
       <div className="paper-title">
         <h1>BẢN TÓM TẮT HỒ SƠ BỆNH ÁN</h1>
-        <p className="paper-sub-law">(Trích sao lưu trữ phục vụ bảo hiểm xã hội, giám định và người bệnh)</p>
       </div>
 
-      <div className="paper-section-title">I. PHẦN HÀNH CHÍNH:</div>
-      <div className="paper-row">
-        <span className="paper-label">- Họ và tên người bệnh:</span>
-        <span className="paper-value"><b>{patient?.name || row.patientName || 'Chưa ghi nhận'}</b></span>
-        <span className="paper-label" style={{ marginLeft: 20 }}>Nam/Nữ:</span>
-        <span className="paper-value" style={{ maxWidth: 80 }}>{patient?.gender || 'Chưa ghi nhận'}</span>
-        <span className="paper-label" style={{ marginLeft: 20 }}>Tuổi:</span>
-        <span className="paper-value" style={{ maxWidth: 60 }}>{age}</span>
+      <div className="paper-grid-admin-3col">
+        <div className="paper-field-cell">
+          <span className="paper-label">- Họ và tên người bệnh:</span>
+          <input
+            className="paper-input"
+            style={{ fontWeight: 700 }}
+            value={row.patientName || patient?.name || ''}
+            onChange={e => onChange('patientName', e.target.value)}
+          />
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Nam/Nữ:</span>
+          <input
+            className="paper-input"
+            style={{ textAlign: 'center' }}
+            value={row.gender || patient?.gender || ''}
+            onChange={e => onChange('gender', e.target.value)}
+          />
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Tuổi:</span>
+          <span className="paper-value" style={{ textAlign: 'center' }}>{age}</span>
+        </div>
       </div>
 
-      <div className="paper-row">
-        <span className="paper-label">- Số thẻ BHYT:</span>
-        <span className="paper-value">
-          <code style={{ fontSize: 13.5, fontWeight: 700 }}>{bh.code || 'CHƯA CÓ THẺ'}</code>
-          {bh.hasInsurance && <span style={{ marginLeft: 10 }}>({bh.groupName} - Mức hưởng {bh.rate}%)</span>}
-        </span>
-      </div>
-
-      <div className="paper-row">
-        <span className="paper-label">- Địa chỉ nơi cư trú:</span>
-        <span className="paper-value">{patient?.address || 'Chưa ghi nhận'}</span>
-      </div>
-
-      <div className="paper-row">
-        <span className="paper-label">- Thời gian điều trị:</span>
-        <span className="paper-value">{row.admittedAt || row.admissionDate || 'Chưa ghi nhận'} → {row.dischargedAt || row.dischargeDate || 'Chưa ghi nhận'}</span>
-      </div>
-
-      <div className="paper-section-title" style={{ marginTop: 14 }}>II. TÓM TẮT QUÁ TRÌNH CHUYÊN MÔN:</div>
-      <div className="paper-row">
-        <span className="paper-label">1. Lý do vào viện:</span>
-        <span className="paper-value">{row.reason || 'Chưa ghi nhận'}</span>
-      </div>
-
-      <div className="paper-row">
-        <span className="paper-label">2. Tiền sử bệnh:</span>
-        <span className="paper-value">{patient?.history || 'Chưa ghi nhận'}</span>
-      </div>
-
-      <div className="paper-row">
-        <span className="paper-label">3. Tóm tắt kết quả CLS có giá trị:</span>
-        <span className="paper-value">
-          {row.labSummary || 'Chưa ghi nhận'}
-        </span>
-      </div>
-
-      <div className="paper-row">
-        <span className="paper-label">4. Chẩn đoán ra viện:</span>
-        <span className="paper-value">
-          <b>{row.diagnosis || 'Chưa ghi nhận'}</b>
-        </span>
+      <div className="paper-grid-admin-2col">
+        <div className="paper-field-cell">
+          <span className="paper-label">- Số định danh cá nhân / CCCD:</span>
+          <input
+            className="paper-input"
+            value={row.cccd || patient?.cccd || ''}
+            onChange={e => onChange('cccd', e.target.value)}
+          />
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Mã số thẻ BHYT:</span>
+          <input
+            className="paper-input"
+            style={{ fontWeight: 700 }}
+            value={bh.code || row.insurance || ''}
+            onChange={e => onChange('insurance', e.target.value)}
+          />
+        </div>
       </div>
 
       <div className="paper-row">
-        <span className="paper-label">5. Quá trình và phương pháp điều trị:</span>
-        <span className="paper-value">
-          {row.treatment || 'Chưa ghi nhận'}
-        </span>
+        <span className="paper-label">- Địa chỉ cư trú:</span>
+        <input
+          className="paper-input"
+          value={row.address || patient?.address || ''}
+          onChange={e => onChange('address', e.target.value)}
+        />
+      </div>
+
+      <div className="paper-section-title" style={{ marginTop: 12 }}>TÓM TẮT QUÁ TRÌNH KHÁM BỆNH VÀ ĐIỀU TRỊ:</div>
+
+      <div className="paper-row" style={{ alignItems: 'flex-start' }}>
+        <span className="paper-label" style={{ marginTop: 4 }}>1. Quá trình bệnh lý và diễn biến:</span>
+        <textarea
+          className="paper-textarea-leader"
+          rows={3}
+          value={row.pathology || row.quaTrinhBenhLy || ''}
+          onChange={e => onChange('pathology', e.target.value)}
+        />
+      </div>
+
+      <div className="paper-row" style={{ alignItems: 'flex-start' }}>
+        <span className="paper-label" style={{ marginTop: 4 }}>2. Tóm tắt kết quả xét nghiệm CLS:</span>
+        <textarea
+          className="paper-textarea-leader"
+          rows={3}
+          value={row.labSummary || row.tomTatCLS || ''}
+          onChange={e => onChange('labSummary', e.target.value)}
+        />
+      </div>
+
+      <div className="paper-row" style={{ alignItems: 'flex-start' }}>
+        <span className="paper-label" style={{ marginTop: 4 }}>3. Chẩn đoán:</span>
+        <input
+          className="paper-input"
+          style={{ fontWeight: 700 }}
+          value={row.diagnosis || ''}
+          onChange={e => onChange('diagnosis', e.target.value)}
+        />
+      </div>
+
+      <div className="paper-row" style={{ alignItems: 'flex-start' }}>
+        <span className="paper-label" style={{ marginTop: 4 }}>4. Phương pháp điều trị:</span>
+        <textarea
+          className="paper-textarea-leader"
+          rows={2}
+          value={row.treatment || row.phuongPhapDieuTri || ''}
+          onChange={e => onChange('treatment', e.target.value)}
+        />
       </div>
 
       <div className="paper-row">
-        <span className="paper-label">6. Tình trạng người bệnh khi ra viện:</span>
-        <span className="paper-value">
-          {row.outcome || 'Chưa ghi nhận'}
-        </span>
+        <span className="paper-label">5. Tình trạng người bệnh khi ra viện/kết thúc:</span>
+        <input
+          className="paper-input"
+          value={row.outcome || row.tinhTrangRaVien || ''}
+          onChange={e => onChange('outcome', e.target.value)}
+        />
       </div>
 
-      <div className="paper-row">
-        <span className="paper-label">7. Hướng điều trị tiếp theo:</span>
-        <span className="paper-value">
-          {row.advice || 'Chưa ghi nhận'}
-        </span>
+      <div className="paper-row" style={{ alignItems: 'flex-start' }}>
+        <span className="paper-label" style={{ marginTop: 4 }}>6. Hướng điều trị tiếp theo và lời dặn:</span>
+        <textarea
+          className="paper-textarea-leader"
+          rows={2}
+          value={row.advice || row.ghiChuLoiDan || ''}
+          onChange={e => onChange('advice', e.target.value)}
+        />
       </div>
 
-      <div style={{ textAlign: 'right', fontStyle: 'italic', marginTop: 20, fontSize: 12.5 }}>
+      <div style={{ textAlign: 'right', fontStyle: 'italic', marginTop: 18, fontSize: 12.5 }}>
         TP. Hồ Chí Minh, {todayStr}
       </div>
 
@@ -772,19 +1139,19 @@ export function MedicalRecordSummaryPaperForm({ row, patient, doctorStaff }) {
         <div className="paper-sign-col">
           <span className="sign-title">BÁC SĨ ĐIỀU TRỊ</span>
           <span className="sign-hint">(Ký, ghi rõ họ tên)</span>
-          <span className="sign-name">{doctorStaff?.name || row.doctor || 'Chưa ghi nhận'}</span>
-        </div>
-        <div className="paper-sign-col">
-          <span className="sign-title">TRƯỞNG PHÒNG KHTH</span>
-          <span className="sign-hint">(Ký, ghi rõ họ tên)</span>
-          <span className="sign-name">Chưa ghi nhận</span>
+          <input
+            className="paper-input"
+            style={{ textAlign: 'center', fontWeight: 700, marginTop: 40 }}
+            value={row.doctor || doctorStaff?.name || ''}
+            onChange={e => onChange('doctor', e.target.value)}
+          />
         </div>
         <div className="paper-sign-col">
           <span className="sign-title">GIÁM ĐỐC BỆNH VIỆN</span>
-          <span className="sign-hint">(Ký và đóng dấu)</span>
+          <span className="sign-hint">(Ký, đóng dấu cơ sở KCB)</span>
           <span className="sign-name">
             Chưa ghi nhận
-            <span className="paper-badge-stamp">TRÍCH SAO BỆNH ÁN</span>
+            <span className="paper-badge-stamp">BỆNH VIỆN MEDICARE</span>
           </span>
         </div>
       </div>
@@ -793,10 +1160,335 @@ export function MedicalRecordSummaryPaperForm({ row, patient, doctorStaff }) {
 }
 
 /**
- * 7. VIEWER TỔNG HỢP VỚI TOOLBAR IN ẤN & ĐIỀU HƯỚNG
- * Tự động chọn biểu mẫu pháp lý chuẩn dựa trên Tab nghiệp vụ
+ * 7. MẪU GIẤY HẸN KHÁM LẠI (MẪU SỐ 05)
+ * Ban hành kèm theo Nghị định số 75/2023/NĐ-CP & Thông tư 01/2025/TT-BYT của Bộ Y tế
  */
-export default function MedicalPaperFormViewer({ tab, row, patient, doctorStaff, cashierStaff, onClose }) {
+export function ReexaminationPaperForm({ row, patient, doctorStaff, compact = false, onChange = () => {} }) {
+  const bh = parseBhytCard(patient?.insurance || row.insurance);
+  const now = new Date();
+  const todayStr = `ngày ${now.getDate()} tháng ${now.getMonth() + 1} năm ${now.getFullYear()}`;
+  const age = (patient?.birth || row.birth) ? (now.getFullYear() - Number(String(patient?.birth || row.birth).slice(0, 4))) : '—';
+
+  return (
+    <div className={`paper-sheet ${compact ? 'paper-sheet-compact' : ''}`}>
+      {/* Quốc hiệu & Cơ sở y tế */}
+      <div className="paper-header">
+        <div className="paper-header-left">
+          <span>SỞ Y TẾ TP. HỒ CHÍ MINH</span>
+          <strong>BỆNH VIỆN ĐA KHOA MEDICARE</strong>
+          <span>Mã CSKCB: <b>79-012</b></span>
+          <div className="paper-doc-id">
+            Số vào sổ: <input className="paper-input paper-input-inline" style={{ width: 130, fontWeight: 700 }} value={row.soVaoSo || `${row.id || ''}/GHKL`} onChange={e => onChange('soVaoSo', e.target.value)} title="Số vào sổ hẹn khám lại" />
+          </div>
+        </div>
+        <div className="paper-header-right">
+          <strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong>
+          <span>Độc lập - Tự do - Hạnh phúc</span>
+          <div className="paper-motto-line" />
+          <div className="paper-doc-id">Mẫu số 05 (NĐ 75/2023/NĐ-CP & TT 01/2025/TT-BYT)</div>
+        </div>
+      </div>
+
+      {/* Tiêu đề văn bản */}
+      <div className="paper-title">
+        <h1>GIẤY HẸN KHÁM LẠI</h1>
+        <p className="paper-sub-law">
+          (Ban hành kèm theo Nghị định số 75/2023/NĐ-CP & Thông tư số 01/2025/TT-BYT của Bộ Y tế)
+        </p>
+      </div>
+
+      {/* Phần I: Thông tin người bệnh */}
+      <div className="paper-section-title">I. THÔNG TIN HÀNH CHÍNH NGƯỜI BỆNH:</div>
+      <div className="paper-grid-admin-3col">
+        <div className="paper-field-cell">
+          <span className="paper-label">- Họ và tên người bệnh:</span>
+          <input
+            className="paper-input"
+            style={{ fontWeight: 700, textTransform: 'uppercase' }}
+            value={row.patientName || patient?.name || ''}
+            onChange={e => onChange('patientName', e.target.value)}
+          />
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Giới tính:</span>
+          <input
+            className="paper-input"
+            style={{ textAlign: 'center' }}
+            value={row.gender || patient?.gender || ''}
+            onChange={e => onChange('gender', e.target.value)}
+          />
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Tuổi:</span>
+          <span className="paper-value" style={{ textAlign: 'center' }}>{age}</span>
+        </div>
+      </div>
+
+      <div className="paper-grid-admin-2col">
+        <div className="paper-field-cell">
+          <span className="paper-label">- Ngày, tháng, năm sinh:</span>
+          <input
+            className="paper-input"
+            value={row.birth || patient?.birth || ''}
+            onChange={e => onChange('birth', e.target.value)}
+          />
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Số CCCD / Định danh:</span>
+          <input
+            className="paper-input"
+            style={{ fontFamily: 'monospace', fontWeight: 600 }}
+            value={row.cccd || patient?.cccd || ''}
+            onChange={e => onChange('cccd', e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="paper-field-row">
+        <span className="paper-label">- Địa chỉ nơi cư trú:</span>
+        <input
+          className="paper-input paper-input-fill"
+          value={row.address || patient?.address || ''}
+          onChange={e => onChange('address', e.target.value)}
+        />
+      </div>
+
+      <div className="paper-grid-admin-2col">
+        <div className="paper-field-cell">
+          <span className="paper-label">- Số thẻ BHYT (nếu có):</span>
+          <input
+            className="paper-input"
+            style={{ fontFamily: 'monospace', fontWeight: 700, color: '#047857' }}
+            value={row.insurance || patient?.insurance || ''}
+            onChange={e => onChange('insurance', e.target.value)}
+          />
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Mức hưởng & Hạn thẻ:</span>
+          <span className="paper-value">
+            {bh.hasInsurance ? `${bh.benefitBadge} · ${bh.rate}% · ` : 'Khám tự nguyện (Viện phí)'}
+          </span>
+        </div>
+      </div>
+
+      <div className="paper-field-row">
+        <span className="paper-label">- Đã được khám bệnh/điều trị tại:</span>
+        <input
+          className="paper-input paper-input-fill"
+          value={row.treatedAt || ''}
+          onChange={e => onChange('treatedAt', e.target.value)}
+        />
+      </div>
+
+      {/* Phần II: Chẩn đoán & Tình trạng đợt điều trị */}
+      <div className="paper-section-title">II. CHẨN ĐOÁN & ĐÁNH GIÁ ĐỢT ĐIỀU TRỊ:</div>
+      <div className="paper-field-row">
+        <span className="paper-label">- Chẩn đoán xác định:</span>
+        <input
+          className="paper-input paper-input-fill"
+          style={{ fontWeight: 600 }}
+          value={row.diagnosis || ''}
+          onChange={e => onChange('diagnosis', e.target.value)}
+        />
+      </div>
+      <div className="paper-field-row">
+        <span className="paper-label">- Mã bệnh theo ICD-10:</span>
+        <input
+          className="paper-input"
+          style={{ width: 140, fontFamily: 'monospace', fontWeight: 700 }}
+          value={row.icd || ''}
+          onChange={e => onChange('icd', e.target.value)}
+        />
+        <span className="paper-label" style={{ marginLeft: 16 }}>Bệnh kèm theo:</span>
+        <input
+          className="paper-input paper-input-fill"
+          value={row.comorbidities || ''}
+          onChange={e => onChange('comorbidities', e.target.value)}
+        />
+      </div>
+
+      {/* Phần III: Nội dung hẹn khám lại */}
+      <div className="paper-section-title">III. NỘI DUNG HẸN KHÁM LẠI:</div>
+      <div className="paper-grid-admin-2col">
+        <div className="paper-field-cell">
+          <span className="paper-label">- Hẹn khám lại vào ngày:</span>
+          <input
+            type="date"
+            className="paper-input"
+            style={{ fontWeight: 700, color: '#0f766e' }}
+            value={row.appointmentDate || ''}
+            onChange={e => onChange('appointmentDate', e.target.value)}
+          />
+        </div>
+        <div className="paper-field-cell">
+          <span className="paper-label">Giờ hẹn dự kiến:</span>
+          <input
+            className="paper-input"
+            style={{ width: 120, fontWeight: 700 }}
+            value={row.appointmentTime || ''}
+            onChange={e => onChange('appointmentTime', e.target.value)}
+          />
+          <span style={{ fontSize: 11, color: '#64748b', marginLeft: 6 }}>(Hoặc trước 11:30 cùng ngày)</span>
+        </div>
+      </div>
+
+      <div className="paper-field-row">
+        <span className="paper-label">- Địa điểm / Phòng khám hẹn:</span>
+        <input
+          className="paper-input paper-input-fill"
+          style={{ fontWeight: 600 }}
+          value={row.clinicRoom || ''}
+          onChange={e => onChange('clinicRoom', e.target.value)}
+        />
+      </div>
+
+      <div className="paper-field-row">
+        <span className="paper-label">- Lý do hẹn khám lại:</span>
+        <input
+          className="paper-input paper-input-fill"
+          value={row.reason || ''}
+          onChange={e => onChange('reason', e.target.value)}
+        />
+      </div>
+
+      <div className="paper-field-row">
+        <span className="paper-label">- Xét nghiệm / Cận lâm sàng cần thực hiện lại:</span>
+        <input
+          className="paper-input paper-input-fill"
+          value={row.testsNeeded || ''}
+          onChange={e => onChange('testsNeeded', e.target.value)}
+        />
+      </div>
+
+      <div className="paper-field-row">
+        <span className="paper-label">- Lời dặn trước khi đến khám:</span>
+        <input
+          className="paper-input paper-input-fill"
+          value={row.advice || ''}
+          onChange={e => onChange('advice', e.target.value)}
+        />
+      </div>
+
+      {/* Ghi chú pháp lý quan trọng theo Luật BHYT */}
+      <div className="paper-legal-box" style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '10px 14px', borderRadius: 4, margin: '10px 0', fontSize: 12, lineHeight: 1.6, color: '#334155' }}>
+        <b>* Lưu ý quan trọng theo quy định của Luật Bảo hiểm y tế & Nghị định số 75/2023/NĐ-CP:</b>
+        <div style={{ marginLeft: 12 }}>
+          1. Giấy hẹn khám lại chỉ có giá trị sử dụng <b>01 lần</b> trong thời hạn <b>10 ngày làm việc</b> kể từ ngày được hẹn khám lại.<br />
+          2. Nếu quá thời hạn 10 ngày làm việc mà người bệnh không đến khám lại, giấy hẹn khám lại sẽ <b>hết hiệu lực</b> (người bệnh phải đăng ký khám lại hoặc xin giấy chuyển tuyến mới nếu hưởng chế độ BHYT đúng tuyến).<br />
+          3. Khi đi khám lại, người bệnh phải xuất trình Giấy hẹn này cùng thẻ BHYT (hoặc ứng dụng VssID / CCCD gắn chip).
+        </div>
+      </div>
+
+      {/* Ký tên và đóng dấu */}
+      <div className="paper-sign-row" style={{ marginTop: 14 }}>
+        <div className="paper-sign-col">
+          <span className="sign-date">Thành phố Hồ Chí Minh, {todayStr}</span>
+          <span className="sign-title">BÁC SĨ HẸN KHÁM</span>
+          <span className="sign-hint">(Ký và ghi rõ họ tên)</span>
+          <input
+            className="paper-input paper-input-sign"
+            style={{ fontWeight: 700 }}
+            value={row.doctor || doctorStaff?.name || ''}
+            onChange={e => onChange('doctor', e.target.value)}
+          />
+        </div>
+        <div className="paper-sign-col">
+          <span className="sign-date">&nbsp;</span>
+          <span className="sign-title">ĐẠI DIỆN LÃNH ĐẠO CƠ SỞ KCB / TRƯỞNG KHOA</span>
+          <span className="sign-hint">(Ký, ghi rõ họ tên và đóng dấu)</span>
+          <span className="sign-name">
+            Chưa ghi nhận
+            <span className="paper-badge-stamp">BỆNH VIỆN MEDICARE</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 8. VIEWER TỔNG HỢP VỚI TOOLBAR LƯU DỮ LIỆU CSDL, CHỐNG TRÀN TRANG & IN ẤN
+ */
+export default function MedicalPaperFormViewer({
+  tab,
+  row,
+  patient,
+  doctorStaff,
+  cashierStaff,
+  onSave,
+  onOpenBusinessForm,
+  onClose
+}) {
+  const [formData, setFormData] = useState(() => ({
+    ...row,
+    patientName: patient?.name || row?.patientName || '',
+    gender: patient?.gender || row?.gender || '',
+    birth: patient?.birth || row?.birth || '',
+    phone: patient?.phone || row?.phone || '',
+    cccd: patient?.cccd || row?.cccd || '',
+    insurance: patient?.insurance || row?.insurance || '',
+    address: patient?.address || row?.address || '',
+    doctor: row?.doctor || doctorStaff?.name || ''
+  }));
+
+  // Detect long text to automatically prevent second-page overflow
+  const narrativeLength = useMemo(() => {
+    return (formData.symptoms || '').length +
+      (formData.labSummary || '').length +
+      (formData.treatment || '').length +
+      (formData.condition || '').length +
+      (formData.reason || '').length +
+      (formData.plan || '').length +
+      (formData.advice || '').length +
+      (formData.summary || '').length +
+      (formData.pathology || '').length;
+  }, [formData]);
+
+  const [compactMode, setCompactMode] = useState(() => narrativeLength > 480);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
+
+  // Hydrate persistent data from SQL Server if available
+  useEffect(() => {
+    if (!row?.id) return;
+    fetch(`/api/paper-forms?type=${encodeURIComponent(tab)}&id=${encodeURIComponent(row.id)}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data && Object.keys(data).length > 0) {
+          setFormData(prev => ({ ...prev, ...data }));
+        }
+      })
+      .catch(() => {});
+  }, [tab, row?.id]);
+
+  const handleChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  async function handleSave() {
+    setSaving(true);
+    setSaveError('');
+    try {
+      const res = await fetch('/api/paper-forms/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+        body: JSON.stringify({ type: tab, data: formData })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Lỗi khi lưu biểu mẫu vào SQL Server');
+      }
+      setSaveSuccess(true);
+      onSave?.(formData);
+      setTimeout(() => setSaveSuccess(false), 3500);
+    } catch (err) {
+      setSaveError(err.message || 'Lỗi kết nối CSDL');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function printDocument() {
     window.print();
   }
@@ -807,6 +1499,9 @@ export default function MedicalPaperFormViewer({ tab, row, patient, doctorStaff,
   if (tab === 'referrals') {
     FormComponent = ReferralPaperForm;
     formTitle = 'Giấy chuyển tuyến BHYT (Mẫu 06 - NĐ 75/2023/NĐ-CP)';
+  } else if (tab === 'reexaminations') {
+    FormComponent = ReexaminationPaperForm;
+    formTitle = 'Giấy hẹn khám lại (Mẫu số 05 - NĐ 75/2023/NĐ-CP & TT 01/2025/TT-BYT)';
   } else if (tab === 'consultations') {
     FormComponent = ConsultationPaperForm;
     formTitle = 'Biên bản hội chẩn chuyên môn (Quy chế Bộ Y tế)';
@@ -819,21 +1514,20 @@ export default function MedicalPaperFormViewer({ tab, row, patient, doctorStaff,
   } else if (tab === 'prescriptions') {
     FormComponent = PrescriptionPaperForm;
     formTitle = 'Đơn thuốc ngoại trú (Mẫu đơn thuốc - TT 04/2022/TT-BYT)';
-  } else if (['archives', 'authorizations'].includes(tab)) {
+  } else if (['archives', 'authorizations', 'summaries'].includes(tab)) {
     FormComponent = MedicalRecordSummaryPaperForm;
     formTitle = 'Bản tóm tắt hồ sơ bệnh án (Phụ lục 4 - TT 18/2022/TT-BYT)';
   } else {
-    // Default fallback
     FormComponent = ReferralPaperForm;
     formTitle = 'Văn bản y tế';
   }
 
   return (
     <div className="medical-paper-viewer" style={{ padding: '4px' }}>
-      {/* Thanh công cụ xem trước và in */}
+      {/* Thanh công cụ xem trước, điền và lưu dữ liệu */}
       <div className="paper-toolbar no-print">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <ShieldCheck size={20} style={{ color: '#0f766e' }} />
+          <ShieldCheck size={22} style={{ color: '#0f766e', flexShrink: 0 }} />
           <div>
             <b style={{ color: '#0f172a', fontSize: 14 }}>{formTitle}</b>
             <div style={{ fontSize: 11.5, color: '#64748b' }}>
@@ -842,24 +1536,98 @@ export default function MedicalPaperFormViewer({ tab, row, patient, doctorStaff,
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="primary" onClick={printDocument} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <Printer size={16} /> In ra giấy A4 / Xuất PDF
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {/* Nút bật/tắt chế độ A4 Chuẩn vs A4 Thu gọn chống tràn trang */}
+          <div className="paper-mode-toggle" title="Chế độ định dạng trang in A4">
+            <button
+              type="button"
+              className={!compactMode ? 'active' : ''}
+              onClick={() => setCompactMode(false)}
+            >
+              A4 Chuẩn
+            </button>
+            <button
+              type="button"
+              className={compactMode ? 'active' : ''}
+              onClick={() => setCompactMode(true)}
+            >
+              A4 Thu gọn (Chống tràn)
+            </button>
+          </div>
+
+          {onOpenBusinessForm && (
+            <button
+              className="secondary"
+              onClick={onOpenBusinessForm}
+              title="Mở form nhập liệu có cấu trúc nghiệp vụ ở ngoài"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#0284c7', borderColor: '#7dd3fc', fontWeight: 600 }}
+            >
+              <Edit3 size={15} /> Sửa qua Form nghiệp vụ
+            </button>
+          )}
+
+          <button
+            className="paper-save-btn"
+            onClick={handleSave}
+            disabled={saving}
+            title="Lưu các thông tin đã điền vào bảng CSDL SQL Server"
+          >
+            <Save size={15} /> {saving ? 'Đang lưu vào SQL...' : 'Lưu vào CSDL'}
+          </button>
+          <button
+            className="primary"
+            onClick={printDocument}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Printer size={15} /> In ra giấy A4 / Xuất PDF
           </button>
           {onClose && (
-            <button className="secondary" onClick={onClose} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <X size={16} /> Đóng
+            <button
+              className="secondary"
+              onClick={onClose}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <X size={15} /> Đóng
             </button>
           )}
         </div>
       </div>
 
-      <p className="no-print" style={{color:'#64748b',fontSize:12,marginBottom:12}}>Chỉ in sau khi đối chiếu đúng người bệnh, hồ sơ và nội dung đã lưu. Trường trống không được tự bổ sung dữ liệu mẫu.</p>
+      {/* Thông báo chế độ hiển thị & chống tràn */}
+      <div className="no-print" style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        <div className="paper-edit-hint">
+          <Edit3 size={15} />
+          <span>
+            <b>Thông tin hồ sơ:</b> Bạn có thể click trực tiếp vào các dòng trên giấy để chỉnh sửa nhanh, hoặc bấm <b>"Sửa qua Form nghiệp vụ"</b> để dùng form có cấu trúc ở ngoài.
+          </span>
+        </div>
+        {narrativeLength > 450 && (
+          <div style={{ fontSize: 11.5, color: '#b45309', background: '#fef3c7', padding: '4px 10px', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>Nội dung chi tiết ({narrativeLength} ký tự): Đã bật chế độ A4 Thu gọn để đảm bảo vừa khít 1 trang A4.</span>
+          </div>
+        )}
+      </div>
+
+      {/* Thông báo kết quả lưu */}
+      {saveSuccess && (
+        <div className="no-print" style={{ backgroundColor: '#dcfce7', border: '1px solid #86efac', color: '#166534', padding: '8px 14px', borderRadius: 6, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <CheckCircle2 size={16} /> <b>Thành công:</b> Đã lưu dữ liệu biểu mẫu vào bảng CSDL SQL Server!
+        </div>
+      )}
+      {saveError && (
+        <div className="no-print" style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', padding: '8px 14px', borderRadius: 6, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <AlertCircle size={16} /> <b>Lỗi:</b> {saveError}
+        </div>
+      )}
+
+      {/* Trang giấy hiển thị nội dung mẫu chuẩn */}
       <FormComponent
-        row={row}
+        row={formData}
         patient={patient}
         doctorStaff={doctorStaff}
         cashierStaff={cashierStaff}
+        compact={compactMode}
+        onChange={handleChange}
       />
     </div>
   );

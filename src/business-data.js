@@ -19,6 +19,7 @@ export const definitions={
  advances:{title:'Tạm ứng & hoàn tiền',singular:'giao dịch',prefix:'GD',description:'Ghi nhận tạm ứng hoặc hoàn tiền, theo dõi ký nhận và lịch sử giao dịch.',fields:[patient,field('kind','Loại giao dịch','select',{options:['Tạm ứng','Hoàn tiền'],required:true}),field('amount','Số tiền (₫)','number',{required:true,min:1000,step:1}),reason],columns:['patient','kind','amount','reason','status'],initialStatus:'Chờ xác nhận'},
  shifts:{title:'Đối soát ca trực',singular:'ca trực',prefix:'CA',description:'Đối chiếu thu, hoàn và tiền thực đếm trước khi đóng ca.',fields:[field('name','Tên ca trực','text',{required:true}),field('cashier','Thu ngân','staff',{required:true}),field('opening','Tiền đầu ca (₫)','number',{required:true,min:0,step:1}),field('counted','Tiền thực đếm (₫)','number',{required:true,min:0,step:1}),field('reason','Giải trình chênh lệch','textarea')],columns:['name','cashier','expected','counted','difference','status'],initialStatus:'Chờ đối soát'},
  archives:{title:'Bệnh án điện tử',singular:'bệnh án',prefix:'BA',description:'Quản lý hồ sơ ngoại trú, nội trú và trạng thái lưu trữ.',fields:[patient,field('kind','Loại bệnh án','select',{options:['Ngoại trú','Nội trú'],required:true}),field('diagnosis','Chẩn đoán chính','text',{required:true}),field('summary','Tóm tắt bệnh án','textarea',{required:true}),field('doctor','Bác sĩ phụ trách','staff',{required:true})],columns:['patient','kind','diagnosis','doctor','status'],initialStatus:'Đang mở'},
+ reexaminations:{title:'Giấy hẹn khám lại',singular:'giấy hẹn khám lại',prefix:'GHKL',description:'Lập và in Giấy hẹn khám lại theo Mẫu số 05 (Nghị định 75/2023/NĐ-CP & Thông tư 01/2025/TT-BYT).',fields:[patient,field('appointmentDate','Ngày hẹn khám lại','date',{required:true}),field('appointmentTime','Giờ hẹn','text',{required:true}),field('clinicRoom','Khoa / Phòng khám hẹn','text',{required:true}),field('diagnosis','Chẩn đoán hiện tại','text',{required:true}),field('icd','Mã ICD-10','text',{required:true}),field('reason','Lý do hẹn khám lại','textarea',{required:true}),field('testsNeeded','Cận lâm sàng cần làm lại','textarea'),field('doctor','Bác sĩ hẹn khám','staff',{required:true}),field('advice','Lời dặn người bệnh','textarea')],columns:['patient','appointmentDate','clinicRoom','diagnosis','status'],initialStatus:'Đang có hiệu lực'},
  corrections:{title:'Yêu cầu đính chính',singular:'yêu cầu đính chính',prefix:'DC',description:'Tiếp nhận đề nghị sửa hồ sơ và theo dõi quyết định xử lý.',fields:[patient,field('record','Mã bệnh án','text',{required:true}),reason,field('proposed','Nội dung đề nghị sửa','textarea',{required:true}),field('deadline','Hạn được sửa','date',{required:true,min:today}),field('requester','Người đề nghị','staff',{required:true})],columns:['patient','record','requester','deadline','status'],initialStatus:'Chờ phê duyệt'},
  authorizations:{title:'Ủy quyền hồ sơ',singular:'ủy quyền',prefix:'UQ',description:'Quản lý phạm vi, thời hạn và thu hồi quyền truy cập hồ sơ trong bản demo.',fields:[patient,field('recipient','Người được ủy quyền','text',{required:true}),field('scope','Phạm vi','select',{options:['Xem kết quả CLS','Xem tóm tắt bệnh án','Xem toàn bộ hồ sơ'],required:true}),field('start','Từ ngày','date',{required:true}),field('end','Đến ngày','date',{required:true})],columns:['patient','recipient','scope','end','status'],initialStatus:'Có hiệu lực'},
  staff:{title:'Nhân viên',singular:'nhân viên',prefix:'NV',description:'Danh sách bác sĩ, điều dưỡng, dược sĩ và nhân viên vận hành.',fields:[field('name','Họ tên','text',{required:true}),field('title','Chức danh','select',{options:['Bác sĩ','Điều dưỡng','Dược sĩ','Thu ngân','Kỹ sư','Quản trị viên'],required:true}),field('department','Khoa công tác','select',{options:clinics,required:true}),field('certificate','Số chứng chỉ','text'),field('phone','Điện thoại','tel',{required:true,pattern:'[0-9]{10,11}'})],columns:['name','title','department','phone','status'],initialStatus:'Đang hoạt động'},
@@ -34,7 +35,7 @@ export const pageGroups={
  care:['rounds'],
  warehouse:['warehouses','movements','counts'],
  finance:['settlements','advances','shifts','reports'],
- archive:['archives','corrections','authorizations'],
+ archive:['archives','reexaminations','referrals','consultations','discharges','corrections','authorizations'],
  admin:['staff','departments','services','accounts','roles'],
  devices:['equipment','incidents'],
  portal:['portal']
@@ -42,17 +43,128 @@ export const pageGroups={
 export const extraTitles={clinical:'Cận lâm sàng & CĐHA',care:'Y lệnh & Điều trị',warehouse:'Kho & kiểm kê',finance:'Quyết toán & báo cáo',archive:'Bệnh án & ủy quyền',admin:'Quản trị hệ thống',devices:'Thiết bị & bảo trì',portal:'Cổng người bệnh'};
 export const permissionNames=['Tiếp đón bệnh nhân','Khám và chỉ định','Duyệt kết quả CLS','Kê đơn thuốc','Thực hiện y lệnh','Quản lý kho dược','Thu chi viện phí','Xem hồ sơ bệnh án','Duyệt đính chính','Quản trị hệ thống'];
 export const seeds={
- vitals:[],
- labs:[],
- prescriptions:[],
- referrals:[], rounds:[],consultations:[],discharges:[],
- warehouses:[
-  {id:'KHO_TONG',name:'Kho Dược Tổng Toàn Viện',kind:'Kho tổng',manager:'NV-DS01',location:'Dãy A - Kệ 01 - Tầng 2',status:'Đang hoạt động'},
-  {id:'KHO_NGOAI_TRU',name:'Nhà Thuốc Khám Ngoại Trú',kind:'Kho lẻ',manager:'NV-DS01',location:'Tủ lẻ 03 - Ngăn 1',status:'Đang hoạt động'},
-  {id:'TU_TRUC_NOI_247',name:'Tủ Trực Dược Khoa Nội 24/7',kind:'Tủ trực khoa',manager:'NV-DS01',location:'Phòng trực Khoa Nội tổng quát',status:'Đang hoạt động'}
- ],
- movements:[],counts:[],advances:[],shifts:[],
- archives:[],corrections:[],authorizations:[],
+  vitals:[],
+  labs:[],
+  prescriptions:[],
+  referrals:[
+    {
+      id:'CT-261122-001',
+      patient:'BN-240101-002',
+      episodeId:'LK-261122-001',
+      soVaoSo:'01/2026/GCT',
+      destination:'Bệnh viện Chợ Rẫy TP. Hồ Chí Minh',
+      destinationCode:'79-015',
+      level:'Tuyến 1 (Tuyến Trung ương)',
+      reason:'1. Vượt quá năng lực chuyên môn kỹ thuật can thiệp tim mạch của bệnh viện; cần can thiệp tuyến trên.',
+      symptoms:'Bệnh nhân đau ngực trái từng cơn lan lên vai, khó thở khi gắng sức độ II-III theo NYHA.',
+      labSummary:'ECG: ST chênh xuống 1.5mm ở V4-V6. Troponin I tăng nhẹ (0.08 ng/mL). Siêu âm tim: Giảm động thành dưới thất trái, EF = 52%.',
+      diagnosis:'I20.0 - Hội chứng mạch vành cấp - Cơn đau thắt ngực không ổn định',
+      icd:'I20.0',
+      treatment:'Aspirin 81mg x 01 viên, Clopidogrel 75mg x 01 viên, Nitroglycerin ngậm dưới lưỡi, thở oxy kính 2L/phút.',
+      condition:'Tri giác tỉnh táo, tiếp xúc tốt. Mạch: 82 l/p, HA: 135/85 mmHg, SpO2: 97% có thở oxy. Giảm đau ngực.',
+      plan:'Tiếp tục can thiệp tim mạch chuyên sâu theo phác đồ tuyến Trung ương.',
+      transport:'Xe cứu thương chuyên dụng của bệnh viện (có Bác sĩ và Điều dưỡng đi cùng hỗ trợ cấp cứu)',
+      escort:'BS.CKI Trần Minh Anh & ĐD. Nguyễn Thị Mai',
+      doctor:'BS.CKI Trần Minh Anh',
+      status:'Chờ xác nhận',
+      createdAt:'2026-11-22 08:30:00'
+    }
+  ],
+  rounds:[],
+  consultations:[
+    {
+      id:'HC-261122-001',
+      patient:'BN-240101-001',
+      episodeId:'BA-261121-EA9A',
+      location:'Phòng Giao ban Chuyên môn - Bệnh viện Đa khoa MediCare',
+      formType:'LIEN_KHOA',
+      reason:'Bệnh nhân có nhiều bệnh nền phối hợp, diễn biến lâm sàng không thuyên giảm sau 48h điều trị.',
+      leader:'BS.CKII Phạm Hoàng Long',
+      secretary:'BS.CKI Trần Minh Anh',
+      participants:'BS.CKI Hoàng Văn Thịnh (Nội Tim mạch), BS.CKI Lê Thị Ngọc Mai (Hồi sức cấp cứu), DS.CKI Nguyễn Thị Hoa (Dược lâm sàng)',
+      summary:'Bệnh nhân nam 64 tuổi, chẩn đoán ban đầu Hội chứng vành cấp kèm Đái tháo đường type 2. Đã dùng thuốc giảm đau ngực, hạ áp, kháng kết tập tiểu cầu kép nhưng còn đau ngực tái phát khi nghỉ ngơi, men tim Troponin T tiếp tục tăng.',
+      conclusion:'Nhồi máu cơ tim cấp không ST chênh lên nguy cơ rất cao (Grace score 155) / Đái tháo đường type 2 - Tăng huyết áp độ 2.',
+      plan:'1. Chuyển cấp cứu tuyến trên (BV Chợ Rẫy) để chụp và can thiệp mạch vành qua da khẩn cấp trong vòng 2 giờ. 2. Tiếp tục duy trì Enoxaparin 1mg/kg TDD mỗi 12h, kiểm soát huyết áp và đường huyết tích cực. 3. Đội cấp cứu ngoại viện 115 hộ tống trực tiếp.',
+      doctor:'BS.CKI Trần Minh Anh',
+      status:'Chờ xác nhận',
+      createdAt:'2026-11-22 09:30:00'
+    }
+  ],
+  discharges:[
+    {
+      id:'RV-261122-001',
+      patient:'BN-240101-001',
+      episodeId:'BA-261121-EA9A',
+      soLuuTru:'RV-2026/001',
+      diagnosis:'E11.9 - Đái tháo đường type 2 không có biến chứng toan ceton - Tăng huyết áp độ 1 (I10)',
+      icd:'E11.9',
+      treatment:'Điều trị nội khoa: Điều chỉnh liều Insulin kết hợp thuốc uống, truyền dịch cân bằng điện giải, chăm sóc dinh dưỡng lâm sàng.',
+      outcome:'Đỡ / giảm',
+      daysOff:7,
+      leaveFrom:'2026-11-23',
+      leaveTo:'2026-11-29',
+      advice:'Dùng thuốc đều đặn theo đơn ngoại trú, đo đường huyết mao mạch tại nhà 2 lần/ngày, kiêng đồ ngọt tinh bột, tái khám sau 1 tuần.',
+      doctor:'BS.CKI Trần Minh Anh',
+      status:'Chờ duyệt',
+      createdAt:'2026-11-23 10:30:00'
+    }
+  ],
+  warehouses:[
+   {id:'KHO_TONG',name:'Kho Dược Tổng Toàn Viện',kind:'Kho tổng',manager:'NV-DS01',location:'Dãy A - Kệ 01 - Tầng 2',status:'Đang hoạt động'},
+   {id:'KHO_NGOAI_TRU',name:'Nhà Thuốc Khám Ngoại Trú',kind:'Kho lẻ',manager:'NV-DS01',location:'Tủ lẻ 03 - Ngăn 1',status:'Đang hoạt động'},
+   {id:'TU_TRUC_NOI_247',name:'Tủ Trực Dược Khoa Nội 24/7',kind:'Tủ trực khoa',manager:'NV-DS01',location:'Phòng trực Khoa Nội tổng quát',status:'Đang hoạt động'}
+  ],
+  movements:[],counts:[],advances:[],shifts:[],
+  archives:[
+    {
+      id:'TTBA-261122-001',
+      patient:'BN-240101-001',
+      episodeId:'LK-261122-001',
+      kind:'Ngoại trú',
+      diagnosis:'K29.0 - Viêm dạ dày xuất huyết cấp tính',
+      pathology:'Bệnh khởi phát 3 ngày trước khi vào viện với triệu chứng đau tức thượng vị lan ra sau lưng, buồn nôn, ợ chua.',
+      labSummary:'Nội soi thực quản - dạ dày: Niêm mạc hang vị phù nề, xung huyết rải rác. Test HP âm tính. Sinh hóa máu trong giới hạn bình thường.',
+      treatment:'Điều trị nội khoa ngoại trú: Giảm tiết acid dạ dày (Esomeprazole 40mg), bảo vệ niêm mạc dạ dày.',
+      outcome:'Ổn định',
+      advice:'Ăn đúng giờ, tránh thức ăn cay nóng chua, không uống rượu bia thuốc lá. Tái khám sau 14 ngày.',
+      doctor:'BS.CKI Trần Minh Anh',
+      status:'Đang mở',
+      createdAt:'2026-11-22 09:00:00'
+    }
+  ],
+  reexaminations:[
+    {
+      id:'GHKL-261122-001',
+      soVaoSo:'01/2026/GHKL',
+      patient:'BN-240101-001',
+      appointmentDate:'2026-12-01',
+      appointmentTime:'08:30',
+      clinicRoom:'Phòng khám 101 - Khoa Khám bệnh Nội tổng quát',
+      reason:'Tái khám đánh giá đáp ứng phác đồ hạ áp và kiểm soát đường huyết sau 7 ngày điều trị',
+      diagnosis:'I10 - Tăng huyết áp vô căn (nguyên phát)',
+      icd:'I10',
+      testsNeeded:'Xét nghiệm máu (Glucose đói, Creatinine, AST/ALT), Đo điện tim (ECG 12 cần)',
+      advice:'Nhịn ăn sáng trước khi lấy máu làm xét nghiệm. Mang theo toàn bộ đơn thuốc cũ và Giấy hẹn này khi đến khám.',
+      doctor:'NV-BS01',
+      status:'Đang có hiệu lực'
+    },
+    {
+      id:'GHKL-261122-002',
+      soVaoSo:'02/2026/GHKL',
+      patient:'BN-240101-002',
+      appointmentDate:'2026-12-03',
+      appointmentTime:'09:00',
+      clinicRoom:'Phòng khám Tim mạch 102',
+      reason:'Tái khám theo dõi cơn đau ngực và siêu âm tim kiểm tra',
+      diagnosis:'I20.0 - Hội chứng mạch vành cấp',
+      icd:'I20.0',
+      testsNeeded:'Siêu âm tim Dopler màu, Men tim Troponin T',
+      advice:'Tránh gắng sức, mang theo kết quả xét nghiệm và đơn thuốc khi đến khám.',
+      doctor:'NV-BS02',
+      status:'Đang có hiệu lực'
+    }
+  ],
+  corrections:[],authorizations:[],
  staff:[
   {id:'NV-BS01',name:'BS.CKI Trần Minh Anh',title:'Bác sĩ',department:'Nội tổng quát',certificate:'CCHN-001234',phone:'0901234567',status:'Đang hoạt động'},
   {id:'NV-BS02',name:'ThS.BS Nguyễn Văn An',title:'Bác sĩ',department:'Tim mạch',certificate:'CCHN-001235',phone:'0901234568',status:'Đang hoạt động'},

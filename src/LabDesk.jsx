@@ -4,6 +4,7 @@ import { useWorkspace, transact } from './workspace';
 import { actorRoles, canAction } from './roles';
 import { hisApi } from './api';
 import { parseBhytCard } from './bhyt-utils';
+import MedicalSuggestInput from './MedicalSuggestInput';
 
 export const LAB_ROOMS = [
   { id: 'ALL', name: 'Tất cả phòng CLS toàn viện', dept: 'Toàn viện' },
@@ -15,6 +16,145 @@ export const LAB_ROOMS = [
   { id: 'P_TDCN_01', name: 'Phòng Điện tim & Thăm dò chức năng', dept: 'Khoa CĐHA', match: (s='',k='',c='') => s.includes('điện tim') || s.includes('ecg') || s.includes('hô hấp') || s.includes('thông khí') },
   { id: 'P_NS_01', name: 'Phòng Nội soi Tiêu hóa & TMH', dept: 'Khoa CĐHA', match: (s='',k='',c='') => s.includes('nội soi') || s.includes('tai mũi họng') || c.includes('ns') }
 ];
+
+export const LAB_TEST_PRESETS = [
+  // 1. Công thức máu (CBC)
+  { name: 'WBC (Bạch cầu)', unit: 'G/L', reference: '4.0 - 10.0', defaultValue: '7.5' },
+  { name: 'NEU% (Bạch cầu đa nhân trung tính)', unit: '%', reference: '40.0 - 74.0', defaultValue: '63.2' },
+  { name: 'LYM% (Bạch cầu lympho)', unit: '%', reference: '20.0 - 40.0', defaultValue: '27.4' },
+  { name: 'MONO% (Bạch cầu mono)', unit: '%', reference: '3.0 - 9.0', defaultValue: '6.1' },
+  { name: 'EOS% (Bạch cầu ái toan)', unit: '%', reference: '0.0 - 7.0', defaultValue: '2.5' },
+  { name: 'BASO% (Bạch cầu ái kiềm)', unit: '%', reference: '0.0 - 1.5', defaultValue: '0.8' },
+  { name: 'RBC (Hồng cầu)', unit: 'T/L', reference: '4.0 - 5.5', defaultValue: '4.68' },
+  { name: 'HGB (Huyết sắc tố)', unit: 'g/L', reference: '120 - 165', defaultValue: '142' },
+  { name: 'HCT (Dung tích hồng cầu)', unit: 'L/L', reference: '0.35 - 0.48', defaultValue: '0.42' },
+  { name: 'MCV (Thể tích trung bình HC)', unit: 'fL', reference: '80 - 100', defaultValue: '89.5' },
+  { name: 'MCH (Lượng Hb trung bình HC)', unit: 'pg', reference: '27 - 32', defaultValue: '30.3' },
+  { name: 'MCHC (Nồng độ Hb trung bình HC)', unit: 'g/L', reference: '320 - 360', defaultValue: '338' },
+  { name: 'RDW-CV (Độ phân bố HC)', unit: '%', reference: '11.5 - 14.5', defaultValue: '12.8' },
+  { name: 'PLT (Tiểu cầu)', unit: 'G/L', reference: '150 - 450', defaultValue: '238' },
+  { name: 'MPV (Thể tích trung bình TC)', unit: 'fL', reference: '7.0 - 11.0', defaultValue: '8.6' },
+
+  // 2. Sinh hóa Máu Gan - Thận - Đường huyết
+  { name: 'Glucose máu lúc đói', unit: 'mmol/L', reference: '3.9 - 6.4', defaultValue: '5.2' },
+  { name: 'HbA1c', unit: '%', reference: '4.0 - 6.0', defaultValue: '5.5' },
+  { name: 'Ure máu', unit: 'mmol/L', reference: '2.5 - 7.5', defaultValue: '4.8' },
+  { name: 'Creatinin máu', unit: 'µmol/L', reference: '53 - 106', defaultValue: '82' },
+  { name: 'eGFR (Mức lọc cầu thận)', unit: 'mL/min/1.73m²', reference: '>= 90', defaultValue: '96' },
+  { name: 'Acid Uric', unit: 'µmol/L', reference: '180 - 420', defaultValue: '320' },
+  { name: 'AST (GOT)', unit: 'U/L', reference: '<= 37', defaultValue: '25' },
+  { name: 'ALT (GPT)', unit: 'U/L', reference: '<= 40', defaultValue: '27' },
+  { name: 'GGT', unit: 'U/L', reference: '8 - 61', defaultValue: '32' },
+  { name: 'Bilirubin toàn phần', unit: 'µmol/L', reference: '5.0 - 21.0', defaultValue: '12.4' },
+  { name: 'Bilirubin trực tiếp', unit: 'µmol/L', reference: '0.0 - 8.6', defaultValue: '3.2' },
+  { name: 'Protein toàn phần', unit: 'g/L', reference: '66 - 87', defaultValue: '74.5' },
+  { name: 'Albumin', unit: 'g/L', reference: '35 - 52', defaultValue: '43.2' },
+
+  // 3. Mỡ máu (Lipid Panel)
+  { name: 'Cholesterol toàn phần', unit: 'mmol/L', reference: '3.9 - 5.2', defaultValue: '4.6' },
+  { name: 'Triglycerid', unit: 'mmol/L', reference: '0.4 - 1.88', defaultValue: '1.38' },
+  { name: 'HDL-Cholesterol', unit: 'mmol/L', reference: '>= 1.0', defaultValue: '1.28' },
+  { name: 'LDL-Cholesterol', unit: 'mmol/L', reference: '< 3.4', defaultValue: '2.65' },
+  { name: 'CRP định lượng', unit: 'mg/L', reference: '< 5.0', defaultValue: '1.8' },
+
+  // 4. Điện giải đồ
+  { name: 'Na+ (Natri)', unit: 'mmol/L', reference: '135 - 145', defaultValue: '140' },
+  { name: 'K+ (Kali)', unit: 'mmol/L', reference: '3.5 - 5.0', defaultValue: '4.2' },
+  { name: 'Cl- (Clo)', unit: 'mmol/L', reference: '98 - 106', defaultValue: '101' },
+  { name: 'Ca2+ (Canxi ion hóa)', unit: 'mmol/L', reference: '1.15 - 1.35', defaultValue: '1.24' },
+
+  // 5. Đông máu cơ bản
+  { name: 'PT (Thời gian Prothrombin)', unit: 'giây', reference: '11 - 15', defaultValue: '12.6' },
+  { name: 'PT % (Tỷ lệ phức hệ Prothrombin)', unit: '%', reference: '70 - 120', defaultValue: '94' },
+  { name: 'INR', unit: 'ratio', reference: '0.8 - 1.2', defaultValue: '1.02' },
+  { name: 'APTT (Thời gian Thromboplastin)', unit: 'giây', reference: '25 - 35', defaultValue: '28.8' },
+  { name: 'Fibrinogen', unit: 'g/L', reference: '2.0 - 4.0', defaultValue: '3.2' },
+
+  // 6. Nước tiểu 10 thông số
+  { name: 'LEU (Bạch cầu nước tiểu)', unit: 'Leu/µL', reference: 'Âm tính (-)', defaultValue: 'Âm tính (-)' },
+  { name: 'NIT (Nitrit)', unit: 'qual', reference: 'Âm tính (-)', defaultValue: 'Âm tính (-)' },
+  { name: 'URO (Urobilinogen)', unit: 'µmol/L', reference: 'Bình thường (3.2)', defaultValue: '3.2' },
+  { name: 'PRO (Protein nước tiểu)', unit: 'g/L', reference: 'Âm tính (-)', defaultValue: 'Âm tính (-)' },
+  { name: 'pH nước tiểu', unit: 'pH', reference: '5.0 - 7.5', defaultValue: '6.2' },
+  { name: 'BLD (Hồng cầu nước tiểu)', unit: 'Ery/µL', reference: 'Âm tính (-)', defaultValue: 'Âm tính (-)' },
+  { name: 'SG (Tỷ trọng nước tiểu)', unit: 'ratio', reference: '1.015 - 1.025', defaultValue: '1.020' },
+  { name: 'KET (Thể Ketone)', unit: 'mmol/L', reference: 'Âm tính (-)', defaultValue: 'Âm tính (-)' },
+  { name: 'BIL (Bilirubin nước tiểu)', unit: 'qual', reference: 'Âm tính (-)', defaultValue: 'Âm tính (-)' },
+  { name: 'GLU (Glucose nước tiểu)', unit: 'mmol/L', reference: 'Âm tính (-)', defaultValue: 'Âm tính (-)' }
+];
+
+export const LAB_PANELS = {
+  cbc: {
+    label: '🩸 Công thức máu (CBC)',
+    rows: [
+      { name: 'WBC (Bạch cầu)', value: '7.5', unit: 'G/L', reference: '4.0 - 10.0' },
+      { name: 'NEU% (Bạch cầu đa nhân trung tính)', value: '63.2', unit: '%', reference: '40.0 - 74.0' },
+      { name: 'LYM% (Bạch cầu lympho)', value: '27.4', unit: '%', reference: '20.0 - 40.0' },
+      { name: 'RBC (Hồng cầu)', value: '4.68', unit: 'T/L', reference: '4.0 - 5.5' },
+      { name: 'HGB (Huyết sắc tố)', value: '142', unit: 'g/L', reference: '120 - 165' },
+      { name: 'HCT (Dung tích hồng cầu)', value: '0.42', unit: 'L/L', reference: '0.35 - 0.48' },
+      { name: 'PLT (Tiểu cầu)', value: '238', unit: 'G/L', reference: '150 - 450' }
+    ],
+    conclusion: 'Các chỉ số dòng hồng cầu, bạch cầu và tiểu cầu trong giới hạn sinh lý bình thường.'
+  },
+  biochem: {
+    label: '🧪 Sinh hóa Gan - Thận',
+    rows: [
+      { name: 'Glucose máu lúc đói', value: '5.2', unit: 'mmol/L', reference: '3.9 - 6.4' },
+      { name: 'Ure máu', value: '4.8', unit: 'mmol/L', reference: '2.5 - 7.5' },
+      { name: 'Creatinin máu', value: '82', unit: 'µmol/L', reference: '53 - 106' },
+      { name: 'eGFR (Mức lọc cầu thận)', value: '96', unit: 'mL/min/1.73m²', reference: '>= 90' },
+      { name: 'Acid Uric', value: '320', unit: 'µmol/L', reference: '180 - 420' },
+      { name: 'AST (GOT)', value: '25', unit: 'U/L', reference: '<= 37' },
+      { name: 'ALT (GPT)', value: '27', unit: 'U/L', reference: '<= 40' }
+    ],
+    conclusion: 'Chức năng lọc cầu thận (eGFR, Creatinin) và chức năng tế bào gan (AST, ALT) trong giới hạn bình thường.'
+  },
+  lipid: {
+    label: '🩺 Mỡ máu (Lipid)',
+    rows: [
+      { name: 'Cholesterol toàn phần', value: '4.6', unit: 'mmol/L', reference: '3.9 - 5.2' },
+      { name: 'Triglycerid', value: '1.38', unit: 'mmol/L', reference: '0.4 - 1.88' },
+      { name: 'HDL-Cholesterol', value: '1.28', unit: 'mmol/L', reference: '>= 1.0' },
+      { name: 'LDL-Cholesterol', value: '2.65', unit: 'mmol/L', reference: '< 3.4' }
+    ],
+    conclusion: 'Bilan lipid máu trong giới hạn bình thường.'
+  },
+  electrolytes: {
+    label: '⚡ Điện giải đồ (Ion)',
+    rows: [
+      { name: 'Na+ (Natri)', value: '140', unit: 'mmol/L', reference: '135 - 145' },
+      { name: 'K+ (Kali)', value: '4.2', unit: 'mmol/L', reference: '3.5 - 5.0' },
+      { name: 'Cl- (Clo)', value: '101', unit: 'mmol/L', reference: '98 - 106' },
+      { name: 'Ca2+ (Canxi ion hóa)', value: '1.24', unit: 'mmol/L', reference: '1.15 - 1.35' }
+    ],
+    conclusion: 'Điện giải đồ máu trong giới hạn bình thường, cân bằng toan kiềm ổn định.'
+  },
+  urinalysis: {
+    label: '🔬 Nước tiểu 10 chỉ số',
+    rows: [
+      { name: 'LEU (Bạch cầu nước tiểu)', value: 'Âm tính (-)', unit: 'Leu/µL', reference: 'Âm tính (-)' },
+      { name: 'NIT (Nitrit)', value: 'Âm tính (-)', unit: 'qual', reference: 'Âm tính (-)' },
+      { name: 'PRO (Protein nước tiểu)', value: 'Âm tính (-)', unit: 'g/L', reference: 'Âm tính (-)' },
+      { name: 'pH nước tiểu', value: '6.2', unit: 'pH', reference: '5.0 - 7.5' },
+      { name: 'BLD (Hồng cầu nước tiểu)', value: 'Âm tính (-)', unit: 'Ery/µL', reference: 'Âm tính (-)' },
+      { name: 'SG (Tỷ trọng nước tiểu)', value: '1.020', unit: 'ratio', reference: '1.015 - 1.025' },
+      { name: 'GLU (Glucose nước tiểu)', value: 'Âm tính (-)', unit: 'mmol/L', reference: 'Âm tính (-)' }
+    ],
+    conclusion: 'Tổng phân tích nước tiểu chưa phát hiện tế bào viêm hay thành phần bất thường.'
+  },
+  coagulation: {
+    label: '⏱ Đông máu cơ bản',
+    rows: [
+      { name: 'PT (Thời gian Prothrombin)', value: '12.6', unit: 'giây', reference: '11 - 15' },
+      { name: 'PT % (Tỷ lệ phức hệ Prothrombin)', value: '94', unit: '%', reference: '70 - 120' },
+      { name: 'INR', value: '1.02', unit: 'ratio', reference: '0.8 - 1.2' },
+      { name: 'APTT (Thời gian Thromboplastin)', value: '28.8', unit: 'giây', reference: '25 - 35' },
+      { name: 'Fibrinogen', value: '3.2', unit: 'g/L', reference: '2.0 - 4.0' }
+    ],
+    conclusion: 'Chức năng đông máu nội sinh và ngoại sinh trong giới hạn bình thường.'
+  }
+};
 
 export default function LabDesk({ role = 'technician', notify, clinicalContext }) {
   const [db] = useWorkspace('business');
@@ -202,18 +342,18 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
         proposal: 'Theo dõi triệu chứng lâm sàng, đo lại ECG nếu cơn đau ngực tái phát.',
         critical: 'Không'
       });
-    } else if (sName.includes('máu') || sName.includes('công thức')) {
+    } else if (sName.includes('máu') || sName.includes('công thức') || sName.includes('cbc') || sName.includes('huyết học')) {
       setEditing({
         baseRevision: row?.resultRevision || 0,
-        rows: [
-          { name: 'WBC (Bạch cầu)', value: '14.8', unit: 'G/L', reference: '4.0 - 10.0' },
-          { name: 'NEU% (Bạch cầu đa nhân trung tính)', value: '82.5', unit: '%', reference: '40.0 - 74.0' },
-          { name: 'RBC (Hồng cầu)', value: '4.65', unit: 'T/L', reference: '4.0 - 5.5' },
-          { name: 'HGB (Huyết sắc tố)', value: '138', unit: 'g/L', reference: '120 - 165' },
-          { name: 'HCT (Dung tích hồng cầu)', value: '0.41', unit: 'L/L', reference: '0.35 - 0.48' },
-          { name: 'PLT (Tiểu cầu)', value: '265', unit: 'G/L', reference: '150 - 450' }
-        ],
-        conclusion: 'Bạch cầu tăng cao (14.8 G/L) với ưu thế bạch cầu đa nhân trung tính (82.5%) — Phù hợp tình trạng nhiễm khuẩn cấp tính.',
+        rows: LAB_PANELS.cbc.rows.map(r => ({ ...r })),
+        conclusion: LAB_PANELS.cbc.conclusion,
+        critical: 'Không'
+      });
+    } else if (sName.includes('sinh hóa') || sName.includes('ure') || sName.includes('creatinin')) {
+      setEditing({
+        baseRevision: row?.resultRevision || 0,
+        rows: LAB_PANELS.biochem.rows.map(r => ({ ...r })),
+        conclusion: LAB_PANELS.biochem.conclusion,
         critical: 'Không'
       });
     } else if (sName.includes('men gan') || sName.includes('ast') || sName.includes('alt')) {
@@ -234,6 +374,34 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
           { name: 'HbA1c', value: '5.6', unit: '%', reference: '4.0 - 6.0' }
         ],
         conclusion: 'Đường huyết lúc đói và chỉ số HbA1c nằm trong giới hạn bình thường.',
+        critical: 'Không'
+      });
+    } else if (sName.includes('mỡ') || sName.includes('lipid') || sName.includes('cholesterol')) {
+      setEditing({
+        baseRevision: row?.resultRevision || 0,
+        rows: LAB_PANELS.lipid.rows.map(r => ({ ...r })),
+        conclusion: LAB_PANELS.lipid.conclusion,
+        critical: 'Không'
+      });
+    } else if (sName.includes('nước tiểu')) {
+      setEditing({
+        baseRevision: row?.resultRevision || 0,
+        rows: LAB_PANELS.urinalysis.rows.map(r => ({ ...r })),
+        conclusion: LAB_PANELS.urinalysis.conclusion,
+        critical: 'Không'
+      });
+    } else if (sName.includes('điện giải')) {
+      setEditing({
+        baseRevision: row?.resultRevision || 0,
+        rows: LAB_PANELS.electrolytes.rows.map(r => ({ ...r })),
+        conclusion: LAB_PANELS.electrolytes.conclusion,
+        critical: 'Không'
+      });
+    } else if (sName.includes('đông máu')) {
+      setEditing({
+        baseRevision: row?.resultRevision || 0,
+        rows: LAB_PANELS.coagulation.rows.map(r => ({ ...r })),
+        conclusion: LAB_PANELS.coagulation.conclusion,
         critical: 'Không'
       });
     } else {
@@ -676,22 +844,45 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                     {/* Form for Diagnostic Imaging (X-Quang, Siêu âm, ECG, Nội soi) */}
                     {isImaging ? (
                       <div style={{ display: 'grid', gap: '12px' }}>
+                        <datalist id="survey-areas">
+                          <option value="Lồng ngực và nhu mô phổi hai bên" />
+                          <option value="Cột sống thắt lưng thẳng và nghiêng" />
+                          <option value="Khớp gối hai bên (thẳng và nghiêng)" />
+                          <option value="Toàn bộ ổ bụng và hệ tiết niệu" />
+                          <option value="Xoang hàm mặt và vòm họng" />
+                        </datalist>
+                        <datalist id="imaging-techniques">
+                          <option value="Chụp X-quang kỹ thuật số thẳng thế đứng PA" />
+                          <option value="Chụp X-quang kỹ thuật số thẳng và nghiêng" />
+                          <option value="Siêu âm màu Doppler 2D/4D tổng quát" />
+                          <option value="Nội soi huỳnh quang độ nét cao" />
+                          <option value="Điện tâm đồ 12 chuyển đạo chuẩn tại giường" />
+                        </datalist>
+                        <datalist id="imaging-proposals">
+                          <option value="Đề nghị chụp lại kiểm tra sau 7-10 ngày điều trị nội khoa" />
+                          <option value="Đề nghị chụp cắt lớp vi tính (CT-Scanner) ngực để đánh giá chi tiết" />
+                          <option value="Đề nghị kết hợp siêu âm ổ bụng tổng quát kiểm tra" />
+                          <option value="Chưa phát hiện tổn thương bất thường cần can thiệp ngoại khoa" />
+                        </datalist>
+
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                           <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
                             Vùng khảo sát
-                            <input
+                            <MedicalSuggestInput
+                              type="surveyArea"
                               value={editing.surveyArea || ''}
                               placeholder="VD: Lồng ngực và nhu mô phổi 2 bên"
-                              onChange={e => setEditing({ ...editing, surveyArea: e.target.value })}
+                              onChange={val => setEditing({ ...editing, surveyArea: val })}
                               style={{ marginTop: '4px' }}
                             />
                           </label>
                           <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
                             Kỹ thuật chụp / thực hiện
-                            <input
+                            <MedicalSuggestInput
+                              type="technique"
                               value={editing.technique || ''}
                               placeholder="VD: Chụp X-quang tim phổi thẳng số hóa thế PA"
-                              onChange={e => setEditing({ ...editing, technique: e.target.value })}
+                              onChange={val => setEditing({ ...editing, technique: val })}
                               style={{ marginTop: '4px' }}
                             />
                           </label>
@@ -699,32 +890,36 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
 
                         <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
                           Mô tả hình ảnh tổn thương chuyên môn *
-                          <textarea
-                            rows={4}
+                          <MedicalSuggestInput
+                            type="imagingFindings"
+                            multiline
+                            rows={3}
                             value={editing.findings || ''}
                             placeholder="Mô tả chi tiết tổn thương hình ảnh quan sát được..."
-                            onChange={e => setEditing({ ...editing, findings: e.target.value })}
-                            style={{ marginTop: '4px', width: '100%', fontFamily: 'inherit' }}
+                            onChange={val => setEditing({ ...editing, findings: val })}
                           />
                         </label>
 
                         <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
                           Kết luận Chẩn đoán Hình ảnh (Chuyên môn) *
-                          <textarea
+                          <MedicalSuggestInput
+                            type="imagingConclusion"
+                            multiline
                             rows={2}
                             value={editing.conclusion || ''}
                             placeholder="Ghi rõ kết luận chẩn đoán hình ảnh..."
-                            onChange={e => setEditing({ ...editing, conclusion: e.target.value })}
-                            style={{ marginTop: '4px', width: '100%', fontWeight: 600, color: '#2563eb', fontFamily: 'inherit' }}
+                            onChange={val => setEditing({ ...editing, conclusion: val })}
+
                           />
                         </label>
 
                         <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
                           Đề nghị chuyên môn (nếu có)
-                          <input
+                          <MedicalSuggestInput
+                            type="proposal"
                             value={editing.proposal || ''}
                             placeholder="VD: Đề nghị chụp lại sau điều trị hoặc làm thêm CT-Scanner"
-                            onChange={e => setEditing({ ...editing, proposal: e.target.value })}
+                            onChange={val => setEditing({ ...editing, proposal: val })}
                             style={{ marginTop: '4px' }}
                           />
                         </label>
@@ -732,34 +927,117 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                     ) : (
                       /* Form for Laboratory (Huyết học, Sinh hóa) */
                       <div style={{ display: 'grid', gap: '12px' }}>
+                        {/* Thanh nạp nhanh trọn bộ chỉ số xét nghiệm (1-Click) */}
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', padding: '10px 14px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 700, color: '#0f766e', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Sparkles size={14} />
+                            Nạp nhanh bộ chỉ số mẫu (1-Click):
+                          </span>
+                          {Object.entries(LAB_PANELS).map(([key, panel]) => (
+                            <button
+                              type="button"
+                              key={key}
+                              className="secondary"
+                              style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '4px', background: '#ffffff', borderColor: '#cbd5e1', cursor: 'pointer', fontWeight: 600 }}
+                              onClick={() => {
+                                setEditing({
+                                  ...editing,
+                                  rows: panel.rows.map(r => ({ ...r })),
+                                  conclusion: panel.conclusion
+                                });
+                              }}
+                            >
+                              {panel.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        <datalist id="standard-lab-tests">
+                          {LAB_TEST_PRESETS.map((p, idx) => (
+                            <option key={idx} value={p.name}>{p.name} ({p.unit} · Chuẩn: {p.reference})</option>
+                          ))}
+                        </datalist>
+
                         <div className="table-scroll">
                           <table>
                             <thead>
                               <tr>
-                                <th>Tên chỉ số xét nghiệm</th>
-                                <th>Trị số đo được</th>
-                                <th>Đơn vị tính</th>
-                                <th>Khoảng tham chiếu chuẩn</th>
+                                <th style={{ width: '38%' }}>Tên chỉ số xét nghiệm (Chọn tự điền chuẩn)</th>
+                                <th style={{ width: '22%' }}>Trị số đo được</th>
+                                <th style={{ width: '18%' }}>Đơn vị tính</th>
+                                <th style={{ width: '22%' }}>Khoảng tham chiếu chuẩn</th>
                                 <th style={{ width: '40px' }} />
                               </tr>
                             </thead>
                             <tbody>
                               {editing.rows?.map((r, i) => (
                                 <tr key={i}>
-                                  {['name', 'value', 'unit', 'reference'].map(k => (
-                                    <td key={k}>
-                                      <input
-                                        aria-label={k + ' chỉ số ' + (i + 1)}
-                                        value={r[k] || ''}
-                                        onChange={e =>
-                                          setEditing({
-                                            ...editing,
-                                            rows: editing.rows.map((a, j) => (j === i ? { ...a, [k]: e.target.value } : a))
+                                  <td>
+                                    <input
+                                      list="standard-lab-tests"
+                                      aria-label={'name chỉ số ' + (i + 1)}
+                                      value={r.name || ''}
+                                      placeholder="Chọn hoặc gõ tên chỉ số..."
+                                      onChange={e => {
+                                        const val = e.target.value;
+                                        const matched = LAB_TEST_PRESETS.find(p => p.name.toLowerCase() === val.toLowerCase())
+                                          || LAB_TEST_PRESETS.find(p => p.name.toLowerCase().startsWith(val.toLowerCase()));
+                                        setEditing({
+                                          ...editing,
+                                          rows: editing.rows.map((a, j) => {
+                                            if (j !== i) return a;
+                                            return {
+                                              ...a,
+                                              name: val,
+                                              unit: matched ? matched.unit : a.unit,
+                                              reference: matched ? matched.reference : a.reference,
+                                              value: (a.value === '' && matched?.defaultValue) ? matched.defaultValue : a.value
+                                            };
                                           })
-                                        }
-                                      />
-                                    </td>
-                                  ))}
+                                        });
+                                      }}
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      aria-label={'value chỉ số ' + (i + 1)}
+                                      value={r.value || ''}
+                                      placeholder="Nhập trị số đo"
+                                      style={{ fontWeight: 600, color: '#0f766e' }}
+                                      onChange={e =>
+                                        setEditing({
+                                          ...editing,
+                                          rows: editing.rows.map((a, j) => (j === i ? { ...a, value: e.target.value } : a))
+                                        })
+                                      }
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      aria-label={'unit chỉ số ' + (i + 1)}
+                                      value={r.unit || ''}
+                                      placeholder="Đơn vị"
+                                      onChange={e =>
+                                        setEditing({
+                                          ...editing,
+                                          rows: editing.rows.map((a, j) => (j === i ? { ...a, unit: e.target.value } : a))
+                                        })
+                                      }
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      aria-label={'reference chỉ số ' + (i + 1)}
+                                      value={r.reference || ''}
+                                      placeholder="Khoảng chuẩn"
+                                      onChange={e =>
+                                        setEditing({
+                                          ...editing,
+                                          rows: editing.rows.map((a, j) => (j === i ? { ...a, reference: e.target.value } : a))
+                                        })
+                                      }
+                                    />
+                                  </td>
                                   <td>
                                     <button
                                       className="icon-button"
@@ -781,33 +1059,73 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                           </table>
                         </div>
 
-                        <button
-                          type="button"
-                          className="secondary"
-                          style={{ alignSelf: 'flex-start' }}
-                          onClick={() =>
-                            setEditing({
-                              ...editing,
-                              rows: [...(editing.rows || []), { name: '', value: '', unit: '', reference: '' }]
-                            })
-                          }
-                        >
-                          <Plus size={14} /> Thêm chỉ số đo
-                        </button>
+                        {/* Thêm chỉ số đo thông minh với danh mục phân nhóm */}
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <select
+                            aria-label="Chọn chỉ số cần thêm"
+                            style={{ fontSize: '12px', padding: '6px 10px', borderRadius: '6px', maxWidth: '300px', borderColor: '#0f766e', color: '#0f766e', fontWeight: 600 }}
+                            value=""
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (!val) return;
+                              const matched = LAB_TEST_PRESETS.find(p => p.name === val);
+                              if (matched) {
+                                setEditing({
+                                  ...editing,
+                                  rows: [...(editing.rows || []), { name: matched.name, value: matched.defaultValue || '', unit: matched.unit, reference: matched.reference }]
+                                });
+                              }
+                            }}
+                          >
+                            <option value="">+ Chọn thêm chỉ số từ danh mục...</option>
+                            <optgroup label="🩸 Công thức máu (CBC)">
+                              {LAB_TEST_PRESETS.slice(0, 15).map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                            </optgroup>
+                            <optgroup label="🧪 Sinh hóa Gan - Thận - Đường huyết">
+                              {LAB_TEST_PRESETS.slice(15, 28).map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                            </optgroup>
+                            <optgroup label="🩺 Bilan Mỡ máu (Lipid)">
+                              {LAB_TEST_PRESETS.slice(28, 33).map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                            </optgroup>
+                            <optgroup label="⚡ Điện giải đồ (Ion)">
+                              {LAB_TEST_PRESETS.slice(33, 37).map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                            </optgroup>
+                            <optgroup label="⏱ Đông máu">
+                              {LAB_TEST_PRESETS.slice(37, 42).map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                            </optgroup>
+                            <optgroup label="🔬 Nước tiểu 10 chỉ số">
+                              {LAB_TEST_PRESETS.slice(42).map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                            </optgroup>
+                          </select>
+
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() =>
+                              setEditing({
+                                ...editing,
+                                rows: [...(editing.rows || []), { name: '', value: '', unit: '', reference: '' }]
+                              })
+                            }
+                          >
+                            <Plus size={14} /> Thêm hàng tùy chỉnh
+                          </button>
+                        </div>
 
                         <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
                           Kết luận Xét nghiệm chuyên môn *
-                          <textarea
+                          <MedicalSuggestInput
+                            type="labConclusion"
+                            multiline
                             rows={2}
                             value={editing.conclusion || ''}
                             placeholder="Ghi nhận kết luận xét nghiệm của Bác sĩ / KTV..."
-                            onChange={e => setEditing({ ...editing, conclusion: e.target.value })}
-                            style={{ marginTop: '4px', width: '100%', fontFamily: 'inherit' }}
+                            onChange={val => setEditing({ ...editing, conclusion: val })}
                           />
                         </label>
 
                         <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
-                          Cảnh báo giá trị nguy kịch (Panic Value Alert)
+                          Cảnh báo giá trị nguy kịch
                           <select
                             value={editing.critical || 'Không'}
                             onChange={e => setEditing({ ...editing, critical: e.target.value })}
@@ -893,17 +1211,36 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                         <button
                           className="secondary"
                           onClick={() => {
+                            let initialRows = row.resultRows;
+                            let initialConclusion = row.conclusion || '';
+                            if (!initialRows || !initialRows.length) {
+                              const sLower = serviceName.toLowerCase();
+                              if (sLower.includes('máu') || sLower.includes('công thức') || sLower.includes('cbc') || sLower.includes('huyết học')) {
+                                initialRows = LAB_PANELS.cbc.rows.map(r => ({ ...r }));
+                                initialConclusion = initialConclusion || LAB_PANELS.cbc.conclusion;
+                              } else if (sLower.includes('nước tiểu')) {
+                                initialRows = LAB_PANELS.urinalysis.rows.map(r => ({ ...r }));
+                                initialConclusion = initialConclusion || LAB_PANELS.urinalysis.conclusion;
+                              } else if (sLower.includes('mỡ') || sLower.includes('lipid') || sLower.includes('cholesterol')) {
+                                initialRows = LAB_PANELS.lipid.rows.map(r => ({ ...r }));
+                                initialConclusion = initialConclusion || LAB_PANELS.lipid.conclusion;
+                              } else if (sLower.includes('điện giải') || sLower.includes('ion')) {
+                                initialRows = LAB_PANELS.electrolytes.rows.map(r => ({ ...r }));
+                                initialConclusion = initialConclusion || LAB_PANELS.electrolytes.conclusion;
+                              } else if (sLower.includes('đông máu')) {
+                                initialRows = LAB_PANELS.coagulation.rows.map(r => ({ ...r }));
+                                initialConclusion = initialConclusion || LAB_PANELS.coagulation.conclusion;
+                              } else if (sLower.includes('sinh hóa') || sLower.includes('gan') || sLower.includes('thận') || sLower.includes('men gan') || sLower.includes('ast') || sLower.includes('alt')) {
+                                initialRows = LAB_PANELS.biochem.rows.map(r => ({ ...r }));
+                                initialConclusion = initialConclusion || LAB_PANELS.biochem.conclusion;
+                              } else {
+                                initialRows = [{ name: serviceName, value: row.result || '', unit: '', reference: 'Bình thường' }];
+                              }
+                            }
                             setEditing({
                               baseRevision: row.resultRevision || 0,
-                              rows: row.resultRows || [
-                                {
-                                  name: serviceName,
-                                  value: row.result || '',
-                                  unit: '',
-                                  reference: ''
-                                }
-                              ],
-                              conclusion: row.conclusion || '',
+                              rows: initialRows,
+                              conclusion: initialConclusion,
                               critical: row.critical || 'Không'
                             });
                           }}

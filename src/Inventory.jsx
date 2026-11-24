@@ -7,6 +7,7 @@ import { AllocationPreview } from './AllocationPreview';
 import { parseBhytCard } from './bhyt-utils';
 import { hisApi } from './api';
 import MedicalPaperFormViewer from './MedicalPaperForms';
+import MedicalSuggestInput from './MedicalSuggestInput';
 
 export default function Inventory({ role = 'admin', notify, clinicalContext }) {
   const [inventory] = useWorkspace('inventory');
@@ -922,11 +923,11 @@ export default function Inventory({ role = 'admin', notify, clinicalContext }) {
                         </label>
                         <label className="his-field-label">
                           Ghi chú chứng từ đợt nhập
-                          <input
+                          <MedicalSuggestInput
+                            type="note"
                             value={shipmentForm.note}
-                            onChange={e => setShipmentForm({ ...shipmentForm, note: e.target.value })}
+                            onChange={val => setShipmentForm({ ...shipmentForm, note: val })}
                             placeholder="Ghi chú điều kiện bảo quản nhiệt độ, hợp đồng..."
-                            className="his-input"
                           />
                         </label>
                       </div>
@@ -1189,7 +1190,15 @@ export default function Inventory({ role = 'admin', notify, clinicalContext }) {
                       <label>Số lượng điều chuyển<input name="quantity" type="number" min="1" step="1" required defaultValue={draft?.qty || ''} className="his-input" /></label>
                     </>
                   )}
-                  <label>Lý do thao tác<input name="reason" required maxLength={500} placeholder="Xuất cấp kho ngoại trú, bổ sung cơ số..." className="his-input" /></label>
+                  <label>Lý do thao tác
+                    <MedicalSuggestInput
+                      type="cancel"
+                      name="reason"
+                      required
+                      maxLength={500}
+                      placeholder="Xuất cấp kho ngoại trú, bổ sung cơ số, hao hụt..."
+                    />
+                  </label>
                   <button className="primary full">Kiểm tra giao dịch <ArrowRight size={16} /></button>
                 </form>
               </>

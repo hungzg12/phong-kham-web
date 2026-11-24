@@ -1,19 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { BedDouble, User, AlertTriangle, ShieldCheck, Stethoscope, Clock, CreditCard, CheckCircle2, X, FileText, ChevronRight } from 'lucide-react';
+import { BedDouble, User, AlertTriangle, ShieldCheck, Stethoscope, Clock, CreditCard, CheckCircle2, X, FileText, ChevronRight, Sparkles } from 'lucide-react';
 import { hisApi } from './api';
 import { getWorkspace, syncWithSqlServer } from './workspace';
 import Icd10Search from './Icd10Search';
 import { parseBhytCard } from './bhyt-utils';
+import MedicalSuggestInput from './MedicalSuggestInput';
 
 const DEFAULT_DOCTORS = [];
-
-const COMMON_DIAGNOSES = [
-  'Viêm phổi thùy cấp - Theo dõi biến chứng suy hô hấp',
-  'Viêm phế quản cấp bội nhiễm vi khuẩn',
-  'Cơn tăng huyết áp kịch phát trên nền tăng huyết áp vô căn',
-  'Viêm dạ dày ruột cấp mất nước độ I',
-  'Đợt cấp bệnh phổi tắc nghẽn mạn tính (COPD)'
-];
 
 export default function InpatientAdmissionModal({
   bed,
@@ -45,6 +38,53 @@ export default function InpatientAdmissionModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [doctorsList, setDoctorsList] = useState(DEFAULT_DOCTORS);
+  const [autoFilledFrom, setAutoFilledFrom] = useState('');
+
+  // Tự động tìm kiếm và trích xuất thông tin chuyên môn từ y lệnh chỉ định nhập viện / hồ sơ khám bệnh tại viện
+  function getPatientAdmissionContext(patientId) {
+    if (!patientId) return null;
+    const ws = getWorkspace();
+    const adm = (ws.admissions || []).find(a => (a.patientId === patientId || a.patient === patientId) && (!a.status || a.status === 'Chờ xếp buồng' || a.status === 'Đang điều trị'));
+    const visit = (ws.visits || []).slice().reverse().find(v => v.patientId === patientId || v.patient === patientId);
+    const clinicalNote = ws.notes?.[patientId];
+    const pt = patients.find(p => p.id === patientId || p.maBenhNhan === patientId);
+
+    const diag = adm?.diagnosis || clinicalNote?.diagnosis || visit?.note?.diagnosis || visit?.diagnosis || '';
+    const doc = adm?.doctorStaffId || visit?.doctorStaffId || '';
+    const docObj = doctorsList.find(d => d.id === doc);
+    const docDisplayName = docObj?.name || adm?.doctor || visit?.doctor || 'Chưa phân công';
+    const icd = adm?.icdCode || adm?.icd || visit?.note?.icd || visit?.icd || '';
+    const rsn = adm?.reason || visit?.reason || clinicalNote?.symptoms || '';
+
+    const sourceName = adm ? 'Phiếu Chỉ định vào viện' : (visit ? 'Bàn khám Ngoại trú' : 'Hồ sơ Bệnh án Bác sĩ');
+
+    return {
+      adm,
+      visit,
+      diagnosis: diag,
+      reason: rsn,
+      icdCode: icd,
+      doctor: doc,
+      docDisplayName,
+      sourceName
+    };
+  }
+
+  // Tự động điền (Auto-fill) toàn bộ thông tin lâm sàng đi kèm khi chọn bệnh nhân
+  useEffect(() => {
+    const targetId = selectedPatientId || pId;
+    if (!targetId) return;
+    const ctx = getPatientAdmissionContext(targetId);
+    if (ctx) {
+      setDiagnosis(ctx.diagnosis);
+      setIcdCode(ctx.icdCode);
+      setReason(ctx.reason);
+      setDoctor(ctx.doctor);
+      setAutoFilledFrom(`${ctx.sourceName} · ${ctx.docDisplayName}`);
+
+      setNote(ctx.adm?.note || '');
+    }
+  }, [selectedPatientId, pId]);
 
   // Load doctors from SQL Server if available
   useEffect(() => {
@@ -62,6 +102,7 @@ export default function InpatientAdmissionModal({
   // Handle Admission Submit
   async function handleAdmit(e) {
     e.preventDefault();
+    if (submitting) return;
     if (!selectedPatientId) {
       setError('Vui lòng chọn người bệnh tiếp nhận.');
       return;
@@ -256,18 +297,22 @@ export default function InpatientAdmissionModal({
   return (
     <form className="his-form-container" onSubmit={handleAdmit}>
       {/* HEADER CARD */}
-      <div className="his-header-card">
-        <div className="his-header-title">
-          <div className="his-pill-group">
+      <div className="his-header-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', flex: 1, minWidth: 0, gap: 4 }}>
+          <div className="his-pill-group" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
             <span className="badge teal">TIẾP NHẬN NỘI TRÚ</span>
           </div>
-          <h2>Tiếp nhận nội trú</h2>
-          <p>Chọn người bệnh và hoàn tất thông tin nhập viện.</p>
+          <h2 style={{ fontSize: 19, fontWeight: 750, color: '#0f172a', margin: '4px 0 2px 0', lineHeight: 1.35 }}>
+            Phiếu Tiếp nhận Nội trú & Xếp buồng giường
+          </h2>
+          <p style={{ fontSize: 12.5, color: '#64748b', margin: 0, lineHeight: 1.5 }}>
+            Quy trình tiếp nhận nội trú, quản lý buồng bệnh và phân bổ y lệnh theo đợt điều trị
+          </p>
         </div>
         <div className="his-header-specs">
-          <div><span>Vị trí:</span> <b>{bed.roomName || 'Buồng 301 - Nội tổng quát'}</b></div>
+          <div><span>Vị trí:</span> <b>{bed.roomName || 'Chưa ghi nhận'}</b></div>
           <div><span>Số giường:</span> <b className="highlight-tag">{bed.bedNumber || bed.id}</b></div>
-          <div><span>Đơn giá ngày giường:</span> <b className="text-teal">{(bed.dailyRate || 250000).toLocaleString('vi-VN')} ₫</b></div>
+          <div><span>Đơn giá ngày giường:</span> <b className="text-teal">{bed.dailyRate!=null?Number(bed.dailyRate).toLocaleString('vi-VN')+' ₫ / ngày':'Chưa ghi nhận'}</b></div>
         </div>
       </div>
 
@@ -339,6 +384,14 @@ export default function InpatientAdmissionModal({
                 <span>Không ghi nhận tiền sử dị ứng thuốc (Trạng thái: KHONG_GHI_NHAN)</span>
               </div>
             )}
+            {/* THÔNG BÁO TỰ ĐỘNG ĐIỀN CHẨN ĐOÁN & Y LỆNH */}
+            <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
+              <CheckCircle2 size={18} color="#15803d" />
+              <div style={{ fontSize: 12.5, color: '#166534', lineHeight: 1.5 }}>
+                <b>⚡ Đã tự động điền Chẩn đoán & Y lệnh chỉ định từ Bàn khám Bác sĩ:</b>
+                <span style={{ marginLeft: 6 }}>{autoFilledFrom || `${doctor} · Bàn khám lâm sàng`}</span>
+              </div>
+            </div>
           </div>
         ) : (
           <p className="his-hint-text">Vui lòng chọn người bệnh để tự động đối chiếu thông tin hành chính, số thẻ BHYT và cảnh báo dị ứng.</p>
@@ -351,6 +404,10 @@ export default function InpatientAdmissionModal({
           <Stethoscope size={18} />
           <h3>2. Thông tin điều trị</h3>
         </div>
+        <p style={{ margin: '0 0 12px', fontSize: 12, color: '#0f766e', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Sparkles size={14} />
+          Thông tin đã được nạp tự động từ Bàn khám Bác sĩ chỉ định. Điều dưỡng / Bác sĩ có thể hiệu chỉnh nếu cần.
+        </p>
         <div className="his-form-grid">
           <label className="his-field">
             <span>Bác sĩ điều trị chính <small className="required-star">*</small></span>
@@ -377,29 +434,23 @@ export default function InpatientAdmissionModal({
 
           <label className="his-field col-span-2">
             <span>Chẩn đoán lâm sàng vào viện <small className="required-star">*</small></span>
-            <input
-              type="text"
+            <MedicalSuggestInput
+              type="diagnosis"
               value={diagnosis}
-              onChange={e => setDiagnosis(e.target.value)}
+              onChange={val => setDiagnosis(val)}
               required
-              placeholder="Nhập chẩn đoán lâm sàng đầy đủ..."
+              placeholder="Nhập chẩn đoán lâm sàng đầy đủ hoặc chọn từ gợi ý/mã ICD-10 phía trên..."
             />
-            <div className="quick-presets">
-              <small>Gợi ý nhanh:</small>
-              {COMMON_DIAGNOSES.slice(0, 3).map((d, idx) => (
-                <button type="button" key={idx} className="preset-pill" onClick={() => setDiagnosis(d)}>
-                  {d.split(' - ')[0]}
-                </button>
-              ))}
-            </div>
           </label>
 
           <label className="his-field col-span-2">
             <span>Lý do nhập viện <small className="required-star">*</small></span>
-            <textarea
+            <MedicalSuggestInput
+              type="admission"
+              multiline
               rows={2}
               value={reason}
-              onChange={e => setReason(e.target.value)}
+              onChange={val => setReason(val)}
               required
               placeholder="Mô tả triệu chứng lâm sàng cấp tính và lý do cần nhập viện theo dõi..."
             />
@@ -453,11 +504,11 @@ export default function InpatientAdmissionModal({
 
           <label className="his-field col-span-2">
             <span>Dặn dò chăm sóc và ghi chú</span>
-            <input
-              type="text"
+            <MedicalSuggestInput
+              type="note"
               value={note}
-              onChange={e => setNote(e.target.value)}
-              placeholder="Ghi chú vị trí nằm, chế độ theo dõi hoặc lưu ý hộ lý..."
+              onChange={val => setNote(val)}
+              placeholder="VD: Chế độ ăn giảm muối, theo dõi huyết áp 2 lần/ngày, bất động tại giường..."
             />
           </label>
         </div>

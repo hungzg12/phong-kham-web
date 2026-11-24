@@ -2,7 +2,7 @@ import PatientPortal from './PatientPortal';
 import {hisApi} from './api';
 import {syncWithSqlServer} from './workspace';
 import React,{useState,useEffect,useRef} from 'react';
-import {Plus,Search,Download,Eye,Pencil,X,Check,ArrowRight,FileText,Trash2,Printer,ShieldCheck,Activity,ClipboardList,Wallet,ChevronLeft,ChevronRight,HeartPulse,Pill,FileSpreadsheet} from 'lucide-react';
+import {Plus,Search,Download,Eye,Pencil,X,Check,ArrowRight,FileText,Trash2,Printer,Shield,ShieldCheck,ShieldAlert,Lock,AlertCircle,Activity,ClipboardList,Wallet,ChevronLeft,ChevronRight,HeartPulse,Pill,FileSpreadsheet,Receipt} from 'lucide-react';
 import {definitions,pageGroups,extraTitles,permissionNames,specialLabels,today} from './business-data';
 import './business.css';
 import {useWorkspace,getWorkspace,episodeOptions,applyClinicalStock,approveInventoryRow,dischargeAdmission,financialRows} from './workspace';
@@ -11,10 +11,13 @@ import {AllocationPreview} from './AllocationPreview';
 import {DoctorAccessFields,isDoctorAccount,doctorScopes,doctorFunctions} from './DoctorAccess';
 function formResult(fn){try{return fn()}catch(e){return e.message||'Không thực hiện được thao tác. Vui lòng thử lại.'}}
 import {actorRoles,allowedTabs,canCreate,canEdit,canAction} from './roles';
-import {parseBhytCard} from './bhyt-utils';
-import MedicalPaperFormViewer from './MedicalPaperForms';
+import {parseBhytCard, BHYT_RATE_OPTIONS, isBhytEligibleItem} from './bhyt-utils';
+import MedicalPaperFormViewer, {MedicalBillPaperForm} from './MedicalPaperForms';
+import StatutoryPaperBusinessForm from './StatutoryPaperBusinessForm';
+import MedicalSuggestInput from './MedicalSuggestInput';
 
 const currency=n=>new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND'}).format(Number(n)||0);
+const money = currency;
 const uid=p=>p+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,5).toUpperCase();
 const timestamp=()=>new Date().toLocaleString('vi-VN');
 const numeric=new Set(['pulse','temperature','spo2','weight','height','quantity','price','actual','amount','opening','counted','capacity']);
@@ -169,10 +172,68 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
     <section className={'modal business-modal '+(['form','settlement','detail'].includes(dialog.type)?'wide-modal his-large-modal':'')} role="dialog" aria-modal="true" aria-label={dialog.type==='detail'?'Chi tiết bản ghi':'Biểu mẫu nghiệp vụ'} onClick={e=>e.stopPropagation()}>
       <button className="close icon-button" aria-label="Đóng biểu mẫu" onClick={()=>setDialog(null)}><X size={21}/></button>
       
-      {dialog.type==='form'&&<RecordForm tab={tab} episodeTab={episodeTab} inpatientOnly={['rounds','consultations','discharges'].includes(tab)} definition={def} defaults={{doctor:actor.staffId||'',cashier:actor.staffId||'',...(scope?{patient:scope.patientId,episodeId:scope.episodeId}:{})}} initial={dialog.row} stock={stock} optionsFor={optionsFor} onSave={values=>saveRow(values,dialog.row)}/>}
+      {dialog.type==='form' && (
+        ['referrals', 'consultations', 'discharges', 'archives', 'reexaminations'].includes(tab) ? (
+          <StatutoryPaperBusinessForm
+            tab={tab}
+            initialRow={dialog.row}
+            patients={patients}
+            staff={db.staff}
+            onSave={(payload) => {
+              const record = {
+                ...dialog.row,
+                ...payload,
+                id: payload.id || dialog.row?.id || uid(def?.prefix || 'CT'),
+                createdAt: dialog.row?.createdAt || timestamp(),
+                date: dialog.row?.date || today,
+                status: dialog.row?.status || def?.initialStatus || 'Đã ghi nhận'
+              };
+              commit(prev => ({
+                ...prev,
+                [tab]: dialog.row
+                  ? (prev[tab] || []).map(x => x.id === dialog.row.id ? record : x)
+                  : [record, ...(prev[tab] || [])]
+              }), `${dialog.row ? 'Cập nhật' : 'Tạo'} ${def?.singular || 'chứng từ'} ${record.id}`);
+              setDialog(null);
+              notify?.('Đã lưu thông tin nghiệp vụ vào CSDL SQL Server');
+            }}
+            onSaveAndViewPaper={(payload) => {
+              const record = {
+                ...dialog.row,
+                ...payload,
+                id: payload.id || dialog.row?.id || uid(def?.prefix || 'CT'),
+                createdAt: dialog.row?.createdAt || timestamp(),
+                date: dialog.row?.date || today,
+                status: dialog.row?.status || def?.initialStatus || 'Đã ghi nhận'
+              };
+              commit(prev => ({
+                ...prev,
+                [tab]: dialog.row
+                  ? (prev[tab] || []).map(x => x.id === dialog.row.id ? record : x)
+                  : [record, ...(prev[tab] || [])]
+              }), `${dialog.row ? 'Cập nhật' : 'Tạo'} ${def?.singular || 'chứng từ'} ${record.id}`);
+              notify?.('Đã lưu vào SQL Server và mở biểu mẫu in chuẩn A4');
+              setDialog({ type: 'detail', row: record });
+            }}
+            onClose={() => setDialog(null)}
+          />
+        ) : (
+          <RecordForm
+            tab={tab}
+            episodeTab={episodeTab}
+            inpatientOnly={['rounds','consultations','discharges'].includes(tab)}
+            definition={def}
+            defaults={{doctor:actor.staffId||'',cashier:actor.staffId||'',...(scope?{patient:scope.patientId,episodeId:scope.episodeId}:{})}}
+            initial={dialog.row}
+            stock={stock}
+            optionsFor={optionsFor}
+            onSave={values=>saveRow(values,dialog.row)}
+          />
+        )
+      )}
       
       {dialog.type==='detail'&&(
-        ['referrals','consultations','discharges','settlements','prescriptions','archives','authorizations'].includes(tab) ? (
+        ['referrals','consultations','discharges','settlements','prescriptions','archives','authorizations','reexaminations'].includes(tab) ? (
           <>
             <MedicalPaperFormViewer
               tab={tab}
@@ -180,6 +241,14 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
               patient={patients.find(p => p.id === dialog.row.patient)}
               doctorStaff={db.staff.find(s => s.id === dialog.row.doctor)}
               cashierStaff={db.staff.find(s => s.id === dialog.row.cashier)}
+              onSave={updatedRow => {
+                setDb(d => ({
+                  ...d,
+                  [tab]: (d[tab] || []).map(x => x.id === updatedRow.id ? { ...x, ...updatedRow } : x)
+                }));
+                notify?.('Đã lưu biểu mẫu y tế vào CSDL thành công');
+              }}
+              onOpenBusinessForm={() => setDialog({ type: 'form', row: dialog.row })}
               onClose={() => setDialog(null)}
             />
             <div className="dialog-actions no-print" style={{ marginTop: 16 }}>
@@ -213,7 +282,7 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
       
       {dialog.type==='action'&&<ActionForm key={dialog.action} dialog={dialog} stock={stock} optionsFor={optionsFor} onSave={values=>perform(dialog.row,dialog.action,values)}/>}
       
-      {dialog.type==='settlement'&&<SettlementForm scope={scope} initialLines={scope?[...(db.labs||[]),...(db.clinicalCharges||[])].filter(r=>r.episodeId===scope.episodeId&&r.status!=='Đã hủy').map(r=>({description:db.services.find(s=>s.id===r.service)?.name||r.service,category:'Dịch vụ kỹ thuật',quantity:Number(r.quantity)||1,price:Number(r.price??db.services.find(s=>s.id===r.service)?.price)||0,insuranceRate:80,sourceId:r.id})):null} patients={scope?patients.filter(p=>p.id===scope.patientId):patients} services={db.services} availableAdvance={availableAdvance} onSave={saveSettlement}/>}
+      {dialog.type==='settlement'&&<SettlementForm scope={scope} patients={scope?patients.filter(p=>p.id===scope.patientId):patients} services={db.services} availableAdvance={availableAdvance} onSave={saveSettlement}/>}
       
       {dialog.type==='settle'&&<SimpleForm title={dialog.row.balance<0?'Hoàn tiền tạm ứng thừa':dialog.row.balance===0?'Xác nhận đủ tiền':'Thu thêm viện phí'} description={`${display('patient',dialog.row.patient)} · ${currency(Math.abs(dialog.row.balance))}${dialog.row.balance<0?' cần hoàn trả người bệnh':dialog.row.balance===0?' · Đã cấn trừ đủ':' cần thu thêm'}`} fields={[{key:'signedBy',label:'Họ tên người nộp / nhận tiền (Người bệnh hoặc Thân nhân)',required:true}]} submit="Xác nhận giao dịch viện phí" onSave={values=>settle(dialog.row,values)}><div className="inline-notice">Giao dịch sẽ được ghi nhận và đối soát trong ca trực hiện hành.</div></SimpleForm>}
       
@@ -229,6 +298,23 @@ function Empty({text}){return <div className="business-empty"><FileText size={30
 
 function Field({field,value,onChange,optionsFor=()=>null}){
   const options=optionsFor(field)||field.options?.map(x=>({label:x,value:x}));
+  const clinicalType = ['reason','reasons','lyDo'].includes(field.key) ? 'reason'
+    : ['history','tienSu'].includes(field.key) ? 'history'
+    : ['allergy','diUng'].includes(field.key) ? 'allergy'
+    : ['address','diaChi'].includes(field.key) ? 'address'
+    : ['diagnosis','chanDoan'].includes(field.key) ? 'diagnosis'
+    : ['destination','noiChuyenDen','benhVien'].includes(field.key) ? 'destination'
+    : ['room','phong','buong'].includes(field.key) ? 'room'
+    : ['proposal','deNghi'].includes(field.key) ? 'proposal'
+    : ['surveyArea','vungKhaoSat'].includes(field.key) ? 'surveyArea'
+    : ['technique','kyThuat'].includes(field.key) ? 'technique'
+    : ['symptoms','progress','dienBien'].includes(field.key) ? 'symptoms'
+    : ['examination','physicalExam'].includes(field.key) ? 'examination'
+    : ['plan','treatment','huongDieuTri'].includes(field.key) ? 'plan'
+    : ['advice','note','conclusion','finding','loiDan','ghiChu'].includes(field.key) ? 'advice'
+    : ['dose','orders','yLenh'].includes(field.key) ? 'orders'
+    : null;
+
   return <label className={field.type==='textarea'?'span-two his-field-label':'his-field-label'}>
     {field.label}{field.required&&<em> *</em>}
     {options?(
@@ -236,6 +322,16 @@ function Field({field,value,onChange,optionsFor=()=>null}){
         <option value="">Chọn {field.label.toLowerCase()}</option>
         {options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
+    ):clinicalType?(
+      <MedicalSuggestInput
+        type={clinicalType}
+        multiline={field.type==='textarea'}
+        rows={field.type==='textarea'?3:1}
+        value={value??''}
+        onChange={onChange}
+        placeholder={field.placeholder || `Nhập hoặc chọn gợi ý ${field.label.toLowerCase()}...`}
+        className={field.type==='textarea'?'his-textarea':'his-input'}
+      />
     ):field.type==='textarea'?(
       <textarea name={field.key} value={value??''} required={field.required} maxLength={4000} placeholder={field.placeholder} onChange={e=>onChange(e.target.value)} className="his-textarea"/>
     ):(
@@ -388,7 +484,15 @@ function RecordForm({tab,definition,initial,defaults={},episodeTab=false,inpatie
               <div className="form-row form-row-3">
                 <label className="his-field-label">
                   Liều lượng & Cữ dùng trong ngày *
-                  <input required value={l.frequency} placeholder="Sáng 1v - Trưa 1v - Tối 1v" onChange={e=>lineChange(i,'frequency',e.target.value)} className="his-input"/>
+                  <input required list="biz-rx-schedules" value={l.frequency} placeholder="Sáng 1v - Trưa 1v - Tối 1v" onChange={e=>lineChange(i,'frequency',e.target.value)} className="his-input"/>
+                  <datalist id="biz-rx-schedules">
+                    <option value="Sáng 1v - Tối 1v (sau ăn)" />
+                    <option value="Sáng 1v - Trưa 1v - Tối 1v (sau ăn)" />
+                    <option value="Sáng 1v (trước ăn 30p)" />
+                    <option value="Tối 1v trước khi đi ngủ" />
+                    <option value="Uống khi sốt ≥ 38.5°C cách 4-6 giờ" />
+                    <option value="1 gói x 2 lần/ngày (hòa tan nước)" />
+                  </datalist>
                 </label>
                 <label className="his-field-label">
                   Thời điểm uống
@@ -435,7 +539,7 @@ function ActionForm({dialog,stock,optionsFor,onSave}){
 
  const fields=action==='result'?[
    {key:'conclusion',label:'Kết luận chuyên môn Cận lâm sàng *',type:'textarea',required:true,placeholder:'Các chỉ số xét nghiệm huyết học và sinh hóa trong giới hạn bình thường.'},
-   {key:'critical',label:'Cảnh báo giá trị nguy kịch (Panic Value)',type:'select',options:['Không','Có - Báo ngay Bác sĩ lâm sàng'],required:true},
+   {key:'critical',label:'Cảnh báo giá trị nguy kịch',type:'select',options:['Không','Có - Báo ngay Bác sĩ lâm sàng'],required:true},
    {key:'pacs',label:'Mã tham chiếu hệ thống PACS / Thiết bị xét nghiệm',placeholder:'SID-2026-88129'}
  ]:['reject','cancel'].includes(action)?[
    {key:'reason',label:'Lý do thao tác *',type:'textarea',required:true}
@@ -529,7 +633,7 @@ function ActionForm({dialog,stock,optionsFor,onSave}){
                         <option>Bình thường</option>
                         <option>Thấp [L]</option>
                         <option>Cao [H]</option>
-                        <option>Nguy kịch [Panic]</option>
+                        <option>Nguy kịch [Cao/Nguy hiểm]</option>
                       </select>
                     </td>
                   </tr>
@@ -560,78 +664,108 @@ function ActionForm({dialog,stock,optionsFor,onSave}){
 
 /* =============================================================================
    FORM QUYẾT TOÁN VIỆN PHÍ CHUẨN BẢNG KÊ CHI PHÍ MẪU 01/BV (VIETTEL HIS ENGINE)
+   Tuân thủ nghiêm ngặt Quyết định 130/QĐ-BYT, QĐ 3618/QĐ-BHXH & Thông tư 20/2022/TT-BYT
+   Nghiêm cấm gian lận BHYT (Điều 215 BLHS) - Khóa cứng thuốc ngoài danh mục (Panadol Extra)
    ============================================================================= */
 function SettlementForm({scope,initialLines,patients,services,availableAdvance,onSave}){
- const [db] = useWorkspace('business');
- const [stock] = useWorkspace('stock');
- const [patientId,setPatientId]=useState(scope?.patientId||patients[0]?.id||'');
- const currentPatient = patients.find(p => p.id === patientId);
- const patientBhyt = parseBhytCard(currentPatient?.insurance);
- const [episodeId,setEpisodeId]=useState(scope?.episodeId||'');
- 
- // BHYT rate auto-detected from card code
- const [insuranceRate, setInsuranceRate] = useState(patientBhyt.rate);
- useEffect(() => {
-   const bh = parseBhytCard(currentPatient?.insurance);
-   setInsuranceRate(bh.rate);
- }, [patientId, currentPatient]);
+  const [db] = useWorkspace('business');
+  const [stock] = useWorkspace('stock');
+  const [patientId,setPatientId]=useState(scope?.patientId||patients[0]?.id||'');
+  const currentPatient = patients.find(p => p.id === patientId);
+  const patientBhyt = parseBhytCard(currentPatient?.insurance);
+  const [episodeId,setEpisodeId]=useState(scope?.episodeId||'');
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+  
+  // BHYT rate auto-detected from card code
+  const [insuranceRate, setInsuranceRate] = useState(patientBhyt.rate);
+  useEffect(() => {
+    const bh = parseBhytCard(currentPatient?.insurance);
+    setInsuranceRate(bh.rate);
+  }, [patientId, currentPatient]);
 
- const COST_GROUPS = [
-   '1. Tiền khám bệnh',
-   '2. Xét nghiệm',
-   '3. Chẩn đoán hình ảnh',
-   '4. Thủ thuật & Phẫu thuật',
-   '5. Thuốc & Dịch truyền',
-   '6. Vật tư y tế',
-   '7. Máu & Chế phẩm máu',
-   '8. Tiền ngày giường'
- ];
+  const COST_GROUPS = [
+    '1. Tiền khám bệnh',
+    '2. Xét nghiệm',
+    '3. Chẩn đoán hình ảnh',
+    '4. Thủ thuật & Phẫu thuật',
+    '5. Thuốc & Dịch truyền',
+    '6. Vật tư y tế',
+    '7. Máu & Chế phẩm máu',
+    '8. Tiền ngày giường'
+  ];
 
- const [lines,setLines]=useState(initialLines?.length ? initialLines : []);
+  const [lines,setLines]=useState(initialLines?.length ? initialLines.map(l => {
+    const el = isBhytEligibleItem(l.description || l.name || '');
+    return {
+      ...l,
+      quantity: Number(l.quantity || l.qty || 1),
+      price: Number(l.price || 0),
+      inBhyt: el.eligible && l.insuranceCovered !== false,
+      insuranceCovered: el.eligible && l.insuranceCovered !== false,
+      nonBhytReason: !el.eligible ? el.reason : l.nonBhytReason
+    };
+  }) : []);
 
- // Load actual clinical services and medications when episode is selected
- useEffect(() => {
-   if (episodeId && !initialLines?.length) {
-     if(Array.isArray(db.billingCharges)){setLines(db.billingCharges.filter(r=>r.episodeId===episodeId).map(r=>({...r})));return;}
-     const matchedLabs = (db.labs || []).filter(r => r.episodeId === episodeId && r.status !== 'Đã hủy');
-     const matchedCharges = (db.clinicalCharges || []).filter(r => r.episodeId === episodeId && r.status !== 'Đã hủy');
-     const matchedRx = (db.prescriptions || []).filter(r => r.episodeId === episodeId && r.status !== 'Đã hủy');
+  // Load actual clinical services and medications when episode is selected
+  useEffect(() => {
+    if (episodeId && !initialLines?.length) {
+      if(Array.isArray(db.billingCharges)){setLines(db.billingCharges.filter(r=>r.episodeId===episodeId).map(r=>({...r})));return;}
+      const matchedLabs = (db.labs || []).filter(r => r.episodeId === episodeId && r.status !== 'Đã hủy');
+      const matchedCharges = (db.clinicalCharges || []).filter(r => r.episodeId === episodeId && r.status !== 'Đã hủy');
+      const matchedRx = (db.prescriptions || []).filter(r => r.episodeId === episodeId && r.status !== 'Đã hủy');
 
-     const labItems = matchedLabs.map(r => {
-       const s = db.services.find(x => x.id === r.service);
-       return {
-         category: s?.kind === 'Chẩn đoán hình ảnh' ? '3. Chẩn đoán hình ảnh' : '2. Xét nghiệm',
-         description: s?.name || r.service,
-         quantity: 1,
-         price: Number(r.price ?? s?.price ?? 120000),
-         insuranceCovered: true,
-         sourceId: r.id
-       };
-     });
 
-     const chargeItems = matchedCharges.map(r => {
-       const s = db.services.find(x => x.id === r.service);
-       return {
-         category: '1. Tiền khám bệnh',
-         description: s?.name || r.service,
-         quantity: Number(r.quantity) || 1,
-         price: Number(r.price ?? s?.price ?? 150000),
-         insuranceCovered: true,
-         sourceId: r.id
-       };
-     });
+      const labItems = matchedLabs.map(r => {
+        const s = db.services.find(x => x.id === r.service);
+        const name = s?.name || r.service;
+        const el = isBhytEligibleItem(name);
+        const isEligible = el.eligible && s?.inBhyt !== false;
+        return {
+          category: s?.kind === 'Chẩn đoán hình ảnh' ? '3. Chẩn đoán hình ảnh' : '2. Xét nghiệm',
+          description: name,
+          quantity: 1,
+          price: Number(r.price ?? s?.price ?? 110000),
+          insuranceCovered: isEligible,
+          inBhyt: isEligible,
+          nonBhytReason: !isEligible ? el.reason : undefined,
+          sourceId: r.id
+        };
+      });
 
-     const rxItems = matchedRx.flatMap(rx => (rx.lines || []).map(line => {
-       const m = stock.find(s => s.id === line.medicine);
-       return {
-         category: '5. Thuốc & Dịch truyền',
-         description: m?.name || line.medicine,
-         quantity: Number(line.quantity) || 1,
-         price: Number(m?.price || m?.cost || 2500),
-         insuranceCovered: true,
-         sourceId: rx.id
-       };
-     }));
+      const chargeItems = matchedCharges.map(r => {
+        const s = db.services.find(x => x.id === r.service);
+        const name = s?.name || r.service;
+        const el = isBhytEligibleItem(name);
+        const isEligible = el.eligible && s?.inBhyt !== false;
+        return {
+          category: '1. Tiền khám bệnh',
+          description: name,
+          quantity: Number(r.quantity) || 1,
+          price: Number(r.price ?? s?.price ?? 150000),
+          insuranceCovered: isEligible,
+          inBhyt: isEligible,
+          nonBhytReason: !isEligible ? el.reason : undefined,
+          sourceId: r.id
+        };
+      });
+
+      const rxItems = matchedRx.flatMap(rx => (rx.lines || []).map(line => {
+        const m = stock.find(s => s.id === line.medicine);
+        const medName = m?.name || line.medicine;
+        const el = isBhytEligibleItem(medName);
+        const isPanadolExtra = /panadol extra|caffeine/i.test(medName);
+        const isCovered = !isPanadolExtra && el.eligible && (m?.insurancePrice > 0 || m?.coBHYT === 1 || m?.giaBHYT > 0 || /paracetamol|augmentin|zinnat|nexium|ceftriaxone|berberin/i.test(medName) || m?.inBhyt !== false);
+        return {
+          category: '5. Thuốc & Dịch truyền',
+          description: medName,
+          quantity: Number(line.quantity) || 1,
+          price: Number(m?.price || m?.cost || line.price || 2500),
+          insuranceCovered: isCovered,
+          inBhyt: isCovered,
+          nonBhytReason: isPanadolExtra ? 'Thuốc phối hợp chứa Caffeine không thuộc danh mục TT 20/2022/TT-BYT (Nghiêm cấm quyết toán BHYT)' : (!isCovered ? (el.reason || 'Ngoài danh mục thuốc BHYT') : undefined),
+          sourceId: rx.id
+        };
+      }));
 
      const combined = [...chargeItems, ...labItems, ...rxItems];
      if (combined.length > 0) {
@@ -640,310 +774,567 @@ function SettlementForm({scope,initialLines,patients,services,availableAdvance,o
    }
  }, [episodeId, initialLines, db.billingCharges, db.labs, db.clinicalCharges, db.prescriptions, db.services, stock]);
 
- const [error,setError]=useState(''),[saving,setSaving]=useState(false);
 
- function changeLine(i, key, val) {
-   setLines(prev => prev.map((l, j) => j === i ? { ...l, [key]: val } : l));
- }
+  const [showAuditor, setShowAuditor] = useState(false);
 
- function addLine() {
-   setLines(prev => [
-     ...prev,
-     { category: '2. Xét nghiệm', description: '', quantity: 1, price: 0, insuranceCovered: true }
-   ]);
- }
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'F4') {
+        e.preventDefault();
+        const submitBtn = document.getElementById('his-settle-submit-btn');
+        if (submitBtn) submitBtn.click();
+      } else if (e.key === 'F10') {
+        e.preventDefault();
+        setShowAuditor(prev => !prev);
+      } else if (e.key === 'F12') {
+        e.preventDefault();
+        setShowPrintPreview(prev => !prev);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
- function removeLine(i) {
-   setLines(prev => prev.filter((_, j) => j !== i));
- }
+  const [error,setError]=useState(''),[saving,setSaving]=useState(false);
 
- // Calculations
- const gross = lines.reduce((s, l) => s + (Number(l.quantity) || 0) * (Number(l.price) || 0), 0);
- 
- const eligibleInsuranceGross = lines
-   .filter(l => l.insuranceCovered && insuranceRate > 0)
-   .reduce((s, l) => s + (Number(l.quantity) || 0) * (Number(l.price) || 0), 0);
 
- const insuranceCoveredAmount = Math.round((eligibleInsuranceGross * insuranceRate) / 100);
- const patientCopayAmount = eligibleInsuranceGross - insuranceCoveredAmount;
- const patientOutOfPocketAmount = gross - eligibleInsuranceGross;
- const totalPatientDue = patientCopayAmount + patientOutOfPocketAmount;
- const advance = patientId ? availableAdvance(patientId, episodeId) : 0;
- const balance = totalPatientDue - advance;
+  function changeLine(i, key, val) {
+    setLines(prev => prev.map((l, j) => {
+      if (j !== i) return l;
+      const updated = { ...l, [key]: val };
+      if (key === 'insuranceCovered') {
+        updated.inBhyt = val;
+      }
+      if (key === 'description') {
+        const el = isBhytEligibleItem(val);
+        if (!el.eligible) {
+          updated.insuranceCovered = false;
+          updated.inBhyt = false;
+          updated.nonBhytReason = el.reason;
+        } else {
+          updated.insuranceCovered = true;
+          updated.inBhyt = true;
+          updated.nonBhytReason = undefined;
+        }
+      }
+      return updated;
+    }));
+  }
 
- return (
-   <div className="his-settlement-container">
-     <div className="his-form-header">
-       <div className="his-header-title">
-         <FileSpreadsheet size={24} className="his-header-icon" />
-         <div>
-           <h2>Bảng kê chi phí khám bệnh, chữa bệnh ngoại trú (Mẫu 01/BV)</h2>
-           <p className="his-header-sub">
-             Quyết toán viện phí, tách chi phí BHYT chi trả vs Người bệnh cùng chi trả theo Quyết định 130/QĐ-BYT.
-           </p>
-         </div>
-       </div>
-       <button type="button" className="secondary no-print" onClick={() => window.print()}>
-         <Printer size={16} /> In Mẫu 01/BV
-       </button>
-     </div>
+  function removeLine(i) {
+    setLines(prev => prev.filter((_, j) => j !== i));
+  }
 
-     <form onSubmit={async e => {
-       e.preventDefault();
-       if (saving) return;
-       setSaving(true);
-       try {
-         const payload = {
-           patient: patientId,
-           episodeId,
-           insurance: insuranceCoveredAmount,
-           lines,
-           gross,
-           advance,
-           balance
-         };
-         setError((await onSave(payload)) || '');
-       } catch (err) {
-         setError(err.message);
-       } finally {
-         setSaving(false);
-       }
-     }} className="his-form-body">
-       
-       {/* PHẦN 1: HÀNH CHÍNH & BHYT */}
-       <div className="his-card">
-         <div className="his-card-header"><ShieldCheck size={16} /><span>1. Thông tin người bệnh & Quyền lợi Bảo hiểm Y tế</span></div>
-         <div className="his-card-body">
-           <div className="form-row form-row-3">
-             <label className="his-field-label">
-               Họ tên người bệnh *
-               <select required value={patientId} onChange={e => setPatientId(e.target.value)} className="his-select">
-                 {patients.map(p => (
-                   <option key={p.id} value={p.id}>{p.name} · {p.id}</option>
-                 ))}
-               </select>
-             </label>
+  // Process every row through statutory BHYT eligibility check
+  const processedLines = lines.map((l, idx) => {
+    const qty = Number(l.quantity) || 1;
+    const price = Number(l.price) || 0;
+    const lineGross = qty * price;
+    const el = isBhytEligibleItem(l.description);
+    // Strict statutory rule: If drug is legally ineligible (e.g. Panadol Extra containing Caffeine), it is ALWAYS false
+    // Automatic coverage: Reimbursable items are 100% automated by catalog and card benefit rate without manual checkboxes
+    const isCovered = el.eligible && l.inBhyt !== false && insuranceRate > 0;
+    const lineBHYT = isCovered ? Math.round((lineGross * insuranceRate) / 100) : 0;
+    const lineCopay = isCovered ? (lineGross - lineBHYT) : 0;
+    const lineOutOfPocket = !isCovered ? lineGross : 0;
+    const linePatient = lineCopay + lineOutOfPocket;
 
-             <EpisodeField patientId={patientId} value={episodeId} onChange={setEpisodeId} />
+    return {
+      ...l,
+      idx,
+      quantity: qty,
+      price,
+      lineGross,
+      isCovered,
+      isEligible: el.eligible,
+      nonBhytReason: !el.eligible ? el.reason : (l.nonBhytReason || (!isCovered ? (insuranceRate === 0 ? 'Khám tự nguyện / Chưa áp dụng thẻ BHYT' : 'Người bệnh tự chi trả (Ngoài BHYT)') : undefined)),
+      lineBHYT,
+      lineCopay,
+      lineOutOfPocket,
+      linePatient
+    };
+  });
 
-             <label className="his-field-label">
-               Mức hưởng BHYT áp dụng *
-               <select
-                 value={insuranceRate}
-                 onChange={e => setInsuranceRate(Number(e.target.value))}
-                 className="his-select"
-               >
-                 <option value={100}>BHYT chi trả 100% (Sĩ quan, Trẻ em, Người có công)</option>
-                 <option value={95}>BHYT chi trả 95% (Hộ cận nghèo, Hưu trí)</option>
-                 <option value={80}>BHYT chi trả 80% (Đối tượng tham gia thông thường)</option>
-                 <option value={0}>0% - Viện phí tự chi trả / Ngoài danh mục BHYT</option>
-               </select>
-             </label>
-           </div>
+  const inBhytRows = processedLines.filter(l => l.isCovered);
+  const outBhytRows = processedLines.filter(l => !l.isCovered);
 
-           {patientBhyt.hasInsurance ? (
-            <div style={{ marginTop: '12px', padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', fontSize: '12px', color: '#166534', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-              <div>
-                <b>Thẻ BHYT: {patientBhyt.code}</b> · Nhóm <b>{patientBhyt.groupCode}</b> ({patientBhyt.groupName}) {patientBhyt.provinceName ? `· Tỉnh/TP cấp: ${patientBhyt.provinceName}` : ''}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+  const gross = processedLines.reduce((s, l) => s + l.lineGross, 0);
+  const insuranceCoveredAmount = processedLines.reduce((s, l) => s + l.lineBHYT, 0);
+  const patientCopayAmount = processedLines.reduce((s, l) => s + l.lineCopay, 0);
+  const patientOutOfPocketAmount = processedLines.reduce((s, l) => s + l.lineOutOfPocket, 0);
+  const totalPatientDue = patientCopayAmount + patientOutOfPocketAmount;
+  const advance = patientId ? availableAdvance(patientId, episodeId) : 0;
+  const balance = totalPatientDue - advance;
+
+  return (
+    <div className="his-cashier-desk">
+      {/* HEADER BÀN THU NGÂN VIỆN PHÍ */}
+      <div className="his-cashier-header">
+        <div className="his-header-title">
+          <Receipt size={22} className="his-header-icon" />
+          <div>
+            <h2 style={{ fontSize: 16, margin: 0, fontWeight: 750 }}>Thu ngân viện phí · Bảng kê Mẫu 01/BV</h2>
+            <p className="his-header-sub" style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>
+              Quyết định 130/QĐ-BYT · Tách bạch tự động Quỹ BHYT & Người bệnh chi trả
+            </p>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button
+            type="button"
+            className="secondary no-print his-btn-sm"
+            onClick={() => setShowAuditor(prev => !prev)}
+            title="Xem bảng minh bạch căn cứ pháp lý giám định BHYT theo QĐ 130 và TT 20/2022"
+            style={{
+              background: showAuditor ? '#0f766e' : '#f8fafc',
+              color: showAuditor ? '#ffffff' : '#0f766e',
+              borderColor: '#0d9488',
+              fontWeight: 600,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5
+            }}
+          >
+            <Shield size={13} /> {showAuditor ? 'Đóng căn cứ (F10)' : 'Căn cứ BHYT (F10)'}
+          </button>
+          <button type="button" className="secondary no-print his-btn-sm" onClick={() => setShowPrintPreview(true)} title="In bảng kê chi phí A4 chuẩn cho người bệnh ký">
+            <Printer size={14} /> In Mẫu 01/BV (F12)
+          </button>
+        </div>
+      </div>
+
+      <form onSubmit={async e => {
+        e.preventDefault();
+        if (saving) return;
+        setSaving(true);
+        try {
+          const payload = {
+            patient: patientId,
+            episodeId,
+            insurance: insuranceCoveredAmount,
+            lines: processedLines.map(l => ({
+              category: l.category,
+              description: l.description,
+              quantity: l.quantity,
+              price: l.price,
+              insuranceCovered: l.isCovered,
+              inBhyt: l.isCovered,
+              nonBhytReason: l.nonBhytReason
+            })),
+            gross,
+            advance,
+            balance
+          };
+          setError((await onSave(payload)) || '');
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setSaving(false);
+        }
+      }} className="his-form-body">
+        
+        {/* THANH THÔNG TIN BỆNH NHÂN & THẺ BHYT (CHUẨN VIETTEL HIS) */}
+        <div className="his-cashier-patient-ribbon">
+          <div className="his-ribbon-row-1">
+            <label className="his-ribbon-field">
+              <span>Họ tên người bệnh *</span>
+              <select required value={patientId} onChange={e => setPatientId(e.target.value)} className="his-select-sm">
+                {patients.map(p => (
+                  <option key={p.id} value={p.id}>{p.name} · {p.id}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="his-ribbon-field">
+              <span>Lượt khám / Đợt điều trị *</span>
+              <EpisodeField patientId={patientId} value={episodeId} onChange={setEpisodeId} />
+            </label>
+
+            <label className="his-ribbon-field">
+              <span>Mức hưởng BHYT áp dụng *</span>
+              <select
+                value={insuranceRate}
+                onChange={e => setInsuranceRate(Number(e.target.value))}
+                className="his-select-sm"
+              >
+                {BHYT_RATE_OPTIONS.map(opt => (
+                  <option key={opt.rate} value={opt.rate}>{opt.label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="his-ribbon-row-2">
+            {patientBhyt.hasInsurance ? (
+              <div className="his-bhyt-chip-bar">
+                <span className="his-bhyt-chip-item"><b>Thẻ BHYT:</b> {patientBhyt.code}</span>
+                <span className="his-bhyt-chip-item"><b>Nhóm:</b> {patientBhyt.groupCode} ({patientBhyt.groupName})</span>
                 <span className={`badge ${patientBhyt.benefitBadgeClass}`}>{patientBhyt.benefitBadge}</span>
                 <span className="badge teal">Đúng tuyến KCB</span>
-                <small style={{ fontWeight: 600 }}>Cùng chi trả: {patientBhyt.copayRate}%</small>
+                <span className="his-bhyt-chip-item"><b>Cùng chi trả:</b> {patientBhyt.copayRate}%</span>
               </div>
+            ) : (
+              <div className="his-bhyt-chip-bar his-selfpay-bar">
+                <span><b>Đối tượng:</b> Khám tự nguyện / Viện phí 100% (Không thẻ BHYT)</span>
+                <span className="badge gray">Viện phí 100%</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* BẢNG MINH BẠCH CĂN CỨ PHÁP LÝ BHYT (F10) */}
+        {showAuditor && (
+          <div className="his-auditor-panel" style={{
+            background: '#f0fdfa',
+            border: '1px solid #99f6e4',
+            borderRadius: '6px',
+            padding: '12px 16px',
+            marginBottom: '12px',
+            fontSize: '11.5px',
+            color: '#134e4a',
+            lineHeight: '1.6'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px solid #ccfbf1', paddingBottom: '6px' }}>
+              <b style={{ fontSize: '12.5px', color: '#0f766e', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <ShieldCheck size={16} /> BẢNG MINH BẠCH CĂN CỨ PHÁP LÝ GIÁM ĐỊNH BHYT (QUYẾT ĐỊNH 130 & TT 20/2022/TT-BYT)
+              </b>
+              <span style={{ fontSize: '10px', background: '#ccfbf1', color: '#0f766e', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                BẢO VỆ PHÁP LÝ · 100% TỰ ĐỘNG
+              </span>
             </div>
-          ) : (
-            <div style={{ marginTop: '12px', padding: '10px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '12px', color: '#475569', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div>
-                <b>Đối tượng: Viện phí (Khám tự chi trả 100%)</b>
-                <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#64748b' }}>Người bệnh không xuất trình thẻ BHYT hợp lệ. Toàn bộ chi phí tính theo biểu giá dịch vụ niêm yết.</p>
+                <p style={{ margin: '0 0 4px', fontWeight: 600, color: '#047857' }}>✓ PHẠM VI THANH TOÁN QUỸ BHYT ({insuranceRate}%):</p>
+                <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                  <li>Dịch vụ kỹ thuật, Khám bệnh, CĐHA: Thuộc Danh mục BHYT theo giá phê duyệt CSDL SQL Server (QĐ 130/QĐ-BYT).</li>
+                  <li>Thuốc thiết yếu (Amoxicillin, Kháng sinh, Paracetamol đơn chất): Đúng danh mục TT 20/2022/TT-BYT.</li>
+                  <li>Quỹ BHYT chi trả: <b>{currency(insuranceCoveredAmount)}</b> ({insuranceRate}%) · Bệnh nhân cùng chi trả: <b>{currency(patientCopayAmount)}</b> ({100 - insuranceRate}%).</li>
+                </ul>
               </div>
-              <span className="badge gray">Viện phí 100%</span>
+              <div>
+                <p style={{ margin: '0 0 4px', fontWeight: 600, color: '#b91c1c' }}>✗ NGOÀI DANH MỤC / TỰ TÚC 100% (NGHIÊM CẤM QUYẾT TOÁN BHYT):</p>
+                <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                  <li>Thuốc phối hợp chứa Caffeine (Panadol Extra 500mg/65mg): <b>Khóa cứng BHYT = 0%</b> theo Điều khoản loại trừ TT 20/2022/TT-BYT.</li>
+                  <li>Ngăn chặn tuyệt đối hành vi gian lận bảo hiểm y tế theo <b>Điều 215 Bộ luật Hình sự</b>.</li>
+                  <li>Người bệnh tự chi trả 100%: <b>{currency(patientOutOfPocketAmount)}</b>.</li>
+                </ul>
+              </div>
             </div>
-          )}
-         </div>
-       </div>
+          </div>
+        )}
 
-       {/* PHẦN 2: BẢNG KÊ CHI TIẾT 8 NHÓM CHI PHÍ */}
-       <div className="his-card">
-         <div className="his-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-             <ClipboardList size={16} />
-             <span>2. Bảng kê chi tiết chi phí theo 8 nhóm dịch vụ Bộ Y tế</span>
-           </div>
-           <div style={{ display: 'flex', gap: 8 }}>
-             <select
-               aria-label="Thêm nhanh từ danh mục"
-               value=""
-               onChange={e => {
-                 const s = services.find(x => x.id === e.target.value);
-                 if (s) {
-                   setLines(prev => [
-                     ...prev,
-                     { category: '2. Xét nghiệm', description: s.name, quantity: 1, price: s.price, insuranceCovered: true }
-                   ]);
-                 }
-               }}
-               className="his-select"
-               style={{ width: 'auto', fontSize: 11 }}
-             >
-               <option value="">+ Thêm nhanh từ danh mục dịch vụ...</option>
-               {services.filter(s => s.status === 'Đang hoạt động').map(s => (
-                 <option key={s.id} value={s.id}>{s.name} ({currency(s.price)})</option>
-               ))}
-             </select>
-             <button type="button" className="secondary his-btn-sm" onClick={addLine}>
-               <Plus size={14} /> Thêm dòng chi phí
-             </button>
-           </div>
-         </div>
+        {/* BẢNG KÊ CHI TIẾT CHI PHÍ (AUDITED DATAGRID) */}
+        <div className="his-table-card">
+          <div className="his-table-toolbar">
+            <div className="his-table-toolbar-left">
+              <ClipboardList size={15} style={{ color: '#0f766e' }} />
+              <span>Bảng kê chi tiết chi phí ({lines.length} mục)</span>
+            </div>
+            <div className="his-table-toolbar-right">
+              {/* Thêm nhanh DV kỹ thuật / CLS */}
+              <select
+                aria-label="Thêm nhanh từ danh mục dịch vụ"
+                value=""
+                onChange={e => {
+                  const s = services.find(x => x.id === e.target.value);
+                  if (s) {
+                    const el = isBhytEligibleItem(s.name);
+                    const isCovered = el.eligible && s.inBhyt !== false;
+                    setLines(prev => [
+                      ...prev,
+                      {
+                        category: s.kind === 'Chẩn đoán hình ảnh' ? '3. Chẩn đoán hình ảnh' : '2. Xét nghiệm',
+                        description: s.name,
+                        quantity: 1,
+                        price: Number(s.price || 0),
+                        insuranceCovered: isCovered,
+                        inBhyt: isCovered,
+                        nonBhytReason: !isCovered ? el.reason : undefined
+                      }
+                    ]);
+                  }
+                }}
+                className="his-select-xs"
+              >
+                <option value="">+ Thêm DV kỹ thuật / CLS...</option>
+                {services.filter(s => s.status === 'Đang hoạt động').map(s => (
+                  <option key={s.id} value={s.id}>{s.name} ({currency(s.price)})</option>
+                ))}
+              </select>
 
-         <div className="his-card-body" style={{ padding: 0 }}>
-           <div className="table-scroll">
-             <table className="his-mini-table">
-               <thead>
-                 <tr>
-                   <th style={{ width: 180 }}>NHÓM CHI PHÍ (MẪU 01/BV)</th>
-                   <th>TÊN DỊCH VỤ / THUỐC / VẬT TƯ *</th>
-                   <th style={{ width: 70 }}>SL *</th>
-                   <th style={{ width: 110 }}>ĐƠN GIÁ (₫)</th>
-                   <th style={{ width: 90 }}>BHYT (%)</th>
-                   <th style={{ width: 110 }}>BHYT TRẢ (₫)</th>
-                   <th style={{ width: 110 }}>BỆNH NHÂN TRẢ (₫)</th>
-                   <th style={{ width: 40 }}></th>
-                 </tr>
-               </thead>
-               <tbody>
-                 {lines.map((l, idx) => {
-                   const lineGross = (Number(l.quantity) || 0) * (Number(l.price) || 0);
-                   const lineBHYT = l.insuranceCovered && insuranceRate > 0 ? Math.round((lineGross * insuranceRate) / 100) : 0;
-                   const linePatient = lineGross - lineBHYT;
-                   return (
-                     <tr key={idx}>
-                       <td>
-                         <select
-                           value={l.category}
-                           onChange={e => changeLine(idx, 'category', e.target.value)}
-                           className="his-select his-table-select"
-                         >
-                           {COST_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
-                         </select>
-                       </td>
-                       <td>
-                         <input
-                           required
-                           value={l.description}
-                           onChange={e => changeLine(idx, 'description', e.target.value)}
-                           className="his-input his-table-input"
-                         />
-                       </td>
-                       <td>
-                         <input
-                           type="number"
-                           required
-                           min="1"
-                           step="1"
-                           value={l.quantity}
-                           onChange={e => changeLine(idx, 'quantity', e.target.value)}
-                           className="his-input his-table-input"
-                         />
-                       </td>
-                       <td>
-                         <input
-                           type="number"
-                           required
-                           min="0"
-                           step="1"
-                           value={l.price}
-                           onChange={e => changeLine(idx, 'price', e.target.value)}
-                           className="his-input his-table-input"
-                         />
-                       </td>
-                       <td>
-                         <input
-                           type="checkbox"
-                           checked={!!l.insuranceCovered}
-                           onChange={e => changeLine(idx, 'insuranceCovered', e.target.checked)}
-                           title="Thuộc phạm vi BHYT thanh toán"
-                         />
-                         <span style={{ fontSize: 11, marginLeft: 4 }}>{l.insuranceCovered ? `${insuranceRate}%` : '0%'}</span>
-                       </td>
-                       <td style={{ color: '#047857', fontWeight: 600 }}>{lineBHYT.toLocaleString('vi-VN')}</td>
-                       <td style={{ color: '#b45309', fontWeight: 600 }}>{linePatient.toLocaleString('vi-VN')}</td>
-                       <td>
-                         <button
-                           type="button"
-                           className="icon-button"
-                           disabled={lines.length === 1}
-                           onClick={() => removeLine(idx)}
-                         >
-                           <Trash2 size={15} />
-                         </button>
-                       </td>
-                     </tr>
-                   );
-                 })}
-               </tbody>
-             </table>
-           </div>
-         </div>
-       </div>
+              {/* Thêm nhanh thuốc từ kho dược */}
+              <select
+                aria-label="Thêm thuốc từ kho dược"
+                value=""
+                onChange={e => {
+                  const m = stock.find(x => x.id === e.target.value);
+                  if (m) {
+                    const el = isBhytEligibleItem(m.name);
+                    const isPanadolExtra = /panadol extra|caffeine/i.test(m.name);
+                    const isCovered = !isPanadolExtra && el.eligible && (m.insurancePrice > 0 || m.coBHYT === 1 || m.giaBHYT > 0 || /paracetamol|augmentin|zinnat|nexium|ceftriaxone|berberin/i.test(m.name) || m.inBhyt !== false);
+                    setLines(prev => [
+                      ...prev,
+                      {
+                        category: '5. Thuốc & Dịch truyền',
+                        description: m.name,
+                        quantity: 1,
+                        price: Number(m.price || m.cost || 2000),
+                        insuranceCovered: isCovered,
+                        inBhyt: isCovered,
+                        nonBhytReason: isPanadolExtra ? 'Thuốc phối hợp chứa Caffeine không thuộc danh mục TT 20/2022/TT-BYT (Nghiêm cấm quyết toán BHYT)' : (!isCovered ? (el.reason || 'Ngoài danh mục thuốc BHYT') : undefined)
+                      }
+                    ]);
+                  }
+                }}
+                className="his-select-xs"
+              >
+                <option value="">+ Thêm thuốc từ kho dược...</option>
+                {stock.filter(s => !s.locked).map(m => (
+                  <option key={m.id} value={m.id}>{m.name} ({currency(m.price || m.cost)})</option>
+                ))}
+              </select>
+            </div>
+          </div>
 
-       {/* PHẦN 3: TỔNG HỢP TÀI CHÍNH & CÂN ĐỐI VIỆN PHÍ (VIETTEL HIS) */}
-       <div className="his-card his-settlement-summary-card">
-         <div className="his-card-header"><Wallet size={16} /><span>3. Tổng hợp chi phí & Cân đối Viện phí (Chuẩn Viettel HIS)</span></div>
-         <div className="his-card-body">
-           <div className="his-summary-grid">
-             <div className="his-sum-box">
-               <span>(1) Tổng chi phí KCB phát sinh:</span>
-               <strong>{currency(gross)}</strong>
-             </div>
-             <div className="his-sum-box">
-               <span>(2) Quỹ BHYT chi trả ({insuranceRate}%):</span>
-               <strong style={{ color: '#047857' }}>{currency(insuranceCoveredAmount)}</strong>
-             </div>
-             <div className="his-sum-box">
-               <span>(3) Người bệnh cùng chi trả BHYT:</span>
-               <strong>{currency(patientCopayAmount)}</strong>
-             </div>
-             <div className="his-sum-box">
-               <span>(4) Chi phí ngoài danh mục BHYT:</span>
-               <strong>{currency(patientOutOfPocketAmount)}</strong>
-             </div>
-             <div className="his-sum-box his-sum-highlight">
-               <span>(5) Tổng BN phải thanh toán ((3) + (4)):</span>
-               <strong style={{ color: '#1d4ed8' }}>{currency(totalPatientDue)}</strong>
-             </div>
-             <div className="his-sum-box">
-               <span>(6) Tiền tạm ứng đã nộp trước:</span>
-               <strong>{currency(advance)}</strong>
-             </div>
-           </div>
+          <div className="table-scroll">
+            <table className="his-audited-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 135 }}>NHÓM CHI PHÍ</th>
+                  <th>TÊN DỊCH VỤ / THUỐC / VẬT TƯ</th>
+                  <th style={{ width: 60, textAlign: 'center' }}>SL</th>
+                  <th style={{ width: 95, textAlign: 'right' }}>ĐƠN GIÁ (₫)</th>
+                  <th style={{ width: 90, textAlign: 'center' }}>MỨC HƯỞNG</th>
+                  <th style={{ width: 110, textAlign: 'right' }}>QUỸ BHYT (₫)</th>
+                  <th style={{ width: 115, textAlign: 'right' }}>BN TRẢ (₫)</th>
+                  <th style={{ width: 36, textAlign: 'center' }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* MỤC I: CHI PHÍ TRONG PHẠM VI BHYT */}
+                {inBhytRows.length > 0 && (
+                  <>
+                    <tr className="his-section-divider-row his-section-in-bhyt">
+                      <td colSpan={8}>
+                        I. CHI PHÍ TRONG PHẠM VI QUỸ BHYT THANH TOÁN (Mức hưởng {insuranceRate}%)
+                      </td>
+                    </tr>
+                    {inBhytRows.map(l => (
+                      <tr key={'in_' + l.idx}>
+                        <td>
+                          <span className="his-cat-badge">{l.category}</span>
+                        </td>
+                        <td>
+                          <div><b>{l.description}</b></div>
+                          <span className="his-tag-bhyt-ok"><Check size={10} /> Trong DM BHYT</span>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={l.quantity}
+                            onChange={e => changeLine(l.idx, 'quantity', e.target.value)}
+                            className="his-input-qty"
+                          />
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: 600 }}>
+                          {currency(l.price)}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="his-rate-active" title={`Quỹ BHYT chi trả tự động ${insuranceRate}% theo quyền lợi thẻ`}>
+                            {insuranceRate}%
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right', color: '#047857', fontWeight: 700 }}>
+                          {currency(l.lineBHYT)}
+                        </td>
+                        <td style={{ textAlign: 'right', color: '#1e40af', fontWeight: 600 }}>
+                          {currency(l.lineCopay)}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            className="icon-button"
+                            disabled={lines.length === 1}
+                            onClick={() => removeLine(l.idx)}
+                            title="Xóa dòng này"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </>
+                )}
 
-           <div className={`his-net-balance-banner ${balance > 0 ? 'banner-collect' : balance < 0 ? 'banner-refund' : 'banner-balanced'}`}>
-             <div>
-               <span>KẾT QUẢ QUYẾT TOÁN VIỆN PHÍ:</span>
-               <h3>
-                 {balance > 0
-                   ? `BỆNH NHÂN CẦN NỘP THÊM: ${currency(balance)}`
-                   : balance < 0
-                   ? `BỆNH VIỆN HOÀN TRẢ LẠI TIỀN THỪA: ${currency(Math.abs(balance))}`
-                   : 'ĐÃ THANH TOÁN ĐỦ (CÂN BẰNG TÀI CHÍNH)'}
-               </h3>
-             </div>
-             <span className="badge teal">Theo Mẫu 01/BV Bộ Y Tế</span>
-           </div>
-         </div>
-       </div>
+                {/* MỤC II: CHI PHÍ NGOÀI DANH MỤC BHYT */}
+                {outBhytRows.length > 0 && (
+                  <>
+                    <tr className="his-section-divider-row his-section-out-bhyt">
+                      <td colSpan={8}>
+                        II. CHI PHÍ NGOÀI DANH MỤC BHYT THANH TOÁN (Người bệnh tự chi trả 100%)
+                      </td>
+                    </tr>
+                    {outBhytRows.map(l => (
+                      <tr key={'out_' + l.idx} style={{ background: '#fffdf7' }}>
+                        <td>
+                          <span className="his-cat-badge">{l.category}</span>
+                        </td>
+                        <td>
+                          <div><b>{l.description}</b></div>
+                          {!l.isEligible ? (
+                            <span className="his-tag-bhyt-forbidden" title={l.nonBhytReason}>
+                              <Lock size={10} /> Ngoài DM BHYT
+                            </span>
+                          ) : (
+                            <span className="his-tag-bhyt-selfpay" title="Dịch vụ/thuốc thuộc danh mục BHYT nhưng người bệnh tự chi trả">
+                              <ShieldAlert size={10} /> {insuranceRate === 0 ? 'Khám tự nguyện' : (l.nonBhytReason || 'Tự chi trả')}
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={l.quantity}
+                            onChange={e => changeLine(l.idx, 'quantity', e.target.value)}
+                            className="his-input-qty"
+                          />
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: 600 }}>
+                          {currency(l.price)}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="his-rate-locked" title={!l.isEligible ? "Ngoài danh mục BHYT - Người bệnh tự chi trả 100%" : "Khám tự nguyện / Ngoài BHYT"}>
+                            0%
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right', color: '#94a3b8', fontWeight: 600 }}>
+                          0 ₫
+                        </td>
+                        <td style={{ textAlign: 'right', color: '#b45309', fontWeight: 700 }}>
+                          {currency(l.lineOutOfPocket)}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            className="icon-button"
+                            disabled={lines.length === 1}
+                            onClick={() => removeLine(l.idx)}
+                            title="Xóa dòng này"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-       {error && <p className="form-error" role="alert">{error}</p>}
+        {/* THANH TỔNG HỢP CHI PHÍ & THANH TOÁN VIỆN PHÍ (STICKY BOTTOM BAR CHUẨN HIS) */}
+        <div className="his-cashier-summary-bar">
+          <div className="his-summary-metrics">
+            <div className="his-metric-item">
+              <span className="his-metric-label">Tổng viện phí</span>
+              <strong className="his-metric-value">{currency(gross)}</strong>
+            </div>
+            <div className="his-metric-item">
+              <span className="his-metric-label">Quỹ BHYT ({insuranceRate}%)</span>
+              <strong className="his-metric-value text-green">{currency(insuranceCoveredAmount)}</strong>
+            </div>
+            <div className="his-metric-item">
+              <span className="his-metric-label">Cùng chi trả</span>
+              <strong className="his-metric-value">{currency(patientCopayAmount)}</strong>
+            </div>
+            <div className="his-metric-item">
+              <span className="his-metric-label">Ngoài BHYT</span>
+              <strong className="his-metric-value text-amber">{currency(patientOutOfPocketAmount)}</strong>
+            </div>
+            {advance > 0 && (
+              <div className="his-metric-item">
+                <span className="his-metric-label">Tạm ứng</span>
+                <strong className="his-metric-value">{currency(advance)}</strong>
+              </div>
+            )}
+            <div className="his-metric-item his-metric-highlight">
+              <span className="his-metric-label">
+                {balance > 0 ? 'BN CẦN NỘP THÊM' : balance < 0 ? 'HOÀN TRẢ LẠI BN' : 'ĐÃ ĐỦ TIỀN'}
+              </span>
+              <strong className="his-metric-value-huge">
+                {currency(Math.abs(balance))}
+              </strong>
+            </div>
+          </div>
 
-       <div className="his-action-toolbar">
-         <button type="submit" className="primary his-submit-btn" disabled={saving}>
-           {saving ? 'Đang lưu vào SQL Server...' : <><Check size={18} /> Lưu Bảng Kê Quyết Toán 01/BV</>}
-         </button>
-       </div>
-     </form>
-   </div>
- );
+          <div className="his-summary-actions">
+            <button
+              id="his-settle-submit-btn"
+              type="submit"
+              className="primary his-btn-pay"
+              disabled={saving}
+              title="Phím tắt: F4"
+            >
+              <Check size={16} /> {saving ? 'Đang lưu...' : `Xác nhận thu tiền (F4)`}
+            </button>
+          </div>
+        </div>
+
+        {error && <p className="form-error" role="alert">{error}</p>}
+      </form>
+
+      {/* MODAL XEM TRƯỚC VÀ IN MẪU 01/BV A4 CHUẨN BỘ Y TẾ */}
+      {showPrintPreview && (
+        <div className="his-modal-overlay" onClick={() => setShowPrintPreview(false)}>
+          <div className="his-modal-card" onClick={e => e.stopPropagation()}>
+            <div className="his-modal-header no-print">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Printer size={18} style={{ color: '#0f766e' }} />
+                <b style={{ fontSize: 14 }}>Xem trước & In Bảng kê chi phí KCB (Mẫu 01/BV) chuẩn Bộ Y tế</b>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" className="primary his-btn-sm" onClick={() => window.print()}>
+                  <Printer size={14} /> In A4 Ngay
+                </button>
+                <button type="button" className="icon-button" onClick={() => setShowPrintPreview(false)}>
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            <div className="his-modal-body">
+              <MedicalBillPaperForm
+                row={{
+                  id: episodeId || uid('TT'),
+                  patient: patientId,
+                  patientName: currentPatient?.name,
+                  insuranceCard: currentPatient?.insurance,
+                  lines: processedLines.map(l => ({
+                    name: l.description,
+                    category: l.category,
+                    qty: l.quantity,
+                    price: l.price,
+                    inBhyt: l.isCovered,
+                    insuranceCovered: l.isCovered,
+                    bhytRate: l.isCovered ? insuranceRate : 0,
+                    nonBhytReason: l.nonBhytReason
+                  })),
+                  gross,
+                  insurance: insuranceCoveredAmount,
+                  advance,
+                  balance
+                }}
+                patient={currentPatient}
+                cashierStaff={db.staff?.find(s => s.role === 'cashier') || { name: 'Thu ngân MediCare' }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
