@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Plus, Trash2, Printer, Check, Sparkles, Activity, AlertTriangle, ArrowRight, CheckCircle2, Clock, User, Building2, Stethoscope, FileText, Camera } from 'lucide-react';
-import { useWorkspace, transact } from './workspace';
+import { useWorkspace, transact, syncWithSqlServer } from './workspace';
 import { actorRoles, canAction } from './roles';
 import { hisApi } from './api';
 import { parseBhytCard } from './bhyt-utils';
@@ -255,7 +255,15 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
       });
       setEditing(null);
       if (kind === 'publish') {
-        notify(`Đã ký duyệt & phát hành kết quả ${targetRow.id}! Kết quả đã gửi liên thông về Bàn khám Bác sĩ.`);
+        if (targetRow.episodeId) {
+          try {
+            await hisApi.dispatchVisit(targetRow.episodeId, 'DA_CO_KET_QUA', `Đã có KQ CLS (${targetRow.id})`);
+            await syncWithSqlServer();
+          } catch (dispErr) {
+            console.warn('Auto dispatch visit error:', dispErr);
+          }
+        }
+        notify(`Đã ký duyệt & phát hành kết quả ${targetRow.id}! Đã chuyển bệnh nhân quay lại hàng chờ Bác sĩ với trạng thái 'Đã có kết quả'.`);
       } else if (kind === 'accept') {
         notify(`Đã tiếp nhận bệnh nhân ${patientObj.name} vào phòng thực hiện CLS.`);
       } else {

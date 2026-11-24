@@ -15,6 +15,7 @@ export default function Inventory({ role = 'admin', notify, clinicalContext }) {
   const [db] = useWorkspace('business');
   const [ledger] = useWorkspace('ledger');
   const [patients] = useWorkspace('patients');
+  const [visits] = useWorkspace('visits');
 
   const [warehouse, setWarehouse] = useState('all');
   const [manufacturer, setManufacturer] = useState('all');
@@ -179,7 +180,15 @@ export default function Inventory({ role = 'admin', notify, clinicalContext }) {
       } catch (sqlErr) {
         console.warn('SQL dispense sync warning (authoritative workspace updated):', sqlErr.message);
       }
-      notify(`Đã cấp phát thành công đơn thuốc ${rx.id} cho người bệnh và trừ kho FEFO!`);
+      if (rx.episodeId) {
+        try {
+          await hisApi.dispatchVisit(rx.episodeId, 'HOAN_TAT_KHAM', `Hoàn tất phát thuốc (${rx.id})`);
+          await syncWithSqlServer();
+        } catch (dispErr) {
+          console.warn('Dispatch visit completion error:', dispErr);
+        }
+      }
+      notify(`Đã cấp phát thành công đơn thuốc ${rx.id} cho người bệnh và trừ kho FEFO! Lượt khám đã hoàn tất.`);
       setActiveRx(null);
     } catch (err) {
       setError(err.message || 'Lỗi khi cấp phát đơn thuốc.');
@@ -577,9 +586,20 @@ export default function Inventory({ role = 'admin', notify, clinicalContext }) {
                     return (
                       <tr key={rx.id}>
                         <td>
-                          <b>{rx.id}</b>
-                          <small>{rx.createdAt ? new Date(rx.createdAt).toLocaleString('vi-VN') : '—'}</small>
-                          {rx.episodeId && <small style={{ color: '#0284c7' }}>Mã HS: {rx.episodeId}</small>}
+                          {(() => {
+                            const v = (visits || []).find(x => x.id === rx.episodeId);
+                            return (
+                              <>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  {v?.queueNumber && <span className="badge teal" style={{ fontSize: '10px', padding: '1px 5px' }}>#{v.queueNumber}</span>}
+                                  <b>{rx.id}</b>
+                                </div>
+                                <small>{rx.createdAt ? new Date(rx.createdAt).toLocaleString('vi-VN') : '—'}</small>
+                                {rx.episodeId && <small style={{ color: '#0284c7' }}>Mã HS: {rx.episodeId}</small>}
+                                {v?.status === 'Chờ phát thuốc' && <span className="badge amber" style={{ fontSize: '9px', marginTop: 2, display: 'inline-block' }}>⚡ Đã nộp tiền</span>}
+                              </>
+                            );
+                          })()}
                         </td>
                         <td>
                           <b>{p.name}</b>

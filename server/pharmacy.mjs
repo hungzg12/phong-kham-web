@@ -104,7 +104,9 @@ export async function pharmacyAction(d){
    UPDATE dbo.ChiTietDonThuoc SET soLuongDaCap=soLuongKe,trangThai='DA_CAP_DU' WHERE maChiTietDon=@rxline;
    FETCH NEXT FROM rx INTO @rxline,@item,@needed,@unit;
   END CLOSE rx;DEALLOCATE rx;
-  UPDATE dbo.DonThuoc SET trangThaiCapPhat='DA_CAP_DU' WHERE maDon=@id;`;
+  UPDATE dbo.DonThuoc SET trangThaiCapPhat='DA_CAP_DU' WHERE maDon=@id;
+  IF @visit IS NOT NULL
+   UPDATE dbo.LuotKham SET trangThai='HOAN_TAT_KHAM',thoiDiemKetThuc=SYSDATETIME() WHERE maLuotKham=@visit;`;
  }else if(d.action==='saveWarehouse'){
   const types={'Kho tổng':'KHO_TONG','Kho lẻ ngoại trú':'KHO_LE_NGOAI_TRU','Kho nội trú':'KHO_NOI_TRU','Tủ trực khoa':'TU_TRUC_KHOA'};
   if(!text(d.name,100)||!types[d.kind]||!text(d.location,100)||!text(d.manager,20))fail(400,'Điền đủ tên, loại kho, người phụ trách và vị trí.');
