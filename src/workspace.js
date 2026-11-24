@@ -181,6 +181,7 @@ export async function syncWithSqlServer(){
         doctorStaffId:q.doctorStaffId,
         status:q.status,
         queueNumber:q.queueNumber,
+        queueTag:q.queueTag,
         room:q.room,
         roomCode:q.roomCode,
         reason:q.reason,
@@ -404,7 +405,7 @@ export function syncLatestPatient(d,patientId){
   const p=d.patients.find(x=>x.id===patientId);
   const latest=d.visits.filter(v=>v.patientId===patientId).sort((a,b)=>(b.date+'T'+b.time+b.createdAt).localeCompare(a.date+'T'+a.time+a.createdAt)||(Number(b.queueNumber)||0)-(Number(a.queueNumber)||0))[0];
   if(p&&latest){
-    Object.assign(p,{dept:latest.department,doctor:latest.doctor,time:latest.time,status:latest.status});
+    Object.assign(p,{dept:latest.department,doctor:latest.doctor,time:latest.time,status:latest.status,queueNumber:latest.queueNumber,queueTag:latest.queueTag});
     if(latest.note&&latest.locked) d.notes[patientId]=latest.note;else delete d.notes[patientId];
   }
 }

@@ -326,7 +326,7 @@ CREATE TABLE dbo.LuotKham (
     ngayKham AS CAST(thoiDiemCapSo AS DATE) PERSISTED,
     soThuTu INT NOT NULL CHECK (soThuTu > 0),
     lyDoKham NVARCHAR(255) NOT NULL,
-    trangThai VARCHAR(30) NOT NULL DEFAULT ''CHO_KHAM'' CHECK (trangThai IN (''CHO_KHAM'', ''DANG_KHAM'', ''CHO_KET_QUA_CLS'', ''HOAN_TAT_KHAM'', ''DA_HUY'')),
+    trangThai VARCHAR(30) NOT NULL DEFAULT ''CHO_KHAM'' CHECK (trangThai IN (''CHO_KHAM'', ''DANG_KHAM'', ''CHO_KET_QUA_CLS'', ''DA_CO_KET_QUA'', ''CHO_THANH_TOAN'', ''CHO_PHAT_THUOC'', ''CHO_NHAP_VIEN'', ''TAM_HOAN'', ''HOAN_TAT_KHAM'', ''DA_HUY'')),
     thoiDiemKetThuc DATETIME2(0) NULL,
     CONSTRAINT CK_LuotKham_ThoiDiem CHECK (thoiDiemKetThuc IS NULL OR thoiDiemKetThuc >= thoiDiemDangKy)
 );';

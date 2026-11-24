@@ -2,7 +2,7 @@ import PatientPortal from './PatientPortal';
 import {hisApi} from './api';
 import {syncWithSqlServer} from './workspace';
 import React,{useState,useEffect,useRef} from 'react';
-import {Plus,Search,Download,Eye,Pencil,X,Check,ArrowRight,FileText,Trash2,Printer,Shield,ShieldCheck,ShieldAlert,Lock,AlertCircle,Activity,ClipboardList,Wallet,ChevronLeft,ChevronRight,HeartPulse,Pill,FileSpreadsheet,Receipt} from 'lucide-react';
+import {Plus,Search,Download,Eye,Pencil,X,Check,ArrowRight,FileText,Trash2,Printer,Shield,ShieldCheck,ShieldAlert,Lock,AlertCircle,Activity,ClipboardList,Wallet,ChevronLeft,ChevronRight,HeartPulse,Pill,FileSpreadsheet,Receipt,Volume2,Play,RotateCcw} from 'lucide-react';
 import {definitions,pageGroups,extraTitles,permissionNames,specialLabels,today} from './business-data';
 import './business.css';
 import {useWorkspace,getWorkspace,episodeOptions,applyClinicalStock,approveInventoryRow,dischargeAdmission,financialRows} from './workspace';
@@ -161,23 +161,52 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
  
  const renderTable=()=>{
   const pendingSettlementVisits=(visits||[]).filter(v=>v.status==='Chờ thanh toán');
+
+  const handleCallNextCashier = () => {
+    if (!pendingSettlementVisits.length) {
+      notify('Hàng đợi hiện không có người bệnh nào đang chờ thanh toán.');
+      return;
+    }
+    const target = pendingSettlementVisits[0];
+    const p = patients.find(x => x.id === target.patientId);
+    notify(`🔊 Đang gọi STT ${target.queueTag || '#' + target.queueNumber}: Người bệnh ${p?.name || target.patientId} vào Quầy Thu ngân Viện phí thanh toán!`);
+    setDialog({type: 'settlement', scope: {patientId: target.patientId, episodeId: target.id}});
+  };
   const baseColumns=tab==='settlements'?['patient','gross','insurance','advance','balance','status']:def.columns;
   const columns=episodeTab?[...baseColumns.filter(k=>k!=='status'),'episodeId','status']:baseColumns;
   return <section className="panel">
-  {tab==='settlements'&&pendingSettlementVisits.length>0&&(
-    <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:'8px',padding:'10px 14px',margin:'12px 16px 0',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'8px'}}>
-      <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-        <span className="badge amber" style={{fontSize:'12px',padding:'3px 8px',fontWeight:700}}>⚡ HÀNG ĐỢI THU TIỀN: {pendingSettlementVisits.length} ca</span>
-        <span style={{fontSize:'12.5px',color:'#1e40af'}}>Người bệnh vừa khám xong đang chờ thu ngân:</span>
+  {tab==='settlements'&&(
+    <div className="queue-dispatch-bar" style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:'10px',padding:'12px 16px',margin:'12px 16px 0',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'10px'}}>
+      <div style={{display:'flex',alignItems:'center',gap:'10px',flexWrap:'wrap'}}>
+        <div style={{display:'flex',alignItems:'center',gap:'6px',color:'#1e40af',fontWeight:700,fontSize:'13px'}}>
+          <Volume2 size={18} />
+          <span>Quầy Thu ngân Viện phí:</span>
+        </div>
+        <span className="badge amber" style={{fontSize:'12px',padding:'3px 8px',fontWeight:700}}>⚡ HÀNG ĐỢI: {pendingSettlementVisits.length} ca chờ thanh toán</span>
       </div>
-      <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
-        {pendingSettlementVisits.map(v=>{
-          const p=patients.find(x=>x.id===v.patientId);
-          return <button key={v.id} type="button" className="secondary" style={{fontSize:'12px',padding:'3px 8px',fontWeight:600,background:'#ffffff'}} onClick={()=>setDialog({type:'settlement',scope:{patientId:v.patientId,episodeId:v.id}})}>
-            {v.queueTag ? `${v.queueTag} · ` : v.queueNumber ? `#${v.queueNumber} · ` : ''}{p?.name || v.patientId} ({v.id})
-          </button>;
-        })}
+      <div style={{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}}>
+        <button
+          type="button"
+          className="primary"
+          style={{fontSize:'12.5px',padding:'6px 13px',display:'flex',alignItems:'center',gap:'6px',background:'#0284c7',color:'#fff',border:'none',borderRadius:'6px',fontWeight:600,cursor: pendingSettlementVisits.length ? 'pointer' : 'not-allowed', opacity: pendingSettlementVisits.length ? 1 : 0.6}}
+          onClick={handleCallNextCashier}
+          disabled={!pendingSettlementVisits.length}
+          title="Gọi người bệnh kế tiếp vào Quầy Thu ngân thanh toán viện phí / BHYT"
+        >
+          <Play size={14} fill="currentColor" /> Gọi số tiếp theo vào thu tiền
+        </button>
       </div>
+      {pendingSettlementVisits.length > 0 && (
+        <div style={{display:'flex',gap:'6px',flexWrap:'wrap',width:'100%',marginTop:'4px',paddingTop:'8px',borderTop:'1px dashed #bfdbfe'}}>
+          <span style={{fontSize:'12px',color:'#64748b',marginRight:'4px',alignSelf:'center'}}>Danh sách chờ:</span>
+          {pendingSettlementVisits.map(v=>{
+            const p=patients.find(x=>x.id===v.patientId);
+            return <button key={v.id} type="button" className="secondary" style={{fontSize:'12px',padding:'3px 8px',fontWeight:600,background:'#ffffff'}} onClick={()=>{notify(`🔊 Đang gọi STT ${v.queueTag || '#' + v.queueNumber}: Người bệnh ${p?.name || v.patientId} vào Quầy Thu ngân!`);setDialog({type:'settlement',scope:{patientId:v.patientId,episodeId:v.id}});}}>
+              {v.queueTag ? `${v.queueTag} · ` : v.queueNumber ? `#${v.queueNumber} · ` : ''}{p?.name || v.patientId} ({v.id})
+            </button>;
+          })}
+        </div>
+      )}
     </div>
   )}
   <div className="panel-heading"><div><h2>{def?.title||'Quyết toán viện phí'} <span className="count">{rows.length}</span></h2><p>{def?.description||'Lập chi phí, cấn trừ BHYT và tạm ứng; thu thêm, hoàn tiền hoặc xác nhận đủ tiền.'}</p></div>{editable&&<button className="primary" onClick={()=>setDialog({type:tab==='settlements'?'settlement':'form'})}><Plus size={16}/>Tạo {def?.singular||'quyết toán'}</button>}</div><div className="table-tools"><label className="search"><Search size={16}/><input aria-label="Tìm kiếm bản ghi" placeholder="Tìm mã, tên, nội dung..." value={search} onChange={e=>{setSearch(e.target.value);setIndex(0)}}/></label><select aria-label="Lọc trạng thái" value={status} onChange={e=>{setStatus(e.target.value);setIndex(0)}}>{['Tất cả',...new Set(rows.map(x=>x.status))].map(s=><option key={s}>{s}</option>)}</select><button className="secondary" onClick={()=>csvDownload(tab,['Mã',...columns.map(c=>label(c))],filtered.map(r=>[r.id,...columns.map(k=>display(k,r[k]))]))}><Download size={15}/>Xuất CSV</button></div><div className="table-scroll"><table><thead><tr><th>MÃ CHỨNG TỪ</th>{columns.map(k=><th key={k}>{label(k)}</th>)}<th>THAO TÁC</th></tr></thead><tbody>{filtered.slice(index*8,index*8+8).map(row=><tr key={row.id}><td><button className="record-link" onClick={()=>setDialog({type:'detail',row})}>{row.id}</button><small>{row.createdAt||'Đang cập nhật'}</small></td>{columns.map(k=><td key={k} className={['conclusion','description','reason','diagnosis'].includes(k)?'wrap-cell':''}>{k==='status'?<Tone value={row.status}/>:display(k,row[k])}</td>)}<td><div className="row-actions"><button className="icon-button" aria-label={'Chi tiết '+row.id} onClick={()=>setDialog({type:'detail',row})}><Eye size={16}/></button>{canEdit(role,tab)&&!['prescriptions','movements','counts'].includes(tab)&&!terminal.includes(row.status)&&!['Đã phát hành','Đã ghi sổ'].includes(row.status)&&tab!=='settlements'&&<button className="icon-button" aria-label={'Sửa '+row.id} onClick={()=>setDialog({type:'form',row})}><Pencil size={15}/>{tab==='accounts'&&isDoctorAccount(row,db)&&<span>Phân quyền</span>}</button>}{tab==='settlements'&&row.status==='Chờ quyết toán'?<button className="secondary" onClick={()=>setDialog({type:'settle',row})}>Quyết toán</button>:actions(row).slice(0,1).map(([title,action])=><button key={action} className="secondary" onClick={()=>setDialog({type:'action',row,action,title})}>{title}</button>)}</div></td></tr>)}</tbody></table></div>{!filtered.length&&<div className="business-empty"><ClipboardList size={33}/><h3>{search||status!=='Tất cả'?'Không tìm thấy bản ghi':'Chưa có '+(def?.singular||'quyết toán')}</h3><p>{search?'Thử thay đổi từ khóa hoặc bộ lọc.':'Nhấn nút tạo mới để bắt đầu ghi nhận thông tin.'}</p></div>}<div className="table-footer"><span>{filtered.length?index*8+1:0}–{Math.min(index*8+8,filtered.length)} / {filtered.length} bản ghi</span><div><button className="icon-button" disabled={index===0} onClick={()=>setIndex(index-1)} aria-label="Trang trước"><ChevronLeft size={16}/></button><span>Trang {index+1}</span><button className="icon-button" disabled={(index+1)*8>=filtered.length} onClick={()=>setIndex(index+1)} aria-label="Trang sau"><ChevronRight size={16}/></button></div></div></section>};
