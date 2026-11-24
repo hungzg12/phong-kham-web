@@ -1,5 +1,6 @@
+import {currentIdentity,granted} from './session.js';
 export const actorRoles={
- admin:{name:'Quản trị viên',person:'Hoàng Anh',username:'admin',initials:'HA',icon:'shield',description:'Quản lý toàn hệ thống, danh mục và người dùng',defaultPage:'overview',pages:['overview','history','appointments','patients','examination','clinical','inpatient','care','pharmacy','warehouse','finance','archive','devices','admin','portal'],home:'Tổng quan bệnh viện',color:'#106b60'},
+ admin:{name:'Quản trị viên',person:'Hoàng Anh',username:'admin',initials:'HA',icon:'shield',description:'Quản lý toàn hệ thống, danh mục và người dùng',defaultPage:'overview',pages:['overview','admin'],home:'Tổng quan bệnh viện',color:'#106b60'},
  receptionist:{name:'Tiếp tân',person:'Nguyễn Thu Trang',username:'tieptan',initials:'TT',staffId:'NV-QT01',description:'Đón tiếp, đăng ký khám và sắp xếp lịch hẹn',defaultPage:'appointments',pages:['overview','history','appointments','patients'],home:'Quầy tiếp đón',color:'#377eaa'},
  doctor:{name:'Bác sĩ',person:'Trần Minh Anh',username:'bacsi',initials:'MA',staffId:'NV-BS01',description:'Thăm khám, chỉ định, kê đơn và theo dõi điều trị',defaultPage:'examination',pages:['overview','history','examination','clinical','inpatient','care','archive'],tabs:{clinical:['labs'],care:['rounds'],archive:['archives','corrections']},home:'Bàn làm việc bác sĩ',color:'#467eaa'},
  nurse:{name:'Điều dưỡng',person:'Hoàng Thị Lan',username:'dieuduong',initials:'HL',staffId:'NV-DD01',description:'Theo dõi sinh hiệu, thực hiện y lệnh và phân buồng giường',defaultPage:'inpatient',pages:['overview','history','inpatient','care'],tabs:{care:['rounds']},home:'Bàn chăm sóc điều dưỡng',color:'#9172ae'},
@@ -11,6 +12,8 @@ export const actorRoles={
 export const actorIds=Object.keys(actorRoles);
 export function allowedTabs(role,page,fallback){return actorRoles[role]?.tabs?.[page]||fallback}
 export function canCreate(role,tab){
+ const keys={labs:'biz.labs:order',prescriptions:'biz.prescriptions:save',rounds:'biz.care:order',vitals:'biz.care:vitals',warehouses:'biz.pharmacy:warehouse',movements:'biz.pharmacy:movement',counts:'biz.pharmacy:count',settlements:'biz.finance:createSettlement',advances:'biz.finance:saveAdvance',shifts:'biz.finance:openShift'};
+ if(currentIdentity()&&(!keys[tab]||!granted(keys[tab])))return false;
  if(role==='admin')return true;
  if(role==='doctor')return ['labs','prescriptions','referrals','rounds','consultations','discharges','archives','corrections'].includes(tab);
  if(role==='technician')return false;
@@ -21,6 +24,8 @@ export function canCreate(role,tab){
 }
 export function canEdit(role,tab){return canCreate(role,tab)}
 export function canAction(role,tab,action){
+ const key=({labs:{accept:'biz.labs:accept',result:'biz.labs:save',approve:'biz.labs:publish'},prescriptions:{approveRx:'biz.prescriptions:approve',dispense:'biz.prescriptions:dispense'},rounds:{administer:'biz.care:perform'},warehouses:{toggle:'biz.pharmacy:toggle'},movements:{approveMovement:'biz.pharmacy:approveMovement',cancel:'biz.pharmacy:cancelMovement'},counts:{approveCount:'biz.pharmacy:approveCount',cancel:'biz.pharmacy:cancelCount'},advances:{confirmCash:'biz.finance:confirmAdvance',cancel:'biz.finance:cancelAdvance'},settlements:{settle:'biz.finance:settle'},shifts:{closeShift:'biz.finance:closeShift'}})[tab]?.[action];
+ if(currentIdentity()&&(!key||!granted(key)))return false;
  if(role==='admin')return true;
  const allowed={
   doctor:{labs:['cancel'],prescriptions:['approveRx'],referrals:['confirm'],rounds:['cancel'],consultations:['confirm'],discharges:['discharge'],archives:['archive'],corrections:[]},

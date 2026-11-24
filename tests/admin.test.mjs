@@ -93,7 +93,7 @@ test('roles and direct API authorization, pagination, search, CSV permission',as
  assert.equal((await request('/api/admin/departments?size=-1')).status,400);
  assert.match((await request('/api/admin/departments?format=csv')).data,/QA_DEP/);
  const updated=await update('roles',role,{permissions:[]});assert.equal(updated.status,200);
- assert.equal((await request('/api/admin/departments',{identity})).status,401);
+ assert.equal((await request('/api/admin/departments',{identity})).status,403);
 });
 test('locking account revokes old session, reset password invalidates session and old password',async()=>{
  let identity=await login('limited',fixture.password);
@@ -170,6 +170,17 @@ test('COPY_ONLY backup, checksum verification and restore to a NEW database pres
  await assert.rejects(()=>restoreToNewDatabase(backup.file,'QuanLyBenhVien'),/Restore target/);
  console.log('RESTORE VERIFIED '+restored.target);
 });
+test('legacy admin can create a doctor account without explicit roster permission codes',async()=>{
+ const state=await loadState();const role=state.data.roles.find(r=>r.id==='admin');
+ role.permissions=role.permissions.filter(p=>!p.startsWith('roster:'));
+ await querySql('UPDATE dbo.MediCareAdminState SET body=@body,revision=revision+1 WHERE id=1; SELECT 1',{body:JSON.stringify(state.data)});
+ const result=await request('/api/admin/accounts',{method:'POST',body:{username:'qa_test_legacy_doc',name:'QA_TEST Bác sĩ',email:'qa_test_legacy_doc@example.test',roleId:'doctor',staffId:'',active:true,password:fixture.password}});
+ assert.equal(result.status,201,JSON.stringify(result.data));
+ assert.ok((await loadState()).data.accounts.some(a=>a.username==='qa_test_legacy_doc'&&a.roleId==='doctor'));
+ const current=await loadState();current.data.roles.find(r=>r.id==='admin').permissions=[...permissions];
+ await querySql('UPDATE dbo.MediCareAdminState SET body=@body,revision=revision+1 WHERE id=1; SELECT 1',{body:JSON.stringify(current.data)});
+});
+
 test('legacy workspace startup preserves all pre-existing browser storage keys',async()=>{
  const previousFetch=globalThis.fetch,windowDescriptor=Object.getOwnPropertyDescriptor(globalThis,'window'),storageDescriptor=Object.getOwnPropertyDescriptor(globalThis,'localStorage');
  const keys=['medicare-workspace-v3','medicare-workspace-v4','medicare-patients-v1','medicare-stock-v1'];const store=new Map(keys.map(key=>[key,'original-data']));

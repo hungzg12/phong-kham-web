@@ -19,10 +19,10 @@ export default function WorkspaceSession({children}){
   catch(e){forget();if(e.status!==401)setError(e.message);}finally{if(initial)setChecking(false);}
  }
  useEffect(()=>{check(true)},[]);
- useEffect(()=>{if(!identity)return;const expired=()=>forget();window.addEventListener('medicare-session-expired',expired);const timer=setInterval(()=>check(),60000);return()=>{clearInterval(timer);window.removeEventListener('medicare-session-expired',expired)}},[identity]);
+ useEffect(()=>{if(!identity)return;const expired=()=>forget();window.addEventListener('medicare-session-expired',expired);const refresh=()=>check();window.addEventListener('focus',refresh);window.addEventListener('medicare-permissions-refresh',refresh);const timer=setInterval(()=>check(),10000);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh);window.removeEventListener('medicare-permissions-refresh',refresh);window.removeEventListener('medicare-session-expired',expired)}},[identity]);
  async function login(credentials){await hisApi.login(credentials);accept(await hisApi.workspaceSession());}
  async function logout(){try{await hisApi.logout();forget();}catch(e){setError(e.message);}}
  if(checking)return <ScreenSkeleton label="Đang kiểm tra phiên đăng nhập…"/>;
  if(!identity)return <Auth onLogin={login} onRegister={hisApi.register} externalError={error}/>;
- return <WorkspaceBootstrap key={identity.userId+identity.role}><>{error&&<p role="alert">{error}</p>}{React.cloneElement(children,{session:identity,onLogout:logout})}</></WorkspaceBootstrap>;
+ return <WorkspaceBootstrap key={identity.userId+identity.role+JSON.stringify(identity.permissions)+identity.permissionVersion}><>{error&&<p role="alert">{error}</p>}{React.cloneElement(children,{session:identity,onLogout:logout})}</></WorkspaceBootstrap>;
 }

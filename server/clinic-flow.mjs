@@ -1,7 +1,7 @@
+import {resolveDepartment} from './department-catalog.mjs';
 import {randomUUID} from 'node:crypto';
 import {querySql} from './admin-store.mjs';
 
-const codes={'Nội tổng quát':'NOI','Tim mạch':'TIM','Tai Mũi Họng':'TMH','Da liễu':'DA','Sản phụ khoa':'SAN','Cơ xương khớp':'CXK'};
 const uid=p=>p+randomUUID().replaceAll('-','').slice(0,16).toUpperCase();
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 const dayValid=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&Number.isFinite(Date.parse(s))&&new Date(s).toISOString().slice(0,10)===s;
@@ -33,7 +33,8 @@ function demographics(data){
 }
 
 export async function receivePatient(data){
- if(!data||!codes[data.dept])fail(400,'Chọn chuyên khoa hợp lệ.');
+ if(!data)fail(400,'Chọn chuyên khoa hợp lệ.');
+ const departmentId=await resolveDepartment(data.dept);
  const patientId=text(data.patientId,20)||null;
  const values=patientId?{name:'',phone:'',birth:null,gender:'Nam',cccd:'',insurance:'',address:'',allergy:text(data.allergy,500),history:text(data.history,1000)}:demographics(data);
  return transaction(`
@@ -59,7 +60,7 @@ export async function receivePatient(data){
  SELECT @number=soThuTuHienTai FROM dbo.BoDemSoThuTuKham WHERE maBuong=@room AND ngayCapSo=@day;
  INSERT dbo.LuotKham(maLuotKham,maBenhNhan,maBuong,soThuTu,lyDoKham) VALUES(@visitId,@patient,@room,@number,@reason);
  SET @result=(SELECT @visitId AS visitId,@patient AS patientId,@number AS queueNumber,b.tenBuong AS roomName,N'Chờ khám' AS status,ISNULL(assigned.hoTen,N'Chưa phân công') AS doctor,assigned.maNhanVien AS doctorStaffId FROM dbo.BuongKham b OUTER APPLY(SELECT TOP 1 n.hoTen,n.maNhanVien FROM dbo.PhanCongKham pc JOIN dbo.NhanVien n ON n.maNhanVien=pc.maBacSi WHERE pc.maBuong=@room AND pc.ngayKham=@day AND pc.caKham=CASE WHEN DATEPART(HOUR,SYSDATETIME())<12 THEN 'SANG' ELSE 'CHIEU' END AND n.dangLamViec=1 AND pc.trangThai IN('DA_PHAN_CONG','DANG_TRUC','HOAN_TAT') ORDER BY pc.maPhanCong) assigned WHERE b.maBuong=@room FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
- `,{...values,patientId,dept:codes[data.dept],newPatient:uid('BN-'),visitId:uid('LK-'),reason:text(data.reason,255)||'Tiếp đón khám mới'});
+ `,{...values,patientId,dept:departmentId,newPatient:uid('BN-'),visitId:uid('LK-'),reason:text(data.reason,255)||'Tiếp đón khám mới'});
 }
 
 export async function updatePatient(data){
@@ -111,7 +112,7 @@ export async function listDoctors(){
 }
 
 export async function changeVisit(data){
- if(!data?.visitId||!['transfer','cancel'].includes(data.action)||!text(data.reason)||data.action==='transfer'&&!codes[data.dept])fail(400,'Chọn lượt khám, thao tác và nhập lý do hợp lệ.');
+ if(!data?.visitId||!['transfer','cancel'].includes(data.action)||!text(data.reason)||data.action==='transfer'&&!text(data.dept))fail(400,'Chọn lượt khám, thao tác và nhập lý do hợp lệ.');
  return transaction(`
  DECLARE @room varchar(20),@number int,@day date=CONVERT(date,SYSDATETIME());
  IF NOT EXISTS(SELECT 1 FROM dbo.LuotKham WHERE maLuotKham=@id) THROW 51000,'FLOW_MISSING',1;
@@ -129,7 +130,7 @@ export async function changeVisit(data){
  END
  INSERT dbo.NhatKyThayDoi(loaiDoiTuong,maDoiTuong,hanhDong,loaiTacNhan,ketQua,lyDo) VALUES('LuotKham',@id,@action,'DICH_VU','THANH_CONG',@reason);
  SET @result=(SELECT @id AS visitId FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
- `,{id:data.visitId,action:data.action,dept:codes[data.dept]||null,reason:text(data.reason)});
+ `,{id:data.visitId,action:data.action,dept:data.action==='transfer'?await resolveDepartment(data.dept):null,reason:text(data.reason)});
 }
 
 export async function saveExam(data){

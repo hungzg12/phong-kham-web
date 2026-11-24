@@ -1,3 +1,4 @@
+import {checkRequestGrant,hasGrant} from '../src/business-permissions.js';
 import {loadState,querySql} from './admin-store.mjs';
 import {authorize,fail} from './admin-domain.mjs';
 import {listVisits} from './clinic-flow.mjs';
@@ -14,18 +15,19 @@ export async function workspaceIdentity(req){
  let token='';try{token=decodeURIComponent((req.headers.cookie||'').split(';').map(v=>v.trim()).find(v=>v.startsWith('medicare_admin_session='))?.slice('medicare_admin_session='.length)||'');}catch{}
  const state=await loadState();if(!state)fail(503,'Chưa cấu hình tài khoản. Liên hệ quản trị viên.');
  const {user,role,session}=authorize(state.data,token);
+ const grants={permissions:[...(role.permissions||[])],permissionVersion:role.version};
  const actor=role.id==='admin'?'admin':role.workspaceRole||role.id;
  if(!roles.has(actor)||actor==='none')fail(403,'Tài khoản chưa được gán vai trò nghiệp vụ.');
- if(actor==='admin')return {role:'admin',userId:user.id,person:user.name,csrf:session.csrf};
+ if(actor==='admin')return {...grants,role:'admin',userId:user.id,person:user.name,csrf:session.csrf};
  if(actor==='patient'){
   if(user.staffId||!user.patientId)fail(403,'Tài khoản bệnh nhân chưa liên kết đúng hồ sơ.');
   const patient=(await rows('SELECT maBenhNhan id,hoTen name FROM dbo.BenhNhan WHERE maBenhNhan=@id',{id:user.patientId}))[0];
   if(!patient)fail(403,'Hồ sơ bệnh nhân liên kết không còn tồn tại.');
-  return {role:actor,userId:user.id,person:patient.name,patientId:patient.id,csrf:session.csrf};
+  return {...grants,role:actor,userId:user.id,person:patient.name,patientId:patient.id,csrf:session.csrf};
  }
  const staff=(await rows('SELECT maNhanVien id,hoTen name FROM dbo.NhanVien WHERE maNhanVien=@id AND chuyenMon=@specialty AND dangLamViec=1',{id:user.staffId||'',specialty:specialties[actor]}))[0];
  if(!staff||user.patientId)fail(403,'Tài khoản chưa liên kết với nhân viên đang hoạt động đúng chuyên môn.');
- return {role:actor,userId:user.id,person:staff.name,staffId:staff.id,csrf:session.csrf};
+ return {...grants,role:actor,userId:user.id,person:staff.name,staffId:staff.id,csrf:session.csrf};
 }
 const readRoles={
  '/api/equipment':['admin'],
@@ -63,6 +65,8 @@ export async function protectWorkspaceRequest(req){
  if(path==='/api/workspace/session'&&req.method==='GET')return {identity,answer:identity};
  const read=req.method==='GET';
  if(!(read?readRoles:writeRoles)[path]?.includes(identity.role))fail(403,'Vai trò không được truy cập API hoặc phương thức này.');
+ if(read&&identity.role==='patient'&&['/api/patients','/api/queue'].includes(path)){if(!hasGrant(identity.permissions,'biz.portal:view'))fail(403,'Chưa được cấp quyền xem hồ sơ cá nhân.');}
+ else if(read&&!checkRequestGrant(identity.permissions,path,'GET'))fail(403,'Chưa được cấp quyền xem chức năng này.');
  if(!read){
   if(!['POST','PUT','PATCH'].includes(req.method))fail(405,'Phương thức không được hỗ trợ.');
   if(req.headers['x-csrf-token']!==identity.csrf)fail(403,'Phiên biểu mẫu không hợp lệ. Tải lại trang.');
@@ -71,6 +75,7 @@ export async function protectWorkspaceRequest(req){
   let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>65536)fail(413,'Dữ liệu quá dài.');}
   let data;try{data=JSON.parse(raw);}catch{fail(400,'JSON không hợp lệ.');}
   if(!data||Array.isArray(data)||typeof data!=='object')fail(400,'Dữ liệu không hợp lệ.');
+  if(!checkRequestGrant(identity.permissions,path,req.method,data))fail(403,'Chưa được cấp quyền thực hiện thao tác này.');
   if(['/api/notifications','/api/equipment/action'].includes(path)){
    const trusted=Buffer.from(JSON.stringify(data));req[Symbol.asyncIterator]=async function*(){yield trusted;};return {identity};
   }
@@ -108,6 +113,11 @@ export async function protectWorkspaceRequest(req){
  }
  if(path==='/api/ancillary'){
   const a=await ancillaryState();
+  a.clinicDepartments=await rows("SELECT k.maKhoa id,k.tenKhoa name,JSON_QUERY((SELECT b.maBuong id,b.tenBuong name FROM dbo.BuongKham b WHERE b.maKhoa=k.maKhoa AND b.dangHoatDong=1 ORDER BY b.maBuong FOR JSON PATH)) rooms FROM dbo.Khoa k WHERE k.dangHoatDong=1 AND EXISTS(SELECT 1 FROM dbo.BuongKham b WHERE b.maKhoa=k.maKhoa AND b.dangHoatDong=1) ORDER BY k.tenKhoa");
+  if(!hasGrant(identity.permissions,'biz.labs:view'))a.labs=[];
+  if(!hasGrant(identity.permissions,'biz.care:view')){a.careSheets=[];a.vitals=[];a.rounds=[];}
+  if(!hasGrant(identity.permissions,'biz.inpatient:view'))a.admissions=[];
+  if(!hasGrant(identity.permissions,'biz.pharmacy:view')){a.warehouses=[];a.inventory=[];}
   if(identity.role==='admin')return {identity,answer:a};
   a.staff=a.staff.filter(s=>s.id===identity.staffId||s.specialty==='BAC_SI');
   a.careSheets=['doctor','nurse'].includes(identity.role)?a.careSheets.filter(inScope):[];
@@ -116,10 +126,13 @@ export async function protectWorkspaceRequest(req){
   a.rounds=['doctor','nurse'].includes(identity.role)?a.rounds.filter(inScope):[];
   a.admissions=['doctor','nurse'].includes(identity.role)?a.admissions.filter(r=>!scope||scope.episodes.has(r.id)):[];
   if(identity.role!=='pharmacist'){a.warehouses=[];a.inventory=[];}
+  if(!hasGrant(identity.permissions,'biz.care:view')){a.careSheets=[];a.rounds=[];a.vitals=[];}
   return {identity,answer:a};
  }
  if(['/api/pharmacy/state','/api/medicines','/api/pharmacy/batches','/api/clinical/prescriptions'].includes(path)){
   const p=await pharmacyState();
+  if(!hasGrant(identity.permissions,'biz.prescriptions:view'))p.prescriptions=[];
+  if(!hasGrant(identity.permissions,'biz.pharmacy:view')){p.movements=[];p.counts=[];p.ledger=[];p.inventory=[];p.warehouses=[];}
   if(scope)p.prescriptions=p.prescriptions.filter(inScope);
   if(identity.role==='pharmacist')p.prescriptions=p.prescriptions.filter(r=>r.status!=='Nháp');
   if(path==='/api/medicines')return {identity,answer:p.stock.filter(s=>s.kind==='THUOC').map(s=>({...s,stockQty:s.qty}))};

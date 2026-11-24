@@ -13,3 +13,8 @@ body:has(.secure-admin){margin:0}.secure-admin h1,.secure-admin h2{line-height:1
 .admin-embedded .admin-table th{font-size:10px;letter-spacing:.5px;color:#8a9c92}
 .admin-embedded .admin-table td{font-size:12px;padding:15px}
 @media(max-width:700px){.admin-embedded .admin-layout>nav{flex-wrap:nowrap;overflow:auto;max-width:100%}.admin-embedded .admin-content{padding:16px}}
+
+/* Permission editor keeps closing and saving controls accessible. */
+.admin-dialog>header{position:sticky;top:-24px;background:white;z-index:2;padding-top:12px}.admin-dialog>form>button.primary{position:sticky;bottom:0;z-index:2}.admin-permissions>p{font-weight:400;line-height:1.6}.admin-permissions h3{margin:18px 0 12px}
+
+@media(max-width:600px){.admin-dialog>header{top:-18px}.admin-dialog>form>button.primary{min-height:44px}.permission-grid{grid-template-columns:1fr}}

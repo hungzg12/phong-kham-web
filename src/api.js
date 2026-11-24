@@ -15,6 +15,7 @@ async function req(url, options = {}) {
       const err = await res.json();
       errMessage = err.error || err.details || errMessage;
     } catch {}
+    if(res.status===403&&currentIdentity()&&typeof window!=='undefined')window.dispatchEvent(new Event('medicare-permissions-refresh'));
     if(res.status===401&&currentIdentity()&&typeof window!=='undefined')window.dispatchEvent(new Event('medicare-session-expired'));
     throw Object.assign(new Error(errMessage),{status:res.status});
   }

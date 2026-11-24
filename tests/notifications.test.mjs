@@ -1,3 +1,4 @@
+import {businessPermissions} from '../src/business-permissions.js';
 import test,{before,after} from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -20,7 +21,7 @@ before(async()=>{f=await adminFixture();await ensureNotifications();await queryS
  INSERT dbo.NhanVien(maNhanVien,hoTen,maKhoa,chucDanh,chuyenMon) VALUES('QA_TEST_doc1',N'QA_TEST doctor1','NOI',N'Bác sĩ','BAC_SI'),('QA_TEST_doc2',N'QA_TEST doctor2','NOI',N'Bác sĩ','BAC_SI'),('QA_TEST_nurse1',N'QA_TEST nurse1','NOI',N'Điều dưỡng','DIEU_DUONG'),('QA_TEST_nurse2',N'QA_TEST nurse2','NOI',N'Điều dưỡng','DIEU_DUONG');
  INSERT dbo.PhanCongKham(maPhanCong,maBuong,maBacSi,ngayKham,caKham) VALUES('QA_TEST_AM','QA_TEST_ROOM','QA_TEST_doc1',CAST(SYSDATETIME() AS date),'SANG'),('QA_TEST_PM','QA_TEST_ROOM','QA_TEST_doc1',CAST(SYSDATETIME() AS date),'CHIEU');
  INSERT dbo.BenhNhan(maBenhNhan,hoTen,ngaySinh,gioiTinh,soDienThoai) VALUES('QA_TEST_pat1',N'QA_TEST patient1','1990-01-01',N'Nam','0900012345'),('QA_TEST_pat2',N'QA_TEST patient2','1990-01-01',N'Nam','0900012346');SELECT 'ok';`);
- const passwordHash=await hashPassword(f.password);await transactAdmin(d=>{for(const [name,role] of Object.entries(roles)){if(!d.roles.some(r=>r.id===role))d.roles.push({id:role,name:role,permissions:[],active:true});d.accounts.push({id:'QA_TEST_'+name,username:'qa_test_'+name,name:'QA_TEST '+name,email:name+'@example.test',roleId:role,staffId:role==='patient'?'':'QA_TEST_'+name,patientId:role==='patient'?'QA_TEST_'+name:'',active:true,version:1,authVersion:1,passwordHash});}});
+ const passwordHash=await hashPassword(f.password);await transactAdmin(d=>{for(const [name,role] of Object.entries(roles)){const existing=d.roles.find(r=>r.id===role);if(existing)existing.permissions=[...businessPermissions];if(!d.roles.some(r=>r.id===role))d.roles.push({id:role,name:role,permissions:[...businessPermissions],active:true});d.accounts.push({id:'QA_TEST_'+name,username:'qa_test_'+name,name:'QA_TEST '+name,email:name+'@example.test',roleId:role,staffId:role==='patient'?'':'QA_TEST_'+name,patientId:role==='patient'?'QA_TEST_'+name:'',active:true,version:1,authVersion:1,passwordHash});}});
  const admin=createAdminMiddleware(),api=createApiMiddleware();server=http.createServer((req,res)=>admin(req,res,()=>api(req,res,()=>{res.writeHead(404);res.end('{}')})));await new Promise(r=>server.listen(0,'127.0.0.1',r));url='http://127.0.0.1:'+server.address().port;for(const name of Object.keys(roles))await login(name);
 });
 after(async()=>{await new Promise(r=>server.close(r));await f.close();});

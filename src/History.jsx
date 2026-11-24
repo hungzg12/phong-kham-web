@@ -1,3 +1,4 @@
+import {assignedToDoctor} from './doctor-scope.js';
 import {currentIdentity} from './session.js';
 import {hisApi} from './api';
 import React,{useState,useEffect} from 'react';
@@ -59,7 +60,7 @@ export function PatientHistory({patientId,clinical=false}){
 export function VisitExam({patient,onClose,notify,role='admin',visitId}){
   const [visits]=useWorkspace('visits');
   const actor=actorRoles[role];
-  const available=visits.filter(v=>v.patientId===patient.id&&v.status!=='Đã hủy'&&(role!=='doctor'||v.doctor.includes(actor.person))).sort((a,b)=>(b.date+'T'+b.time).localeCompare(a.date+'T'+a.time));
+  const available=visits.filter(v=>v.patientId===patient.id&&v.status!=='Đã hủy'&&(role!=='doctor'||assignedToDoctor(v,actor.staffId))).sort((a,b)=>(b.date+'T'+b.time).localeCompare(a.date+'T'+a.time));
   const [selected,setSelected]=useState(visitId||available[0]?.id||'');
   const current=available.find(v=>v.id===selected);
   const [error,setError]=useState('');
@@ -521,6 +522,9 @@ export default function History({role='admin',patientId,navigate,notify}){
   const [selectedEpisodeId,setSelectedEpisodeId]=useState('');
   const [kindFilter,setKindFilter]=useState('Tất cả');
   const [search,setSearch]=useState('');
+  const [refreshing,setRefreshing]=useState(false);
+  async function refreshHistory(){setRefreshing(true);try{await syncWithSqlServer();}finally{setRefreshing(false);}}
+  useEffect(()=>{refreshHistory();},[]);
   const [modal,setModal]=useState(null);
   const [error,setError]=useState('');
   const clinical=['admin','doctor'].includes(role);
@@ -600,6 +604,7 @@ export default function History({role='admin',patientId,navigate,notify}){
             </p>
           </div>
           <div className="row-actions">
+            <button className="secondary" type="button" disabled={refreshing} onClick={refreshHistory}>{refreshing?'Đang tải…':'Tải lại hồ sơ'}</button>
             {['admin','receptionist'].includes(role)&&<button className="primary" onClick={()=>open({type:'visit'})}><Plus size={15}/>Tạo lượt khám mới</button>}
             {['admin','nurse'].includes(role)&&<button className="secondary" onClick={()=>navigate('inpatient')}><BedDouble size={15}/>Tiếp nhận nội trú</button>}
           </div>
@@ -609,15 +614,15 @@ export default function History({role='admin',patientId,navigate,notify}){
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           {!isPatientScoped && (
             <>
-              <div style={{ position: 'relative', flex: '1 1 300px', minWidth: '260px' }}>
+              <div style={{ position: 'relative', flex: '1 1 300px', minWidth: 'min(260px, 100%)' }}>
                 <Search size={16} style={{ position: 'absolute', left: '12px', top: '10px', color: '#94a3b8' }} />
                 <input
                   aria-label="Tìm kiếm người bệnh tra cứu bệnh án"
-                  placeholder="Nhập tên BN, mã BN (BN-...), số CCCD hoặc SĐT..."
+                  placeholder="Tìm theo tên, mã hồ sơ, CCCD hoặc số điện thoại…"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   className="his-input"
-                  style={{ paddingLeft: '36px', height: '38px', fontSize: '13px' }}
+                  style={{ '--his-control-padding': '8px 12px 8px 36px', height: '42px', fontSize: '13px' }}
                 />
                 {search.trim() && (
                   <div style={{ position: 'absolute', top: '44px', left: 0, right: 0, background: '#ffffff', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', border: '1px solid #cbd5e1', zIndex: 9999, maxHeight: '280px', overflowY: 'auto', padding: '6px' }}>
@@ -682,6 +687,7 @@ export default function History({role='admin',patientId,navigate,notify}){
                   className="his-select"
                   style={{ minWidth: '260px', height: '38px', fontWeight: 600, color: '#2563eb' }}
                 >
+                  {!matchedPatients.length&&<option value="">{refreshing?'Đang tải hồ sơ…':search.trim()?'Không tìm thấy người bệnh':'Chưa có hồ sơ trong phạm vi được phân công'}</option>}
                   {matchedPatients.map(p => (
                     <option key={p.id} value={p.id}>
                       {p.name} · {p.id} ({p.gender}, {p.birth ? `${new Date().getFullYear() - Number(String(p.birth).slice(0, 4))}T` : ''}) {p.insurance ? '· BHYT' : ''}

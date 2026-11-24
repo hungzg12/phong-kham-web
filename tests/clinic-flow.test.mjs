@@ -85,3 +85,14 @@ test('reception prefers a room with an actual duty over an alphabetically earlie
  assert.equal(r.doctorStaffId,'QA_TEST_DOC');
  assert.notEqual(await querySql('SELECT maBuong FROM dbo.LuotKham WHERE maLuotKham=@id',{id:r.visitId}),'QA_TEST_A_NO_DUTY');
 });
+
+test('reception and transfer resolve real department names and custom IDs instead of hard-coded TIM',async()=>{
+ await querySql("UPDATE dbo.Khoa SET tenKhoa=N'QA_TEST_OLD_TIM' WHERE maKhoa='TIM'; INSERT dbo.Khoa(maKhoa,tenKhoa,loaiKhoa) VALUES('TIM_12',N'tim Mạch','KHAM_BENH'); INSERT dbo.BuongKham(maBuong,maKhoa,tenBuong) VALUES('QA_TEST_TIM12','TIM_12',N'QA_TEST Tim mạch 12'); SELECT 'ok';");
+ const result=await receive({name:'QA_TEST_CUSTOM_CODE',phone:'0900000398',dept:'Tim mạch'});
+ assert.equal(await querySql('SELECT maBuong FROM dbo.LuotKham WHERE maLuotKham=@id',{id:result.visitId}),'QA_TEST_TIM12');
+ const other=await receive({patientId:result.patientId,dept:'TIM_12'});
+ assert.equal(await querySql('SELECT maBuong FROM dbo.LuotKham WHERE maLuotKham=@id',{id:other.visitId}),'QA_TEST_TIM12');
+ assert.equal((await call('/api/visits','PATCH',{visitId:other.visitId,action:'transfer',dept:'Nội tổng quát',reason:'QA_TEST_TRANSFER_BACK'})).status,200);
+ assert.equal((await call('/api/visits','PATCH',{visitId:other.visitId,action:'transfer',dept:'Tim mạch',reason:'QA_TEST_TRANSFER_CUSTOM'})).status,200);
+ assert.equal(await querySql('SELECT maBuong FROM dbo.LuotKham WHERE maLuotKham=@id',{id:other.visitId}),'QA_TEST_TIM12');
+});

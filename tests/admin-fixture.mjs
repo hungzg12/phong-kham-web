@@ -1,3 +1,5 @@
+import {businessPermissions} from '../src/business-permissions.js';
+import {transactAdmin} from '../server/admin-store.mjs';
 import fs from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { querySql } from '../server/admin-store.mjs';
@@ -18,6 +20,7 @@ export async function adminFixture() {
  const password='Qa!'+randomBytes(18).toString('hex');
  process.env.ADMIN_USERNAME='qaadmin';process.env.ADMIN_NAME='QA Administrator';process.env.ADMIN_EMAIL='qa@example.test';process.env.ADMIN_PASSWORD=password;
  await initializeAdmin();
+ await transactAdmin(data=>{data.roles.find(r=>r.id==='admin').permissions.push(...businessPermissions);});
  const server=createProductionServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const url=`http://127.0.0.1:${server.address().port}`;
  console.log(`TEST DATABASE ${database} (retained for evidence; no existing database modified)`);

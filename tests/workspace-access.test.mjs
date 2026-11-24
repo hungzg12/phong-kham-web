@@ -1,3 +1,4 @@
+import {businessPermissions} from '../src/business-permissions.js';
 import test,{before,after} from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -24,7 +25,7 @@ before(async()=>{
  INSERT dbo.Thuoc(maHang,hoatChat,hamLuong,duongDung,dangBaoChe) VALUES('QA_TEST_DRUG',N'QA_TEST',N'QA_TEST',N'Uống',N'QA_TEST');SELECT 'ok';`);
  own=await receivePatient({patientId:'QA_TEST_PAT_A',dept:'Nội tổng quát'});other=await receivePatient({patientId:'QA_TEST_PAT_B',dept:'Tim mạch'});
  const passwordHash=await hashPassword(fixture.password);const staff={receptionist:'QA_TEST_REC',doctor:'QA_TEST_DOC',nurse:'QA_TEST_NURSE',technician:'QA_TEST_TECH',pharmacist:'QA_TEST_PHARM',cashier:'QA_TEST_CASH'};
- await transactAdmin(data=>{for(const role of actors){if(!data.roles.some(r=>r.id===role))data.roles.push({id:role,name:role,permissions:[],active:true,version:1});data.accounts.push({id:'QA_TEST_'+role,username:'qa_test_'+role,name:'QA_TEST_'+role,email:'qa@example.test',roleId:role,staffId:staff[role]||'',patientId:role==='patient'?'QA_TEST_PAT_A':'',active:true,version:1,authVersion:1,passwordHash});}});
+ await transactAdmin(data=>{for(const role of actors){const existing=data.roles.find(r=>r.id===role);if(existing)existing.permissions=[...businessPermissions];if(!data.roles.some(r=>r.id===role))data.roles.push({id:role,name:role,permissions:[...businessPermissions],active:true,version:1});data.accounts.push({id:'QA_TEST_'+role,username:'qa_test_'+role,name:'QA_TEST_'+role,email:'qa@example.test',roleId:role,staffId:staff[role]||'',patientId:role==='patient'?'QA_TEST_PAT_A':'',active:true,version:1,authVersion:1,passwordHash});}});
  const admin=createAdminMiddleware(),api=createApiMiddleware();server=http.createServer((req,res)=>admin(req,res,()=>api(req,res,()=>{res.writeHead(404);res.end('{}')})));await new Promise(r=>server.listen(0,'127.0.0.1',r));base=`http://127.0.0.1:${server.address().port}`;
  for(const role of ['admin',...actors])await login(role);
 });
@@ -54,6 +55,17 @@ test('all eight roles restore their identity from SQL session and enforce read A
   for(const path of allowed[role])assert.equal((await get(path,role)).status,200,role+' '+path);
  }
 });
+test('every role including admin needs explicit grants; removal affects the existing cookie immediately',async()=>{
+ const paths={admin:'/api/appointments',receptionist:'/api/appointments',doctor:'/api/queue',nurse:'/api/inpatient/beds',technician:'/api/ancillary',pharmacist:'/api/pharmacy/state',cashier:'/api/finance',patient:'/api/portal'};
+ for(const role of ['admin',...actors]){
+  let old=[];await transactAdmin(d=>{const r=d.roles.find(r=>r.id===role);old=[...r.permissions];r.permissions=[];});
+  assert.equal((await get(paths[role],role)).status,403,role+' must not inherit access');
+  const who=await(await get('/api/workspace/session',role)).json();assert.deepEqual(who.permissions,[]);
+  await transactAdmin(d=>{d.roles.find(r=>r.id===role).permissions=old;});
+  assert.equal((await get(paths[role],role)).status,200,role+' explicit grants restored');
+ }
+});
+
 test('doctor list, detail, prescriptions and writes are limited to assigned episodes despite spoofing',async()=>{
  let r=await get('/api/queue?history=1','doctor'),queue=await r.json();assert.ok(queue.some(v=>v.id===own.visitId));assert.ok(!queue.some(v=>v.id===other.visitId));
  r=await get('/api/patients','doctor');const p=await r.json();assert.deepEqual(p.map(x=>x.id),['QA_TEST_PAT_A']);
@@ -83,6 +95,24 @@ test('cashier staff identity comes from session, persists across reload and logo
  r=await get('/api/finance','cashier');const data=await r.json();assert.equal(data.shifts[0].cashier,'QA_TEST_CASH');
  r=await post('/api/auth/logout','cashier',{});assert.equal(r.status,200);assert.equal((await get('/api/finance','cashier')).status,401);
 });
+test('each of eight roles needs saved grants; live revocation and same-role doctor scope stay enforced',async()=>{
+ const endpoints={admin:'/api/equipment',receptionist:'/api/appointments',doctor:'/api/queue',nurse:'/api/inpatient/beds',technician:'/api/ancillary',pharmacist:'/api/pharmacy/state',cashier:'/api/finance',patient:'/api/portal'};
+ // The cashier logged out in the previous test; restore the session explicitly.
+ await login('cashier');
+ for(const [role,path] of Object.entries(endpoints)){
+  let before;
+  await transactAdmin(data=>{const row=data.roles.find(r=>r.id===role);before=[...row.permissions];row.permissions=row.permissions.filter(p=>!p.startsWith('biz.'));row.version=(row.version||0)+1;});
+  assert.equal((await get(path,role)).status,403,role+' without grants');
+  await transactAdmin(data=>{data.roles.find(r=>r.id===role).permissions=before;});
+  assert.equal((await get(path,role)).status,200,role+' restored grants');
+ }
+ await transactAdmin(data=>{const original=data.accounts.find(a=>a.id==='QA_TEST_doctor');data.accounts.push({...original,id:'QA_TEST_doctor2',username:'qa_test_doctor2',staffId:'QA_TEST_DOC2'});});
+ await login('doctor2');
+ const first=await(await get('/api/workspace/session','doctor')).json(),second=await(await get('/api/workspace/session','doctor2')).json();assert.deepEqual(first.permissions,second.permissions);
+ assert.equal((await get('/api/clinical/visit?id='+own.visitId,'doctor2')).status,403);
+ assert.equal((await get('/api/clinical/visit?id='+other.visitId,'doctor')).status,403);
+});
+
 test('staff deactivation and changed account role revoke existing workspace access',async()=>{
  await querySql("UPDATE dbo.NhanVien SET dangLamViec=0 WHERE maNhanVien='QA_TEST_TECH';SELECT 'ok';");assert.equal((await get('/api/ancillary','technician')).status,403);
  await transactAdmin(data=>{const u=data.accounts.find(u=>u.id==='QA_TEST_nurse');u.active=false;u.authVersion++;});assert.equal((await get('/api/queue','nurse')).status,401);

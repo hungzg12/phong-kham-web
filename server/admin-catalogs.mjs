@@ -2,6 +2,7 @@ import { querySql } from './admin-store.mjs';
 import { fail, validate } from './admin-domain.mjs';
 
 export const catalogs = {
+ roster:{table:'PhanCongKham',id:'maPhanCong',fields:{roomId:'maBuong',doctorId:'maBacSi',nurseId:'maDieuDuong',date:'ngayKham',shift:'caKham',status:'trangThai',note:'ghiChu'}},
  departments:{table:'Khoa',id:'maKhoa',fields:{name:'tenKhoa',kind:'loaiKhoa',location:'viTri',active:'dangHoatDong'}},
  rooms:{table:'BuongKham',id:'maBuong',fields:{name:'tenBuong',departmentId:'maKhoa',capacity:'gioiHanLuotMoiNgay',location:'viTri',active:'dangHoatDong'}},
  wards:{table:'BuongBenh',id:'maBuongBenh',fields:{name:'tenBuong',departmentId:'maKhoa',kind:'loaiBuong',capacity:'soGiuongToiDa',location:'viTri',active:'dangHoatDong'}},
@@ -15,6 +16,7 @@ IF OBJECT_ID('dbo.MediCareServicePriceHistory','U') IS NULL
 `;
 const projection = c => `[${c.id}] AS id,${Object.entries(c.fields).map(([key,col])=>`[${col}] AS [${key}]`).join(',')},CONVERT(varchar(18),CONVERT(varbinary(8),medicareVersion),1) AS version`;
 export async function catalogRows(resource) {
+  if(resource==='roster')await querySql("IF COL_LENGTH('dbo.PhanCongKham','medicareVersion') IS NULL ALTER TABLE dbo.PhanCongKham ADD medicareVersion rowversion;SELECT 'ok';");
   const c=catalogs[resource];
   return JSON.parse(await querySql(`SELECT (SELECT ${projection(c)} FROM dbo.[${c.table}] ORDER BY [${c.id}] FOR JSON PATH)` )||'[]');
 }
@@ -34,6 +36,11 @@ function guards(resource,creating) {
     IF JSON_VALUE(@record,'$.active')='true' AND
      (SELECT COUNT(*) FROM dbo.GiuongBenh WITH(UPDLOCK,HOLDLOCK) WHERE maBuongBenh=JSON_VALUE(@record,'$.wardId') AND dangHoatDong=1 AND maGiuong<>@recordId) >=
      (SELECT soGiuongToiDa FROM dbo.BuongBenh WHERE maBuongBenh=JSON_VALUE(@record,'$.wardId')) THROW 51003,'ADMIN_CAPACITY',1;`);
+  if(resource==='roster') sql.push(`
+   IF NOT EXISTS(SELECT 1 FROM dbo.BuongKham b JOIN dbo.NhanVien n ON n.maKhoa=b.maKhoa WHERE b.maBuong=JSON_VALUE(@record,'$.roomId') AND b.dangHoatDong=1 AND n.maNhanVien=JSON_VALUE(@record,'$.doctorId') AND n.chuyenMon='BAC_SI' AND n.dangLamViec=1) THROW 51001,'ADMIN_REFERENCE',1;
+   IF NULLIF(JSON_VALUE(@record,'$.nurseId'),'') IS NOT NULL AND NOT EXISTS(SELECT 1 FROM dbo.NhanVien WHERE maNhanVien=JSON_VALUE(@record,'$.nurseId') AND chuyenMon='DIEU_DUONG' AND dangLamViec=1) THROW 51001,'ADMIN_REFERENCE',1;
+   IF JSON_VALUE(@record,'$.status') IN('DA_PHAN_CONG','DANG_TRUC') AND EXISTS(SELECT 1 FROM dbo.PhanCongKham WITH(UPDLOCK,HOLDLOCK) WHERE maPhanCong<>@recordId AND ngayKham=JSON_VALUE(@record,'$.date') AND caKham=JSON_VALUE(@record,'$.shift') AND trangThai IN('DA_PHAN_CONG','DANG_TRUC') AND (maBuong=JSON_VALUE(@record,'$.roomId') OR maBacSi=JSON_VALUE(@record,'$.doctorId') OR (NULLIF(JSON_VALUE(@record,'$.nurseId'),'') IS NOT NULL AND maDieuDuong=JSON_VALUE(@record,'$.nurseId')))) THROW 51002,'ADMIN_DUPLICATE',1;
+  `);
   if(creating) return sql.join('\n');
   if(resource==='beds') sql.push(`IF EXISTS(SELECT 1 FROM dbo.PhanGiuong WITH(UPDLOCK,HOLDLOCK) WHERE maGiuong=@recordId AND denThoiDiem IS NULL AND trangThai='DANG_SU_DUNG') OR EXISTS(SELECT 1 FROM dbo.GiuongBenh WITH(UPDLOCK,HOLDLOCK) WHERE maGiuong=@recordId AND trangThaiHienTai IN('DANG_SU_DUNG','DANG_VE_SINH')) THROW 51004,'ADMIN_IN_USE',1;`);
   if(resource==='wards') sql.push(`IF TRY_CONVERT(int,JSON_VALUE(@record,'$.capacity')) < (SELECT COUNT(*) FROM dbo.GiuongBenh WITH(UPDLOCK,HOLDLOCK) WHERE maBuongBenh=@recordId AND dangHoatDong=1) THROW 51003,'ADMIN_CAPACITY',1;`);
@@ -64,7 +71,7 @@ export function catalogEffect(resource,input,previous,actor) {
   if(!creating&&input.version!==previous.version) fail(409,'Bản ghi đã thay đổi. Tải lại trước khi lưu.');
   const columns=Object.entries(c.fields);
   const valueFor=key=>`JSON_VALUE(@record,'$.${key}')`;
-  const typed=(key,col)=> key==='active'?`CASE WHEN ${valueFor(key)}='true' THEN 1 ELSE 0 END`:valueFor(key);
+  const typed=(key,col)=> resource==='roster'&&key==='nurseId'?`NULLIF(${valueFor(key)},'')`:key==='active'?`CASE WHEN ${valueFor(key)}='true' THEN 1 ELSE 0 END`:valueFor(key);
   let sql=guards(resource,creating);
   if(creating) sql+=`IF EXISTS(SELECT 1 FROM dbo.[${c.table}] WITH(UPDLOCK,HOLDLOCK) WHERE [${c.id}]=@recordId) THROW 51002,'ADMIN_DUPLICATE',1;
    INSERT dbo.[${c.table}]([${c.id}],${columns.map(([,col])=>`[${col}]`).join(',')}) VALUES(@recordId,${columns.map(([key,col])=>typed(key,col)).join(',')});`;

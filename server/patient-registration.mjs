@@ -15,7 +15,7 @@ export async function registerPatient(input){
  const passwordHash=await hashPassword(input.password),id=randomUUID(),patientId='BN-'+randomUUID().replaceAll('-','').slice(0,16).toUpperCase();
  return transactAdmin((data,log,effect)=>{
   const role=data.roles.find(r=>r.id==='patient'&&r.active);
-  if(!role||role.permissions.length||(role.workspaceRole&&role.workspaceRole!=='patient'))fail(503,'Chưa thể đăng ký bệnh nhân. Vui lòng liên hệ cơ sở.');
+  if(!role||role.permissions.some(p=>!p.startsWith('biz.'))||(role.workspaceRole&&role.workspaceRole!=='patient'))fail(503,'Chưa thể đăng ký bệnh nhân. Vui lòng liên hệ cơ sở.');
   if(data.accounts.some(a=>a.username.toLowerCase()===username))fail(409,'Tên đăng nhập đã được sử dụng. Vui lòng chọn tên khác hoặc đăng nhập.');
   // Never claim an existing medical record using unverified phone/email information.
   data.accounts.push({id,username,name,email,roleId:'patient',staffId:'',patientId,active:true,version:1,authVersion:1,passwordHash});

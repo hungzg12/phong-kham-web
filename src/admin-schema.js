@@ -1,8 +1,12 @@
-export const adminResources = ['accounts','roles','staff','departments','rooms','wards','beds','services','settings','audit','dashboard'];
+import {businessPermissions} from './business-permissions.js';
+export const adminResources = ['accounts','roles','staff','departments','rooms','wards','beds','services','settings','audit','dashboard','roster','backups'];
 export const adminActions = ['view','create','edit','deactivate','export'];
-export const permissions = adminResources.flatMap(resource => adminActions.filter(action => !['audit','dashboard'].includes(resource) || ['view','export'].includes(action)).map(action => `${resource}:${action}`));
+export const adminPermissions = adminResources.filter(resource=>resource!=='backups').flatMap(resource => adminActions.filter(action => !['audit','dashboard'].includes(resource) || ['view','export'].includes(action)).map(action => `${resource}:${action}`));
+export const permissions=[...adminPermissions,'backups:view','backups:create','backups:restore',...businessPermissions];
 const f = (key,label,type='text',extra={}) => ({key,label,type,...extra});
 export const adminDefinitions = {
+ roster:{label:'Phân công ca khám',fields:[f('id','Mã phân công'),f('roomId','Phòng khám','reference',{source:'rooms'}),f('doctorId','Bác sĩ','reference',{source:'staff'}),f('nurseId','Điều dưỡng','reference',{source:'staff',optional:true}),f('date','Ngày khám','date'),f('shift','Ca khám','select',{options:['SANG','CHIEU','TOI']}),f('status','Trạng thái','select',{options:['DA_PHAN_CONG','DANG_TRUC','HOAN_TAT','VANG_MAT']}),f('note','Ghi chú','text',{optional:true})]},
+ backups:{label:'Sao lưu & phục hồi',fields:[]},
  accounts:{label:'Tài khoản',fields:[f('username','Tên đăng nhập'),f('name','Họ tên'),f('email','Email','email'),f('roleId','Vai trò','reference',{source:'roles'}),f('staffId','Nhân viên','reference',{source:'staff',optional:true}),f('patientId','Mã hồ sơ bệnh nhân','text',{optional:true}),f('active','Đang hoạt động','checkbox')]},
  roles:{label:'Vai trò & quyền',fields:[f('name','Tên vai trò'),f('workspaceRole','Vai trò nghiệp vụ','select',{optional:true,options:['none','receptionist','doctor','nurse','technician','pharmacist','cashier','patient']}),f('description','Mô tả','text',{optional:true}),f('permissions','Quyền','permissions'),f('active','Đang hoạt động','checkbox')]},
  departments:{label:'Khoa',fields:[f('id','Mã khoa'),f('name','Tên khoa'),f('kind','Loại khoa','select',{options:['KHAM_BENH','LAM_SANG','CAN_LAM_SANG','DUOC','HANH_CHINH']}),f('location','Vị trí','text',{optional:true}),f('active','Đang hoạt động','checkbox')]},
@@ -12,5 +16,5 @@ export const adminDefinitions = {
  staff:{label:'Nhân viên',fields:[f('id','Mã nhân viên'),f('name','Họ tên'),f('departmentId','Khoa','reference',{source:'departments'}),f('title','Chức danh'),f('specialty','Chuyên môn (Tiếp đón chọn QUAN_TRI)','select',{options:['BAC_SI','DIEU_DUONG','DUOC_SI','KY_THUAT_VIEN','THU_NGAN','QUAN_TRI','KY_SU']}),f('certificate','Chứng chỉ hành nghề','text',{optional:true}),f('phone','Điện thoại','tel',{optional:true}),f('email','Email','email',{optional:true}),f('active','Đang làm việc','checkbox')]},
  services:{label:'Dịch vụ & đơn giá',fields:[f('id','Mã dịch vụ'),f('name','Tên dịch vụ'),f('departmentId','Khoa thực hiện','reference',{source:'departments'}),f('kind','Loại dịch vụ','select',{options:['XET_NGHIEM','CDHA','THU_THUAT','PHAU_THUAT']}),f('resultType','Loại kết quả','select',{options:['XET_NGHIEM','MO_TA']}),f('price','Đơn giá','number'),f('insurancePrice','Giá BHYT','number'),f('duration','Thời gian (phút)','number'),f('active','Đang cung cấp','checkbox')]},
  settings:{label:'Cấu hình cơ sở',fields:[f('name','Tên cơ sở'),f('address','Địa chỉ'),f('phone','Điện thoại','tel'),f('open','Giờ mở cửa','time'),f('close','Giờ đóng cửa','time')]},
- audit:{label:'Nhật ký',fields:[]}, dashboard:{label:'Tổng quan',fields:[]}
+ audit:{label:'Nhật ký',fields:[]}, dashboard:{label:'Thống kê quản trị',fields:[]}
 };

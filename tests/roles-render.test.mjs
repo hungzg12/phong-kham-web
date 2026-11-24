@@ -10,20 +10,21 @@ let fixture,bundle;
 before(async()=>{
  await fs.mkdir('.data',{recursive:true});bundle=path.resolve('.data/QA_TEST_render_'+randomUUID()+'.mjs');
  await build({stdin:{contents:`
+ import ActorHome from './src/Actors.jsx';
  import React from 'react';import {renderToStaticMarkup} from 'react-dom/server';
  import {ReferralPaperForm,ConsultationPaperForm,DischargePaperForm,MedicalBillPaperForm,PrescriptionPaperForm,MedicalRecordSummaryPaperForm} from './src/MedicalPaperForms.jsx';
  import {PatientPortalView} from './src/PatientPortal.jsx';import Auth from './src/Auth.jsx';import Inventory from './src/Inventory.jsx';import ClinicalDesk from './src/ClinicalDesk.jsx';import LabDesk from './src/LabDesk.jsx';import Business from './src/Business.jsx';import History from './src/History.jsx';import Appointments from './src/Appointments.jsx';
  import {initializeWorkspace,transact,getWorkspace} from './src/workspace.js';
  export function seed(){initializeWorkspace();transact(d=>{
  d.patients=[{id:'BN0001',name:'QA_TEST_MINE',phone:'0900000201',doctor:'Trần Minh Anh',dept:'Nội tổng quát'}, {id:'QA_TEST_OTHER',name:'QA_TEST_OTHER_NAME',phone:'0900000202',doctor:'QA_TEST_OTHER_DOCTOR',dept:'Tim mạch'}];
- d.visits=[{id:'QA_TEST_VISIT_1',patientId:'BN0001',date:'2026-11-21',time:'08:30',department:'Nội tổng quát',doctor:'Trần Minh Anh',status:'Chờ khám'}, {id:'QA_TEST_VISIT_2',patientId:'BN0001',date:'2026-11-21',time:'09:00',department:'Nội tổng quát',doctor:'Trần Minh Anh',status:'Chờ khám'}, {id:'QA_TEST_OTHER_VISIT',patientId:'QA_TEST_OTHER',date:'2026-11-21',time:'09:00',department:'Tim mạch',doctor:'QA_TEST_OTHER_DOCTOR',status:'Chờ khám'}];
+ d.visits=[{id:'QA_TEST_VISIT_1',patientId:'BN0001',date:'2026-11-21',time:'08:30',department:'Nội tổng quát',doctor:'Trần Minh Anh',doctorStaffId:'NV-BS01',status:'Chờ khám'}, {id:'QA_TEST_VISIT_2',patientId:'BN0001',date:'2026-11-21',time:'09:00',department:'Nội tổng quát',doctor:'Trần Minh Anh',doctorStaffId:'NV-BS01',status:'Chờ khám'}, {id:'QA_TEST_OTHER_VISIT',patientId:'QA_TEST_OTHER',date:'2026-11-21',time:'09:00',department:'Tim mạch',doctor:'QA_TEST_OTHER_DOCTOR',doctorStaffId:'QA_TEST_OTHER_DOC',status:'Chờ khám'}];
  d.business.labs=[{id:'QA_TEST_LAB',patient:'BN0001',episodeId:'QA_TEST_VISIT_1',service:'QA_TEST_SERVICE',doctor:'NV001',status:'Chờ tiếp nhận'}];
  d.business.prescriptions=[{id:'QA_TEST_RX',patient:'BN0001',episodeId:'QA_TEST_VISIT_1',doctor:'NV001',status:'Đã xác nhận',lines:[],diagnosis:'QA_TEST_DIAGNOSIS',advice:'QA_TEST_ADVICE'}];
  d.business.rounds=[{id:'QA_TEST_ORDER',patient:'BN0001',episodeId:'QA_TEST_VISIT_1',doctor:'NV001',kind:'Chăm sóc',progress:'QA_TEST',scheduled:'2026-11-21T08:30',status:'Chờ thực hiện'}];
  d.appointments=[{id:'QA_TEST_APPT_1',patientId:'BN0001',name:'QA_TEST_MINE',phone:'0900000201',dept:'Nội tổng quát',date:'2026-11-21T08:30',status:'Đã xác nhận'},{id:'QA_TEST_APPT_2',name:'QA_TEST_CHECKED',date:'2026-11-21T09:00',status:'Đã tiếp đón'},{id:'QA_TEST_APPT_3',name:'QA_TEST_CANCELLED',date:'2026-11-21T09:30',status:'Đã hủy'}];
  });}
  export function render(kind,role,tab){const d=getWorkspace();const shared={role,notify:()=>{},navigate:()=>{}};
- const node=kind==='auth'?React.createElement(Auth,{onLogin:()=>{}}):kind==='inventory'?React.createElement(Inventory,shared):kind==='portal'&&role==='patient'?React.createElement(PatientPortalView,{data:{patient:d.patients.find(p=>p.id==='BN0001'),history:d.visits.filter(v=>v.patientId==='BN0001'),results:[],labs:[],prescriptions:[],appointments:[],settlements:[],advances:[]},tab:tab||'summary'}):kind==='appointments'?React.createElement(Appointments,{...shared,appointments:d.appointments,setAppointments:()=>{},patients:d.patients}):kind==='desk'?React.createElement(ClinicalDesk,shared):kind==='lab'?React.createElement(LabDesk,shared):kind==='history'?React.createElement(History,{...shared,patientId:role==='patient'?'BN0001':undefined}):React.createElement(Business,{...shared,page:kind,requestedTab:tab,patients:d.patients,stock:d.stock,beds:d.beds,notes:d.notes,appointments:d.appointments,setStock:()=>{},setBeds:()=>{},setAppointments:()=>{}});
+ const node=kind==='home'?React.createElement(ActorHome,{...shared,patients:d.patients,beds:d.beds,stock:d.stock,appointments:d.appointments}):kind==='auth'?React.createElement(Auth,{onLogin:()=>{}}):kind==='inventory'?React.createElement(Inventory,shared):kind==='portal'&&role==='patient'?React.createElement(PatientPortalView,{data:{patient:d.patients.find(p=>p.id==='BN0001'),history:d.visits.filter(v=>v.patientId==='BN0001'),results:[],labs:[],prescriptions:[],appointments:[],settlements:[],advances:[]},tab:tab||'summary'}):kind==='appointments'?React.createElement(Appointments,{...shared,appointments:d.appointments,setAppointments:()=>{},patients:d.patients}):kind==='desk'?React.createElement(ClinicalDesk,shared):kind==='lab'?React.createElement(LabDesk,shared):kind==='history'?React.createElement(History,{...shared,patientId:role==='patient'?'BN0001':undefined}):React.createElement(Business,{...shared,page:kind,requestedTab:tab,patients:d.patients,stock:d.stock,beds:d.beds,notes:d.notes,appointments:d.appointments,setStock:()=>{},setBeds:()=>{},setAppointments:()=>{}});
  return renderToStaticMarkup(node);}
  export function renderPaper(kind,row={},patient={}){const Form={referral:ReferralPaperForm,consultation:ConsultationPaperForm,discharge:DischargePaperForm,bill:MedicalBillPaperForm,rx:PrescriptionPaperForm,summary:MedicalRecordSummaryPaperForm}[kind];return renderToStaticMarkup(React.createElement(Form,{row,patient}));}
  export function renderHistoryScope(patientId){return renderToStaticMarkup(React.createElement(History,{role:'patient',patientId,notify:()=>{},navigate:()=>{}}));}
@@ -112,4 +113,8 @@ test('medical print forms never invent patient identities, clinical findings, me
 test('bill print preserves actual zero totals and quantity field from finance API',()=>{
  const html=fixture.renderPaper('bill',{gross:0,insurance:0,advance:0,lines:[{description:'QA_TEST_LINE',quantity:3,price:100}]},{name:'QA_TEST_PERSON'});
  assert.match(html,/QA_TEST_LINE/);assert.match(html,/>3<\/td>/);assert.match(html,/300/);assert.doesNotMatch(html,/475\.000|NaN/);
+});
+
+test('doctor and all actor home screens render without an undefined task list',()=>{
+ for(const role of ['doctor','receptionist','nurse','technician','pharmacist','cashier','patient'])assert.match(fixture.render('home',role),/Công việc trong ca|Dịch vụ dành cho bạn/);
 });

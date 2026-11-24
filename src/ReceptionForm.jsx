@@ -6,14 +6,7 @@ import { HeartPulse, Search, AlertTriangle, IdCard, Shield, Stethoscope, Check, 
 import { parseBhytCard } from './bhyt-utils';
 import MedicalSuggestInput from './MedicalSuggestInput';
 
-const CLINIC_ROOMS = [
-  { code: 'PK-NOI', name: 'Phòng khám 101 - Nội tổng quát', dept: 'Nội tổng quát', doctor: 'BS.CKI Trần Minh Anh' },
-  { code: 'PK-TIM', name: 'Phòng khám 102 - Tim mạch can thiệp', dept: 'Tim mạch', doctor: 'ThS.BS Nguyễn Văn An' },
-  { code: 'PK-TMH', name: 'Phòng khám 103 - Tai Mũi Họng', dept: 'Tai Mũi Họng', doctor: 'BS.CKII Lê Thị Mai' },
-  { code: 'PK-DA',  name: 'Phòng khám 104 - Da liễu & Thẩm mỹ', dept: 'Da liễu', doctor: 'BS Đỗ Hoàng Long' },
-  { code: 'PK-SAN', name: 'Phòng khám 105 - Sản phụ khoa', dept: 'Sản phụ khoa', doctor: 'BS.CKI Phạm Quỳnh Hoa' },
-  { code: 'PK-CXK', name: 'Phòng khám 106 - Cơ xương khớp', dept: 'Cơ xương khớp', doctor: 'ThS.BS Đặng Quốc Tuấn' },
-];
+
 
 export default function ReceptionForm({ mode = 'register', patient, onDone }) {
   const [patients] = useWorkspace('patients');
@@ -35,7 +28,9 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
   const [address, setAddress] = useState(person?.address || 'TP. Hồ Chí Minh');
   const [patientHistory, setPatientHistory] = useState(person?.history || '');
   const [allergyNote, setAllergyNote] = useState(person?.allergy || '');
-  const [selectedRoom, setSelectedRoom] = useState('PK-NOI');
+  const [selectedRoom, setSelectedRoom] = useState('');
+  const [clinicRooms,setClinicRooms]=useState([]);
+  useEffect(()=>{let active=true;hisApi.getAncillary().then(data=>{if(!active)return;const list=(data.clinicDepartments||[]).map(d=>({code:d.id,dept:d.name,name:d.rooms.map(r=>r.name).join(' · ')}));setClinicRooms(list);setSelectedRoom(old=>list.some(r=>r.code===old)?old:list[0]?.code||'');}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[]);
   const [intakeReason, setIntakeReason] = useState('Khám kiểm tra sức khỏe tổng quát');
 
   // Sync state when selected patient changes
@@ -148,7 +143,8 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
         message = `Đã cập nhật thông tin hành chính bệnh nhân ${fullName.trim().toUpperCase()}`;
       } else {
         // Register new visit
-        const chosenRoom = CLINIC_ROOMS.find(r => r.code === selectedRoom) || CLINIC_ROOMS[0];
+        const chosenRoom = clinicRooms.find(r => r.code === selectedRoom);
+        if(!chosenRoom)throw new Error('Chưa tải được khoa có phòng khám hoạt động. Vui lòng thử lại.');
         const payload = {
           patientId: selected || undefined,
           name: fullName.trim().toUpperCase(),
@@ -158,17 +154,15 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
           cccd: cccd.trim(),
           insurance: patientType === 'BHYT' ? insuranceCard.trim() : '',
           address: address.trim(),
-          dept: chosenRoom.dept,
-          roomCode: chosenRoom.code,
-          roomName: chosenRoom.name,
-          doctor: chosenRoom.doctor,
+          dept: chosenRoom.code,
+
           reason: intakeReason.trim(),
           allergy: allergyNote.trim(),
           history: patientHistory.trim()
         };
 
         result = await hisApi.createVisit(payload);
-        message = `Tiếp đón thành công! Cấp STT #${result.queueNumber} tại ${result.roomName || chosenRoom.name}`;
+        message = `Tiếp đón thành công! Cấp STT #${result.queueNumber} tại ${result.roomName || chosenRoom.name}${result.doctorStaffId?'':'. Chưa có bác sĩ phân công ca; quản trị viên cần phân công để đưa lượt vào hàng đợi bác sĩ.'}`;
       }
 
       await syncWithSqlServer();
@@ -180,7 +174,7 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
     }
   }
 
-  const chosenRoom = CLINIC_ROOMS.find(r => r.code === selectedRoom) || CLINIC_ROOMS[0];
+  const chosenRoom = clinicRooms.find(r => r.code === selectedRoom) || clinicRooms[0];
 
   return (
     <div className="his-reception-container">
@@ -515,7 +509,7 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
                       onChange={e => setSelectedRoom(e.target.value)}
                       className="his-select"
                     >
-                      {CLINIC_ROOMS.map(room => (
+                      {clinicRooms.map(room => (
                         <option key={room.code} value={room.code}>
                           {room.dept}
                         </option>
@@ -552,7 +546,7 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
                   <div className="his-room-info">
                     <UserCheck size={18} className="his-room-icon" />
                     <div>
-                      <strong>{chosenRoom.name}</strong>
+                      <strong>{chosenRoom?.name||'Chưa có phòng khám hoạt động'}</strong>
                       <span>Bác sĩ được xác định theo phân công ca khi tiếp nhận.</span>
                     </div>
                   </div>

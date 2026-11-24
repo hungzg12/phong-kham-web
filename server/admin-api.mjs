@@ -1,3 +1,4 @@
+import {backupOperation} from './admin-backups.mjs';
 import {registerPatient} from './patient-registration.mjs';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { loadState, transactAdmin, querySql } from './admin-store.mjs';
@@ -32,11 +33,13 @@ function safeChanges(before,after) {
 }
 function paging(rows,searchParams) {
   const q=(searchParams.get('q')||'').trim().toLocaleLowerCase('vi');
+  const status=searchParams.get('status');
+  if(status&&!['DA_PHAN_CONG','DANG_TRUC','HOAN_TAT','VANG_MAT'].includes(status))fail(400,'Trạng thái phân công không hợp lệ.');
   const active=searchParams.get('active');
   if(active&&!['true','false'].includes(active))fail(400,'Bộ lọc trạng thái không hợp lệ.');
   const size=Number(searchParams.get('size')||10),page=Number(searchParams.get('page')||1);
   if(!Number.isInteger(size)||size<1||size>100||!Number.isInteger(page)||page<1)fail(400,'Phân trang không hợp lệ.');
-  const filtered=rows.filter(r=>(active===null||r.active===undefined||r.active===(active==='true'))&&Object.values(r).filter(v=>typeof v==='string').some(v=>v.toLocaleLowerCase('vi').includes(q)));
+  const filtered=rows.filter(r=>(!status||r.status===status)&&(active===null||r.active===undefined||r.active===(active==='true'))&&Object.values(r).filter(v=>typeof v==='string').some(v=>v.toLocaleLowerCase('vi').includes(q)));
   return {rows:filtered.slice((page-1)*size,page*size),total:filtered.length,page,size};
 }
 function dateRange(params) {
@@ -101,6 +104,13 @@ export function createAdminMiddleware() {
       }
       const parts=url.pathname.split('/').filter(Boolean),resource=parts[2],id=parts[3];
       if(parts.length>5||!adminDefinitions[resource])fail(404,'Không tìm thấy API.');
+      if(resource==='backups'){
+        const {user}=auth(state.data,token,req.method==='GET'?'backups:view':id==='backup'?'backups:create':'backups:restore',req);
+        if(user.roleId!=='admin')fail(403,'Chỉ quản trị viên hệ thống được sao lưu/phục hồi.');
+        if(req.method==='GET'&&!id)return send(200,{rows:state.data.backups||[],total:(state.data.backups||[]).length});
+        if(req.method==='POST'&&['backup','restore-new'].includes(id))return send(200,await backupOperation(id,await readJson(req),user.username));
+        fail(405,'Thao tác sao lưu không được hỗ trợ.');
+      }
       if(resource==='dashboard'&&req.method==='GET') {
         authorize(state.data,token,'dashboard:view');const range=dateRange(url.searchParams);return send(200,{...await dashboard(range.from,range.to),...range,asOf:new Date().toISOString()});
       }
@@ -176,8 +186,8 @@ export function createAdminMiddleware() {
           if(resource==='accounts') {row.passwordHash=passwordHash||old.passwordHash;row.authVersion=(old?.authVersion||0)+1;}
           if(creating)rows.push(row);else rows[rows.indexOf(old)]=row;
           ensureLastAdmin(data);
-          if(resource==='roles')data.sessions=data.sessions.filter(s=>!data.accounts.some(a=>a.id===s.userId&&a.roleId===id));
-          else data.sessions=data.sessions.filter(s=>s.userId!==id);
+          if(resource==='roles'&&(!values.active||(values.workspaceRole||'')!==(old?.workspaceRole||'')))data.sessions=data.sessions.filter(s=>!data.accounts.some(a=>a.id===s.userId&&a.roleId===id));
+          else if(resource==='accounts')data.sessions=data.sessions.filter(s=>s.userId!==id);
           saved=resource==='accounts'?publicAccount(row):row;
           log(event(user.username,creating?'create':'update',resource,row.id,safeChanges(old,row)));
         }

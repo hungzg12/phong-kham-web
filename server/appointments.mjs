@@ -1,3 +1,4 @@
+import {resolveDepartment} from './department-catalog.mjs';
 import { randomUUID } from 'node:crypto';
 import { querySql } from './admin-store.mjs';
 
@@ -62,6 +63,7 @@ END CATCH`, parameters);
 
 export async function saveAppointment(data, id = null, linkedPatient = null) {
   const values = validateAppointment(data);
+  values.deptCode=await resolveDepartment(data.dept);
   if (id && (typeof id !== 'string' || id.length>20)) fail(400,'Mã lịch hẹn không hợp lệ.');
   return transaction(`
  DECLARE @patient varchar(20)=@linkedPatient, @room varchar(20);

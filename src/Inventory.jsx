@@ -1,3 +1,4 @@
+import {granted} from './session.js';
 import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Search, Download, Package, Pill, AlertCircle, X, Check, ArrowRight, RefreshCw, Building2, Trash2, FileSpreadsheet, Truck, ShieldCheck, ClipboardList, CheckCircle2, Clock, Printer, User, FileText } from 'lucide-react';
 import { useWorkspace, getWorkspace, syncWithSqlServer, planFEFO, applyClinicalStock } from './workspace';
@@ -163,11 +164,11 @@ export default function Inventory({ role = 'admin', notify, clinicalContext }) {
   });
 
   const handleDispenseRx = async (rx) => {
+    if(!granted('biz.prescriptions:dispense')){setError('Chưa được cấp quyền cấp thuốc.');return;}
     setDispensingRxId(rx.id);
     setError('');
     try {
-      applyClinicalStock('prescriptions', rx.id, dispenseWarehouse, actor?.person || 'DS. Lê Quốc Huy');
-      try {
+
         await hisApi.pharmacyAction({
           action: 'dispense',
           role,
@@ -176,9 +177,7 @@ export default function Inventory({ role = 'admin', notify, clinicalContext }) {
           warehouse: dispenseWarehouse,
           requestId: crypto.randomUUID()
         });
-      } catch (sqlErr) {
-        console.warn('SQL dispense sync warning (authoritative workspace updated):', sqlErr.message);
-      }
+      await syncWithSqlServer();
       notify(`Đã cấp phát thành công đơn thuốc ${rx.id} cho người bệnh và trừ kho FEFO!`);
       setActiveRx(null);
     } catch (err) {
@@ -190,6 +189,8 @@ export default function Inventory({ role = 'admin', notify, clinicalContext }) {
   };
 
   function open(type, customDraft = null) {
+    const key={product:'biz.pharmacy:product',import:'biz.pharmacy:shipment',transfer:'biz.pharmacy:movement'}[type];
+    if(key&&!granted(key)){setError('Chưa được cấp quyền thao tác kho này.');return;}
     operation.current = null;
     setModal(type);
     setDraft(customDraft);

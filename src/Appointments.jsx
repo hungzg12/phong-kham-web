@@ -1,3 +1,5 @@
+import {granted} from './session.js';
+import {csrfHeaders} from './session.js';
 import React, { useState, useEffect } from 'react';
 import { CalendarDays, List, Plus, Search, Check, X, ChevronLeft, ChevronRight, Clock3 } from 'lucide-react';
 import { clinics, today } from './business-data';
@@ -60,7 +62,7 @@ export default function Appointments({ appointments, setAppointments, patients, 
   }, []);
 
   useEffect(() => {
-    if (request) {
+    if (request&&granted('biz.appointments:create')) {
       setError('');
       setModal({});
     }
@@ -82,12 +84,14 @@ export default function Appointments({ appointments, setAppointments, patients, 
   });
 
   const open = value => {
+    const action=value?.mode==='checkin'?'checkin':value?.mode==='cancel'?'cancel':value?.id?'edit':'create';
+    if(!granted('biz.appointments:'+action)){setError('Chưa được cấp quyền thao tác lịch hẹn này.');return;}
     setError('');
     setModal(value);
   };
 
   async function persist(method, body) {
-    const response = await fetch('/api/appointments', {method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const response = await fetch('/api/appointments', {method,headers:{'Content-Type':'application/json',...csrfHeaders()},body:JSON.stringify(body)});
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Không lưu được lịch hẹn.');
     if (!result.id) throw new Error('Máy chủ chưa xác nhận lịch hẹn đã lưu.');
@@ -126,7 +130,7 @@ export default function Appointments({ appointments, setAppointments, patients, 
     if(saving) return;
     setError('');setSaving(true);
     try {
-      const response=await fetch('/api/visits',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({appointmentId:a.id,patientId:a.patientId})});
+      const response=await fetch('/api/visits',{method:'POST',headers:{'Content-Type':'application/json',...csrfHeaders()},body:JSON.stringify({appointmentId:a.id,patientId:a.patientId})});
       const result=await response.json();
       if(!response.ok)throw new Error(result.error || 'Không thể tiếp đón người bệnh.');
       await syncFromSql();
@@ -255,15 +259,15 @@ export default function Appointments({ appointments, setAppointments, patients, 
                         <div className="row-actions">
                           {a.status === 'Đã xác nhận' && (
                             <>
-                              <button className="secondary" onClick={() => open({ ...a, mode: 'checkin' })}>
+                              <button className="secondary" disabled={!granted('biz.appointments:checkin')} onClick={() => open({ ...a, mode: 'checkin' })}>
                                 Check-in
                               </button>
-                              <button className="secondary" onClick={() => open(a)}>
+                              <button className="secondary" disabled={!granted('biz.appointments:edit')} onClick={() => open(a)}>
                                 Đổi lịch
                               </button>
                               <button
                                 className="icon-button"
-                                aria-label={'Hủy lịch ' + a.name}
+                                disabled={!granted('biz.appointments:cancel')} aria-label={'Hủy lịch ' + a.name}
                                 onClick={() => open({ ...a, mode: 'cancel' })}
                               >
                                 <X size={16} />

@@ -44,19 +44,22 @@ export function validate(resource,input,{create=false}={}) {
       if(field.type==='select'&&!(field.optional&&!value)&&!field.options.includes(value)) fail(400,`${field.label}: lựa chọn không hợp lệ.`);
       if(field.type==='email'&&value&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) fail(400,'Email không hợp lệ.');
       if(field.type==='tel'&&value&&!/^\+?[0-9][0-9 ()-]{8,19}$/.test(value)) fail(400,'Điện thoại không hợp lệ.');
+      if(field.type==='date'&&(!/^\d{4}-\d{2}-\d{2}$/.test(value)||!Number.isFinite(Date.parse(value))||new Date(value).toISOString().slice(0,10)!==value)) fail(400,'Ngày không hợp lệ.');
       if(field.type==='time'&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) fail(400,'Giờ làm việc không hợp lệ.');
       if(field.key==='id'&&!/^[A-Za-z0-9_-]{1,20}$/.test(value)) fail(400,'Mã chỉ gồm chữ, số, gạch dưới/gạch ngang; tối đa 20 ký tự.');
       if(field.key==='username') {value=value.toLowerCase();if(!/^[a-z0-9._-]{3,50}$/.test(value)) fail(400,'Tên đăng nhập phải có 3–50 chữ, số hoặc . _ -');}
     }
     result[field.key]=value;
   }
+  if(resource==='roles')for(const permission of result.permissions.filter(p=>p.startsWith('biz.')&&!p.endsWith(':view'))){if(!result.permissions.includes(permission.split(':')[0]+':view'))fail(400,'Cần tích quyền Xem của cùng nhóm trước khi cấp quyền thao tác.');}
   if(resource==='settings'&&result.close<=result.open) fail(400,'Giờ đóng cửa phải sau giờ mở cửa.');
   return result;
 }
 export function ensureLastAdmin(data) {
   // A designated administrator role cannot lose security administration rights.
   const role=data.roles.find(r=>r.id==='admin');
-  if(!role?.active||permissions.some(p=>!role.permissions.includes(p))) fail(409,'Vai trò quản trị hệ thống phải giữ đầy đủ quyền quản trị.');
+  // Preserve security administration without forcing clinical or optional catalog grants.
+  if(!role?.active||['accounts:view','accounts:create','accounts:edit','roles:view','roles:create','roles:edit'].some(p=>!role.permissions.includes(p))) fail(409,'Vai trò quản trị hệ thống phải giữ đầy đủ quyền quản trị.');
   if(!data.accounts.some(a=>a.active&&a.roleId==='admin')) fail(409,'Phải giữ ít nhất một quản trị viên đang hoạt động.');
 }
 export function event(actor,action,entity,target,changes={}) {
@@ -65,7 +68,7 @@ export function event(actor,action,entity,target,changes={}) {
 export async function initialState({username,name,email,password}) {
   const admin=validate('accounts',{username,name,email,roleId:'admin',staffId:'',active:true});
   return {accounts:[{...admin,id:randomUUID(),version:1,authVersion:1,passwordHash:await hashPassword(password)}],
-    roles:[{id:'admin',name:'Quản trị viên',description:'Quản trị cấu hình và tài khoản; không cấp quyền hồ sơ chuyên môn.',permissions:[...permissions],active:true,version:1},
+    roles:[{id:'admin',name:'Quản trị viên',description:'Quản trị cấu hình và tài khoản; không cấp quyền hồ sơ chuyên môn.',permissions:permissions.filter(p=>!p.startsWith('biz.')),active:true,version:1},
       ...[['receptionist','Tiếp tân'],['doctor','Bác sĩ'],['nurse','Điều dưỡng'],['technician','Kỹ thuật viên CLS'],['pharmacist','Dược sĩ'],['cashier','Thu ngân'],['patient','Bệnh nhân']].map(([id,name])=>({id,name,description:'Chưa được cấp quyền quản trị.',permissions:[],active:true,version:1}))],
     sessions:[],settings:{name:'MediCare',address:'Chưa cấu hình',phone:'0900000000',open:'08:00',close:'17:00',version:1}};
 }

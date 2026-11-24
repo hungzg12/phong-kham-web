@@ -225,7 +225,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
   // Active group & active service
   const activeGroup = patientGroups.find(g => g.key === selectedGroupKey) || patientGroups[0];
   const row = activeGroup?.services.find(s => s.id === selectedServiceId) || activeGroup?.services[0];
-  const canWrite = canAction(role, 'labs', 'accept');
+  const canWrite = ['accept','result','approve'].some(action=>canAction(role,'labs',action));
 
   // Identify active service details
   const currentService = db.services.find(s => s.id === row?.service);
@@ -745,7 +745,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                   );
                 })}
 
-                {canWrite && activeGroup.services.some(s => s.status === 'Chờ tiếp nhận') && (
+                {canAction(role,'labs','accept') && activeGroup.services.some(s => s.status === 'Chờ tiếp nhận') && (
                   <button
                     type="button"
                     className="secondary"
@@ -1207,7 +1207,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
 
                     {/* Action Buttons */}
                     <div className="desk-lab-actions" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                      {canWrite && !saving && ['Đang thực hiện', 'Chờ duyệt'].includes(row.status) && (
+                      {canAction(role,'labs','result') && !saving && ['Đang thực hiện', 'Chờ duyệt'].includes(row.status) && (
                         <button
                           className="secondary"
                           onClick={() => {
@@ -1249,7 +1249,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                         </button>
                       )}
 
-                      {canWrite && !saving && row.status === 'Chờ duyệt' && (
+                      {canAction(role,'labs','approve') && !saving && row.status === 'Chờ duyệt' && (
                         <button
                           className="primary"
                           onClick={() => action('publish')}
@@ -1258,7 +1258,7 @@ export default function LabDesk({ role = 'technician', notify, clinicalContext }
                         </button>
                       )}
 
-                      {canWrite && !saving && row.status === 'Đang thực hiện' && (
+                      {canAction(role,'labs','result') && !saving && row.status === 'Đang thực hiện' && (
                         <button
                           className="primary"
                           onClick={() => {

@@ -506,7 +506,7 @@
   gap: 5px;
   font-size: 11px;
   font-weight: 600;
-  color: #375345;
+  color: var(--ui-ink, #375345);
   margin-bottom: 10px;
 }
 
@@ -516,19 +516,19 @@
 }
 
 .his-input, .his-select, .his-textarea {
-  border: 1px solid #c8d8cd !important;
+  border: 1px solid var(--ui-line, #c8d8cd) !important;
   border-radius: 6px !important;
-  padding: 8px 10px !important;
+  padding: var(--his-control-padding, 8px 10px) !important;
   font-size: 12px !important;
-  color: #1e3a2f !important;
-  background: #ffffff !important;
+  color: var(--ui-ink, #1e3a2f) !important;
+  background: var(--ui-surface, #ffffff) !important;
   width: 100%;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .his-input:focus, .his-select:focus, .his-textarea:focus {
-  border-color: #106b60 !important;
-  box-shadow: 0 0 0 3px rgba(16, 107, 96, 0.12) !important;
+  border-color: var(--ui-accent, #106b60) !important;
+  box-shadow: 0 0 0 3px var(--ui-focus-ring, rgba(37, 99, 235, 0.14)) !important;
 }
 
 .his-textarea {
@@ -729,13 +729,13 @@
   font-size: 13px !important;
   font-weight: 650 !important;
   border-radius: 6px !important;
-  background: #106b60 !important;
+  background: var(--ui-accent, #106b60) !important;
   color: #ffffff !important;
-  box-shadow: 0 2px 6px rgba(16, 107, 96, 0.25);
+  box-shadow: 0 2px 6px var(--ui-button-shadow, rgba(37, 99, 235, 0.18));
 }
 
 .his-submit-btn:hover:not(:disabled) {
-  background: #0d574e !important;
+  background: var(--ui-accent-hover, #0d574e) !important;
 }
 
 .his-btn-sm {
