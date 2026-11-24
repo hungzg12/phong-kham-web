@@ -86,27 +86,40 @@ export default function ClinicalDesk({role,notify,navigate,inpatient=false,clini
  }
 
  async function handleCallNext() {
-   // Các bệnh nhân trong danh sách chưa hoàn tất/hủy, ngoại trừ ca đang phục vụ
-   const otherCandidates = filtered.filter(v => 
-     v.id !== current?.id && 
-     !['Hoàn tất', 'Đã hủy', 'Đã ra viện', 'Chờ thanh toán'].includes(v.status)
+   // 1. Ưu tiên hàng đầu: Ca vừa có kết quả CLS quay lại (Đã có kết quả) mà chưa phải ca đang khám
+   const priorityLabReturn = filtered.find(v => v.id !== current?.id && v.status === 'Đã có kết quả');
+   if (priorityLabReturn) {
+     await callPatient(priorityLabReturn);
+     return;
+   }
+
+   // 2. Lấy danh sách các ca còn có thể khám tiếp trong hàng đợi hiện hành
+   const activeCandidates = filtered.filter(v => 
+     !['Hoàn tất', 'Đã hủy', 'Đã ra viện', 'Chờ thanh toán', 'Chờ kết quả'].includes(v.status)
    );
 
-   // Thứ tự ưu tiên:
-   // 1. Đã có kết quả CLS về (ưu tiên hàng đầu)
-   // 2. Chờ khám (theo STT)
-   // 3. Các ca khác đang tiếp nhận trong danh sách (Đang khám khác, Tạm hoãn...)
-   const priorityList = otherCandidates.filter(v => v.status === 'Đã có kết quả');
-   const waitingList = otherCandidates.filter(v => v.status === 'Chờ khám').sort((a,b) => (Number(a.queueNumber)||999) - (Number(b.queueNumber)||999));
-   const inProgressList = otherCandidates.filter(v => v.status === 'Đang khám').sort((a,b) => (Number(a.queueNumber)||999) - (Number(b.queueNumber)||999));
-   const deferredList = otherCandidates.filter(v => v.status === 'Tạm hoãn');
-
-   const candidate = priorityList[0] || waitingList[0] || inProgressList[0] || deferredList[0] || otherCandidates[0];
-   if (!candidate) {
+   if (!activeCandidates.length) {
      notify('Hàng đợi hiện không còn người bệnh nào khác để gọi tiếp.');
      return;
    }
-   await callPatient(candidate);
+
+   // 3. Tìm vị trí của ca hiện tại và nhảy tuần tự tới ca tiếp theo trong danh sách:
+   const curIdx = activeCandidates.findIndex(v => v.id === current?.id);
+   let nextCandidate = null;
+
+   if (curIdx >= 0 && curIdx < activeCandidates.length - 1) {
+     // Chuyển sang ca tiếp theo ngay bên dưới!
+     nextCandidate = activeCandidates[curIdx + 1];
+   } else {
+     // Khi đã ở cuối danh sách, quay lại người đầu tiên (khác ca hiện tại)
+     nextCandidate = activeCandidates.find(v => v.id !== current?.id) || activeCandidates[0];
+   }
+
+   if (nextCandidate && nextCandidate.id !== current?.id) {
+     await callPatient(nextCandidate);
+   } else {
+     notify('Hàng đợi hiện không còn người bệnh nào khác để gọi tiếp.');
+   }
  }
 
  function handleRecall() {
@@ -229,38 +242,32 @@ export default function ClinicalDesk({role,notify,navigate,inpatient=false,clini
    </div>
  )}
  <div className="desk-layout"><aside className="desk-queue"><div className="desk-queue-title"><Stethoscope size={17}/><b>{inpatient?'Đợt điều trị':'Hàng đợi lượt khám'}</b><span>{filtered.length}</span></div><label className="search"><Search size={15}/><input aria-label="Tìm hồ sơ bàn khám" placeholder="Tên hoặc mã hồ sơ…" value={query} onChange={e=>filter(()=>setQuery(e.target.value))}/></label><div className="desk-filters"><label>Ngày<input aria-label="Ngày hồ sơ" type="date" value={day} onChange={e=>filter(()=>setDay(e.target.value))}/></label><label>Khoa<select aria-label="Khoa bàn khám" value={department} onChange={e=>filter(()=>setDepartment(e.target.value))}><option value="">Tất cả khoa</option>{clinics.map(c=><option key={c}>{c}</option>)}</select></label><label>Trạng thái<select aria-label="Trạng thái bàn khám" value={status} onChange={e=>filter(()=>setStatus(e.target.value))}><option value="">Đang tiếp nhận (ẩn đã hủy)</option>{['Chờ khám','Đang khám','Chờ kết quả','Đã có kết quả','Tạm hoãn','Chờ thanh toán','Hoàn tất','Đã hủy'].map(s=><option key={s} value={s}>{s}</option>)}</select></label></div><div className="desk-patient-list">{filtered.map((v,i)=>{const p=patients.find(pat=>pat.id===v.patientId);const age=p?.birth?`${new Date().getFullYear()-Number(String(p.birth).slice(0,4))}T`:'';const gender=p?.gender==='female'||p?.gender==='Nữ'?'Nữ':p?.gender==='male'||p?.gender==='Nam'?'Nam':'';const demo=[age,gender].filter(Boolean).join('·');const isSelected=current?.id===v.id;const statusClass=v.status==='Đã có kết quả'?'green':v.status==='Đang khám'?'teal':v.status==='Chờ khám'?'amber':v.status==='Tạm hoãn'?'amber':'gray';const isBhyt=p?.insurance&&p?.insurance!=='Không có';return <button key={v.id} aria-pressed={isSelected} onClick={()=>pick(v.id)} title={`${p?.name||'Bệnh nhân'} - ${v.id} (${v.department})`}>
-  {/* Line 1: STT + Patient Name + Demographics (Full Width, No Truncation) */}
-  <div className="desk-pat-row-top" style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:6,width:'100%'}}>
-    <div className="desk-pat-top-left" style={{display:'flex',alignItems:'center',gap:6,minWidth:0,flex:1}}>
-      <span className="desk-pat-stt" style={{fontSize:'11px',fontWeight:700,padding:'1px 5px',borderRadius:'4px',flexShrink:0,background:v.status==='Đã có kết quả'?'#bbf7d0':'#e2e8f0',color:v.status==='Đã có kết quả'?'#166534':'#334155'}}>{getQueueLabel(v, department)}</span>
-      <b className="desk-pat-name" style={{fontSize:'13px',fontWeight:700,color:'#0f172a',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p?.name||'Hồ sơ chưa có tên'}</b>
-      {demo&&<span className="desk-pat-demo" style={{fontSize:'11px',color:'#64748b',whiteSpace:'nowrap',flexShrink:0}}>({demo})</span>}
+  {/* Line 1: STT + Full Patient Name + Demographics (Takes 100% width, NEVER truncate!) */}
+  <div className="desk-pat-row-top" style={{display:'flex',alignItems:'center',gap:6,width:'100%',minWidth:0}}>
+    <span className="desk-pat-stt" style={{fontSize:'11px',fontWeight:700,padding:'1px 6px',borderRadius:'4px',flexShrink:0,background:v.status==='Đã có kết quả'?'#bbf7d0':'#e2e8f0',color:v.status==='Đã có kết quả'?'#166534':'#334155'}}>{getQueueLabel(v, department)}</span>
+    <b className="desk-pat-name" style={{fontSize:'13px',fontWeight:700,color:'#0f172a',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',flex:1,minWidth:0}} title={p?.name||'Hồ sơ chưa có tên'}>{p?.name||'Hồ sơ chưa có tên'}</b>
+    {demo&&<span className="desk-pat-demo" style={{fontSize:'11px',color:'#64748b',whiteSpace:'nowrap',flexShrink:0}}>({demo})</span>}
+  </div>
+  {/* Line 2: Department, Time & BHYT on left, Action Button on right */}
+  <div className="desk-pat-row-bottom" style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:6,width:'100%',fontSize:'11px',color:'#64748b',marginTop:'4px'}}>
+    <div className="desk-pat-bottom-left" style={{display:'flex',alignItems:'center',gap:4,minWidth:0,flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+      <span style={{fontWeight:500}}>{v.department}</span><span>·</span><span>{v.time||v.date}</span><span>·</span>
+      {isBhyt?<span style={{fontSize:'9px',background:'#ecfdf5',color:'#047857',border:'1px solid #a7f3d0',padding:'0 4px',borderRadius:'3px',fontWeight:600}}>BHYT</span>:<span style={{fontSize:'9px',background:'#f8fafc',color:'#64748b',border:'1px solid #e2e8f0',padding:'0 4px',borderRadius:'3px'}}>VP</span>}
     </div>
-    <div style={{display:'flex',alignItems:'center',gap:4}}>
+    <div style={{display:'flex',alignItems:'center',gap:'4px',flexShrink:0}}>
       {v.status==='Tạm hoãn' ? (
-        <span className="text-button" style={{fontSize:'10.5px',color:'#b45309',padding:'1px 5px',background:'#fffbeb',border:'1px solid #fde68a',borderRadius:'3px',fontWeight:600}} onClick={(e)=>{e.stopPropagation();handleRestoreAndCall(v);}} title="Khôi phục và gọi vào khám ngay">
+        <span className="text-button" style={{fontSize:'10px',color:'#b45309',padding:'1px 6px',background:'#fffbeb',border:'1px solid #fde68a',borderRadius:'3px',fontWeight:600}} onClick={(e)=>{e.stopPropagation();handleRestoreAndCall(v);}} title="Khôi phục và gọi vào khám ngay">
           ↺ Gọi lại
         </span>
       ) : !isSelected && !['Hoàn tất','Đã hủy','Đã ra viện','Chờ thanh toán'].includes(v.status) ? (
-        <span className="text-button" style={{fontSize:'10.5px',color:'#0f766e',padding:'1px 5px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:'3px',fontWeight:600}} onClick={(e)=>{e.stopPropagation();callPatient(v);}} title="Gọi người bệnh này vào khám ngay">
+        <span className="text-button" style={{fontSize:'10px',color:'#0f766e',padding:'1px 6px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:'3px',fontWeight:600}} onClick={(e)=>{e.stopPropagation();callPatient(v);}} title="Gọi người bệnh này vào khám ngay">
           ▶ Gọi vào
         </span>
       ) : isSelected ? (
-        <span style={{fontSize:'10px',color:'#0f766e',fontWeight:700}}>● Đang khám</span>
-      ) : null}
-    </div>
-  </div>
-  {/* Line 2: Department & Time on left, BHYT & Status badge on right */}
-  <div className="desk-pat-row-bottom" style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:6,width:'100%',fontSize:'11px',color:'#64748b',marginTop:'2px'}}>
-    <div className="desk-pat-bottom-left" style={{display:'flex',alignItems:'center',gap:4,minWidth:0,flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-      <span>{v.department}</span><span>·</span><span>{v.time||v.date}</span><span>·</span>
-      <span style={{fontFamily:'monospace',fontSize:'10px',color:'#94a3b8'}}>{v.id}</span>
-    </div>
-    <div style={{display:'flex',alignItems:'center',gap:'4px',flexShrink:0}}>
-      {isBhyt?<span style={{fontSize:'9.5px',background:'#ecfdf5',color:'#047857',border:'1px solid #a7f3d0',padding:'1px 5px',borderRadius:'3px',fontWeight:600}}>BHYT</span>:<span style={{fontSize:'9.5px',background:'#f8fafc',color:'#64748b',border:'1px solid #e2e8f0',padding:'1px 5px',borderRadius:'3px'}}>Viện phí</span>}
-      <span className={`badge ${statusClass}`} style={{fontSize:'10px',padding:'1px 6px',whiteSpace:'nowrap'}}>
-        {v.status==='Đã có kết quả'?'⚡ Có KQ':v.status}
-      </span>
+        <span style={{fontSize:'10px',color:'#0f766e',fontWeight:700,background:'#ecfdf5',border:'1px solid #a7f3d0',padding:'1px 5px',borderRadius:'3px'}}>● Đang khám</span>
+      ) : (
+        <span className={`badge ${statusClass}`} style={{fontSize:'9.5px',padding:'1px 5px'}}>{v.status==='Đã có kết quả'?'⚡ Có KQ':v.status}</span>
+      )}
     </div>
   </div>
 </button>;})}{!filtered.length&&<p className="desk-empty">Không có hồ sơ phù hợp. Thử bỏ bộ lọc.</p>}</div></aside><section className="desk-workspace">{current&&patient?<EpisodeDesk key={current.id} episode={current} patient={patient} role={role} notify={notify} navigate={navigate} inpatient={inpatient} dirtyRef={dirty}/>:<div className="desk-empty"><FileText size={35}/><h3>Chọn hồ sơ để bắt đầu</h3><p>Tạo lượt khám hoặc tiếp nhận nội trú từ Lịch sử khám & điều trị.</p><button className="secondary" onClick={()=>navigate('history')}>Mở lịch sử hồ sơ</button></div>}</section></div>{globalIcd&&<Icd10ManagerModal onClose={()=>setGlobalIcd(false)} notify={notify}/>}</div>
