@@ -66,7 +66,7 @@ export default function SecureAdmin({embedded=false,initialScreen='dashboard',hi
    }else{
     const id=screen==='settings'?'facility':dialog.row?.id;
     await api(`/api/admin/${screen}${id?'/'+encodeURIComponent(id):''}`,{method:id?'PUT':'POST',body:JSON.stringify(values)});
-    setDialog(null);setRefresh(n=>n+1);setMessage('Đã lưu vào SQL Server.');
+    setDialog(null);setRefresh(n=>n+1);setMessage('Đã lưu vào hệ thống.');
     if(screen==='accounts'&&id===session.user.id||screen==='roles'&&id===session.user.roleId)await sessionCheck();
    }
   }catch(e){setError(e.message);}finally{setSaving(false);}

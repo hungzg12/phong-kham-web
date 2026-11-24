@@ -27,6 +27,7 @@ before(async()=>{
  export function render(kind,role,tab){const d=getWorkspace();const shared={role,notify:()=>{},navigate:()=>{}};
  const node=kind==='reception'?React.createElement(ReceptionForm,{mode:'register',onDone:()=>{}}):kind==='home'?React.createElement(ActorHome,{...shared,patients:d.patients,beds:d.beds,stock:d.stock,appointments:d.appointments}):kind==='auth'?React.createElement(Auth,{onLogin:()=>{}}):kind==='inventory'?React.createElement(Inventory,shared):kind==='portal'&&role==='patient'?React.createElement(PatientPortalView,{data:{patient:d.patients.find(p=>p.id==='BN0001'),history:d.visits.filter(v=>v.patientId==='BN0001'),results:[],labs:[],prescriptions:[],appointments:[],settlements:[],advances:[]},tab:tab||'summary'}):kind==='appointments'?React.createElement(Appointments,{...shared,appointments:d.appointments,setAppointments:()=>{},patients:d.patients}):kind==='desk'?React.createElement(ClinicalDesk,shared):kind==='lab'?React.createElement(LabDesk,shared):kind==='history'?React.createElement(History,{...shared,patientId:role==='patient'?'BN0001':undefined}):React.createElement(Business,{...shared,page:kind,requestedTab:tab,patients:d.patients,stock:d.stock,beds:d.beds,notes:d.notes,appointments:d.appointments,setStock:()=>{},setBeds:()=>{},setAppointments:()=>{}});
  return renderToStaticMarkup(node);}
+ export function seedReceptionPrivateData(){transact(d=>{d.visits[0].note={diagnosis:'QA_TEST_PRIVATE_DIAGNOSIS',vitals:{pulse:81}};d.patients[0].history='QA_TEST_PRIVATE_HISTORY';d.patients[0].allergy='QA_TEST_PRIVATE_ALLERGY';});}
  export function renderPaper(kind,row={},patient={}){const Form={referral:ReferralPaperForm,consultation:ConsultationPaperForm,discharge:DischargePaperForm,bill:MedicalBillPaperForm,rx:PrescriptionPaperForm,summary:MedicalRecordSummaryPaperForm}[kind];return renderToStaticMarkup(React.createElement(Form,{row,patient}));}
  export function renderHistoryScope(patientId){return renderToStaticMarkup(React.createElement(History,{role:'patient',patientId,notify:()=>{},navigate:()=>{}}));}
  export function seedRecordedHistory(){transact(d=>{d.visits[1].note={vitals:{pressure:'130/85',pulse:91,temperature:37.2,spo2:97,height:170,weight:90},diagnosis:'QA_TEST_SAVED_DIAGNOSIS',icd:'QA_TEST_ICD',examination:'QA_TEST_SAVED_EXAM',advice:'QA_TEST_SAVED_ADVICE'};});}
@@ -121,3 +122,10 @@ test('doctor and all actor home screens render without an undefined task list',(
 });
 
 test('merged reception form renders its ticket preview using the live room state without undefined constants',()=>{assert.match(fixture.render('reception','receptionist'),/Đăng ký khám/);});
+
+test('reception history shows administrative encounter details without medical content or medical print buttons',()=>{
+ fixture.seedReceptionPrivateData();const html=fixture.render('history','receptionist');
+ assert.match(html,/Lịch sử tiếp đón/);assert.match(html,/Thông tin tiếp đón/);assert.match(html,/QA_TEST_VISIT_1/);assert.match(html,/Tạo lượt khám mới/);
+ assert.doesNotMatch(html,/QA_TEST_PRIVATE_DIAGNOSIS|QA_TEST_PRIVATE_HISTORY|QA_TEST_PRIVATE_ALLERGY|Giấy hẹn khám lại|Tóm tắt bệnh án|Dấu hiệu sinh tồn/);
+ const doctor=fixture.render('history','doctor');assert.match(doctor,/QA_TEST_PRIVATE_DIAGNOSIS/);assert.match(doctor,/Tóm tắt bệnh án/);
+});

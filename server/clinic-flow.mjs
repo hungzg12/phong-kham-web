@@ -176,7 +176,8 @@ export async function saveExam(data){
   fields[name]=typeof note[name]==='string'?note[name].trim():'';
  }
  fields.outcome ||= 'Điều trị ngoại trú';
- if(lock&&(!fields.symptoms||!fields.diagnosis))fail(400,'Nhập triệu chứng và chẩn đoán trước khi hoàn tất.');
+ if(lock&&!fields.symptoms)fail(400,'Chưa nhập Triệu chứng / bệnh sử trong tab Khám lâm sàng.');
+ if(lock&&!fields.diagnosis)fail(400,'Chưa nhập Chẩn đoán bệnh chính trong tab Chẩn đoán. Không bắt buộc mã ICD-10.');
  const vitals=note.vitals||{},numbers={};
  if(typeof vitals!=='object'||Array.isArray(vitals))fail(400,'Sinh hiệu không hợp lệ.');
  for(const key of ['pulse','temperature','respiration','spo2','height','weight']){

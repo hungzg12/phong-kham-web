@@ -128,6 +128,14 @@ test('each of eight roles needs saved grants; live revocation and same-role doct
  assert.equal((await get('/api/clinical/visit?id='+other.visitId,'doctor')).status,403);
 });
 
+test('reception API exposes only administrative history and denies direct clinical detail or print source',async()=>{
+ const response=await get('/api/queue?history=1','receptionist');assert.equal(response.status,200);const data=await response.json();assert.ok(data.some(r=>r.id===own.visitId));
+ for(const row of data)for(const key of ['note','history','symptoms','diagnosis','examination','plan','advice','icd','pulse','temperature','spo2','height','weight','bpSystolic','bpDiastolic'])assert.equal(Object.hasOwn(row,key),false,key);
+ const people=await(await get('/api/patients','receptionist')).json();assert.ok(people.length);for(const p of people){assert.equal(Object.hasOwn(p,'allergy'),false);assert.equal(Object.hasOwn(p,'allergyStatus'),false);assert.ok(Object.hasOwn(p,'phone'));}
+ assert.equal((await get('/api/clinical/visit?id='+own.visitId,'receptionist')).status,403);
+ assert.equal((await get('/api/paper-forms?type=archives&id='+own.visitId,'receptionist')).status,403);
+});
+
 test('staff deactivation and changed account role revoke existing workspace access',async()=>{
  await querySql("UPDATE dbo.NhanVien SET dangLamViec=0 WHERE maNhanVien='QA_TEST_TECH';SELECT 'ok';");assert.equal((await get('/api/ancillary','technician')).status,403);
  await transactAdmin(data=>{const u=data.accounts.find(u=>u.id==='QA_TEST_nurse');u.active=false;u.authVersion++;});assert.equal((await get('/api/queue','nurse')).status,401);

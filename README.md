@@ -48,3 +48,16 @@ Các script Playwright cũ trong package.json là tài liệu/harness lịch s�
 Chưa hoàn thiện toàn bộ ứng dụng: một số thao tác phụ ở bàn nội trú, chuyển tuyến và hẹn tái khám từ bàn bác sĩ vẫn ở frontend. Không coi thông báo của các nhánh đó là đã lưu SQL. Chưa có tích hợp thanh toán ngân hàng, giám định BHYT, tương tác thuốc, chữ ký số hoặc kết nối LIS/PACS thực tế.
 
 Bản kiểm tra gần nhất đạt91 test tự động và build; kiểm thử click/reload toàn bộ giao diện hiện tại chưa hoàn tất. Chưa nghiệm thu vận hành với dữ liệu y tế thật.
+
+## Cập nhật giao diện và dữ liệu demo 24/11/2026
+
+- Bác sĩ nhập chẩn đoán trực tiếp, không bắt buộc chọn ICD-10; kiểm tra thiếu triệu chứng/chẩn đoán trước khi khóa khám.
+- Điều dưỡng có tab Phiếu sinh hiệu và lối tắt Ghi sinh hiệu từ lịch sử.
+- Biểu mẫu tiếp đón có gợi ý 34 tỉnh/thành và 3.321 phường/xã/đặc khu, vẫn cho nhập địa chỉ tự do. Dữ liệu từ https://provinces.open-api.vn/api/v2/.
+- Script `scripts/add-qa-demo-services.mjs`, `scripts/add-qa-demo-medicines.mjs`, `scripts/add-qa-demo-icd10.mjs` chỉ ghi database QA được lưu trong `.data/QA_TEST_workspace_session.json`. Chúng không thay thế danh mục chuyên môn thực tế.
+
+### Chia sẻ demo
+
+Sau khi tạo QA, chạy `npm run build`, rồi `node scripts/share-demo.mjs`. Server bind loopback 5188; có thể dùng tunnel HTTPS tới cổng này. Đây là server demo riêng, không thay thế `npm start`.
+
+**Server chia sẻ demo công khai danh sách tài khoản QA và mật khẩu tại `/__qa/login-accounts`, gồm cả Admin, theo lựa chọn chia sẻ demo.** Người có link có thể sửa dữ liệu QA. Không dùng server này với bệnh nhân thật, tài khoản thật hoặc database làm việc. Không đưa `.data/`, `.env.local` hay mật khẩu lên Git. Khi không chạy endpoint demo, giao diện không có tài khoản/mật khẩu dự phòng.

@@ -226,9 +226,13 @@ export const CLINICAL_PHRASE_DICTIONARY = {
     'Bụng chướng nhẹ quanh rốn, gõ vang, ấn tức nhẹ hạ sườn phải, Murphy (-).'
   ],
   specialtyRenalNeuro: [
-    'Chạm thận âm tính, bập bềnh thận âm tính, các điểm đau niệu quản không đau. Cổ mềm, không dấu thần kinh khu trú.',
-    'Tiểu tự chủ, nước tiểu vàng trong, không tiểu buốt rắt. Tri giác tỉnh táo, 12 đôi dây thần kinh sọ chưa ghi nhận tổn thương.'
-  ],
+    "Chạm thận âm tính hai bên, bập bềnh thận âm tính, không đau các điểm niệu quản.",
+    "Không cầu bàng quang. Người bệnh không ghi nhận tiểu buốt, tiểu rắt hoặc tiểu máu.",
+    "Người bệnh ghi nhận tiểu buốt, tiểu rắt; cần bổ sung thời điểm khởi phát và triệu chứng kèm theo.",
+    "Tri giác tỉnh, tiếp xúc tốt. Cổ mềm, chưa ghi nhận dấu thần kinh khu trú qua thăm khám.",
+    "Sức cơ hai bên đều, cảm giác nông chưa ghi nhận bất thường qua thăm khám.",
+    "Chưa thăm khám / chưa đủ thông tin đánh giá Thận - Tiết niệu & Thần kinh."
+],
   specialtyMetabolic: [
     'Đánh giá kiểm soát đường huyết và huyết áp ổn định, nguy cơ tim mạch mức độ trung bình.',
     'Đái tháo đường type 2 kiểm soát chưa tối ưu, cần tăng cường theo dõi chế độ dinh dưỡng và vận động.'
@@ -256,17 +260,41 @@ export const CLINICAL_PHRASE_DICTIONARY = {
 
   // 18. Địa chỉ hành chính thường trú (Patient residence address)
   address: [
-    '124 Nguyễn Trãi, Phường 3, Quận 5, TP. Hồ Chí Minh',
-    '45 Lê Lợi, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh',
-    '78 Cách Mạng Tháng Tám, Phường 6, Quận 3, TP. Hồ Chí Minh',
-    '12 Đại lộ Bình Dương, Phường Phú Hòa, TP. Thủ Dầu Một, Bình Dương',
-    '89 Nguyễn Du, Phường Dĩ An, TP. Dĩ An, Bình Dương',
-    '34 Cách Mạng Tháng Tám, Phường Lái Thiêu, TP. Thuận An, Bình Dương',
-    '56 Quốc lộ 1K, Phường Linh Xuân, TP. Thủ Đức, TP. Hồ Chí Minh',
-    '102 Đồng Khởi, Phường Tân Hiệp, TP. Biên Hòa, Đồng Nai',
-    '15 Hoàng Hoa Thám, Phường Hiệp Thành, TP. Thủ Dầu Một, Bình Dương',
-    '88 Bến Vân Đồn, Phường 12, Quận 4, TP. Hồ Chí Minh'
-  ],
+    "TP. Hà Nội",
+    "TP. Hải Phòng",
+    "TP. Huế",
+    "TP. Đà Nẵng",
+    "TP. Hồ Chí Minh",
+    "TP. Cần Thơ",
+    "An Giang",
+    "Bắc Ninh",
+    "Cà Mau",
+    "Cao Bằng",
+    "Đắk Lắk",
+    "Điện Biên",
+    "Đồng Nai",
+    "Đồng Tháp",
+    "Gia Lai",
+    "Hà Tĩnh",
+    "Hưng Yên",
+    "Khánh Hòa",
+    "Lai Châu",
+    "Lâm Đồng",
+    "Lạng Sơn",
+    "Lào Cai",
+    "Nghệ An",
+    "Ninh Bình",
+    "Phú Thọ",
+    "Quảng Ngãi",
+    "Quảng Ninh",
+    "Quảng Trị",
+    "Sơn La",
+    "Tây Ninh",
+    "Thái Nguyên",
+    "Thanh Hóa",
+    "Tuyên Quang",
+    "Vĩnh Long"
+],
 
   // 19. Dị ứng thuốc & dị nguyên (Drug allergy & allergens)
   allergy: [
@@ -432,6 +460,8 @@ export function getClinicalSuggestions(type, query, limit = 5) {
     const cleanItem = removeVietnameseAccents(item);
     return words.every(w => cleanItem.includes(w));
   });
+
+  if (type === 'address') return allMatch.slice(0, limit);
 
   if (allMatch.length >= limit) {
     return allMatch.slice(0, limit);

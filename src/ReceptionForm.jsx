@@ -5,6 +5,7 @@ import { syncWithSqlServer, useWorkspace } from './workspace';
 import { HeartPulse, Search, AlertTriangle, IdCard, Shield, Stethoscope, Check, X, UserCheck, Printer } from 'lucide-react';
 import { parseBhytCard } from './bhyt-utils';
 import MedicalSuggestInput from './MedicalSuggestInput';
+import PatientAddress from './PatientAddress';
 
 
 
@@ -44,7 +45,7 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
   const [insuranceCard, setInsuranceCard] = useState(person?.insurance || '');
   const [patientType, setPatientType] = useState(person?.insurance ? 'BHYT' : 'VIEN_PHI');
   const [insuranceRate, setInsuranceRate] = useState(80);
-  const [address, setAddress] = useState(person?.address || 'TP. Hồ Chí Minh');
+  const [address, setAddress] = useState(person?.address || '');
   const [patientHistory, setPatientHistory] = useState(person?.history || '');
   const [allergyNote, setAllergyNote] = useState(person?.allergy || '');
   const [selectedRoom, setSelectedRoom] = useState('');
@@ -62,7 +63,7 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
       setCccd(person.cccd || '');
       setInsuranceCard(person.insurance || '');
       setPatientType(person.insurance ? 'BHYT' : 'VIEN_PHI');
-      setAddress(person.address || 'TP. Hồ Chí Minh');
+      setAddress(person.address || '');
       setPatientHistory(person.history || '');
       setAllergyNote(person.allergy || '');
       if (person.insurance) {
@@ -76,7 +77,7 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
       setCccd('');
       setInsuranceCard('');
       setPatientType('BHYT');
-      setAddress('TP. Hồ Chí Minh');
+      setAddress('');
       setPatientHistory('');
       setAllergyNote('');
     }
@@ -397,17 +398,7 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
                   />
                 </label>
 
-                <label className="his-label">
-                  Địa chỉ thường trú / Tạm trú *
-                  <MedicalSuggestInput
-                    type="address"
-                    required
-                    maxLength={255}
-                    value={address}
-                    onChange={val => setAddress(val)}
-                    placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/TP..."
-                  />
-                </label>
+                <PatientAddress value={address} onChange={setAddress}/>
 
                 <label className="his-label his-col-2">
                   Tiền sử bệnh lý bản thân

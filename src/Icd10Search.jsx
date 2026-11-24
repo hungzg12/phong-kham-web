@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Database, Check, X, BookOpen } from 'lucide-react';
 
-export default function Icd10Search({ valueCode = '', valueName = '', onChange, onOpenManager, disabled = false }) {
+export default function Icd10Search({ valueCode = '', valueName = '', onChange, disabled = false }) {
   const [query, setQuery] = useState(valueCode ? `[${valueCode}] ${valueName}` : valueName);
   const [results, setResults] = useState([]);
   const [open, setOpen] = useState(false);
@@ -81,9 +81,7 @@ export default function Icd10Search({ valueCode = '', valueName = '', onChange, 
     setQuery(val);
     setOpen(true);
     searchIcd(val);
-    if (!val.trim()) {
-      onChange({ code: '', name: '' });
-    }
+    onChange({ code: '', name: val });
   };
 
   const handleSelect = (item) => {
@@ -104,7 +102,7 @@ export default function Icd10Search({ valueCode = '', valueName = '', onChange, 
         <div style={{ position: 'relative', flex: 1 }}>
           <input
             disabled={disabled}
-            placeholder="Gõ mã ICD (I10, E11...) hoặc tên bệnh (tăng huyết áp, dạ dày...)"
+            placeholder="Nhập chẩn đoán hoặc tìm tên bệnh / mã ICD-10..."
             value={query}
             onChange={handleInputChange}
             onFocus={() => {
@@ -125,19 +123,6 @@ export default function Icd10Search({ valueCode = '', valueName = '', onChange, 
             </button>
           )}
         </div>
-
-        {onOpenManager && (
-          <button
-            type="button"
-            className="secondary"
-            onClick={onOpenManager}
-            title="Mở từ điển ICD-10 & Cập nhật từ Excel"
-            style={{ padding: '0 10px', display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', fontSize: 13 }}
-          >
-            <BookOpen size={14} />
-            <span>Từ điển Excel</span>
-          </button>
-        )}
       </div>
 
       {/* Autocomplete Dropdown - Luôn nằm trên cùng mọi form bằng React Portal */}
@@ -159,7 +144,7 @@ export default function Icd10Search({ valueCode = '', valueName = '', onChange, 
             overflowY: 'auto',
           }}
         >
-          {loading && <div style={{ padding: '8px 12px', fontSize: 12, color: '#64748b' }}>Đang tra cứu từ điển CSDL...</div>}
+          {loading && <div style={{ padding: '8px 12px', fontSize: 12, color: '#64748b' }}>Đang tìm chẩn đoán...</div>}
           {results.map(item => (
             <div
               key={item.maICD}

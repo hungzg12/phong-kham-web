@@ -101,7 +101,7 @@ export default function MedicalSuggestInput({
 
   // Cập nhật gợi ý mỗi khi value hoặc type thay đổi
   useEffect(() => {
-    const list = getClinicalSuggestions(type, currentValue, 5);
+    const list = getClinicalSuggestions(type, currentValue, type === 'address' ? 34 : 5);
     setSuggestions(list);
     setHighlightIdx(-1);
   }, [type, currentValue]);
@@ -236,7 +236,7 @@ export default function MedicalSuggestInput({
           <div className="his-suggest-dropdown-header">
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               <Sparkles size={12} color="#0f766e" />
-              Gợi ý chuẩn hóa (chọn bằng click hoặc phím ↑/↓ Enter)
+              {type === 'address' ? '34 tỉnh, thành phố · chọn hoặc tự nhập' : 'Gợi ý chuẩn hóa (chọn bằng click hoặc phím ↑/↓ Enter)'}
             </span>
             <small>{suggestions.length} dòng</small>
           </div>

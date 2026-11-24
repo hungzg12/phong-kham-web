@@ -67,7 +67,7 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
    return saveFinance('openShift',{name:data.name,opening:data.opening});
   }
   if(tab==='vitals'){
-   try{await hisApi.saveNursingVitals({...data,id:old?.id,role,staffId:actor.staffId});await syncWithSqlServer();setDialog(null);notify('Đã lưu sinh hiệu trong SQL Server');return null;}catch(e){return e.message;}
+   try{await hisApi.saveNursingVitals({...data,id:old?.id,role,staffId:actor.staffId});await syncWithSqlServer();setDialog(null);notify('Đã lưu sinh hiệu vào hệ thống');return null;}catch(e){return e.message;}
   }
   if(tab==='labs'){
    if(old)return 'Chỉ định đã lưu không sửa trực tiếp. Dùng bàn xét nghiệm để xử lý.';

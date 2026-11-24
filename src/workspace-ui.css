@@ -394,3 +394,8 @@
   .app .bed-card:hover { transform: none; }
 }
 }
+
+@media screen {.app .reception-encounter-details{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));gap:16px;margin:20px 0}.app .reception-encounter-details dt{color:var(--ui-muted);font-size:13px;margin-bottom:6px}.app .reception-encounter-details dd{margin:0;overflow-wrap:anywhere;color:var(--ui-ink);font-weight:600}}
+
+/* Retired ICD Excel control */
+button[title="Mở từ điển ICD-10 & Cập nhật từ Excel"] { display: none !important; }

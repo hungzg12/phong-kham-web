@@ -157,3 +157,13 @@
   padding: 0 2px;
   border-radius: 3px;
 }
+
+/* Keep specialty suggestions in the document flow so surrounding cards cannot clip them. */
+.his-specialty-exam-card .his-suggest-dropdown,
+.his-specialty-exam-card .his-suggest-dropdown.drop-up {
+  position: relative;
+  top: auto;
+  bottom: auto;
+  margin-top: 6px;
+  animation: none;
+}

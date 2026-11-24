@@ -134,7 +134,10 @@ export async function saveVitals(data){
 
 export async function createLab(data){
  if(!data||!['admin','doctor'].includes(data.role))fail(403,'Chỉ bác sĩ được lập chỉ định CLS.');
- if(!string(data.episodeId,20)||!string(data.patient,20)||!string(data.staffId,20)||!string(data.diagnosis)||!Array.isArray(data.services)||!data.services.length||data.services.length>30||new Set(data.services).size!==data.services.length)fail(400,'Điền chẩn đoán và chọn dịch vụ.');
+ if(!string(data.episodeId,20)||!string(data.patient,20)||!string(data.staffId,20))fail(400,'Thiếu thông tin lượt khám, người bệnh hoặc bác sĩ chỉ định. Tải lại hồ sơ và thử lại.');
+ if(!string(data.diagnosis))fail(400,'Nhập chẩn đoán sơ bộ hoặc lý do chỉ định (tối đa 500 ký tự).');
+ if(!Array.isArray(data.services)||!data.services.length)fail(400,'Chọn ít nhất một dịch vụ để gửi chỉ định.');
+ if(data.services.length>30||new Set(data.services).size!==data.services.length)fail(400,'Chọn tối đa 30 dịch vụ và không chọn trùng.');
  await run(`
  DECLARE @visitId varchar(20),@admissionId varchar(20);
  IF EXISTS(SELECT 1 FROM dbo.DotDieuTri WHERE maDotDieuTri=@visit AND maBenhNhan=@patient AND trangThai IN('DANG_DIEU_TRI','CHO_XUAT_VIEN')) SET @admissionId=@visit;

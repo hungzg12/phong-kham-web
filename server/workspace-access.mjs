@@ -110,7 +110,7 @@ export async function protectWorkspaceRequest(req){
   let data=await listVisits({history:url.searchParams.get('history')==='1'});
   if(scope)data=data.filter(v=>scope.episodes.has(v.id));
   if(identity.role==='patient')data=data.filter(v=>v.patientId===identity.patientId).map(({note,history,symptoms,diagnosis,examination,plan,advice,icd,...summary})=>summary);
-  if(identity.role==='receptionist')data=data.map(({note,history,symptoms,diagnosis,examination,plan,advice,icd,...summary})=>summary);
+  if(identity.role==='receptionist'){const allowed=['id','patientId','department','room','roomCode','queueTag','queueNumber','reason','date','time','createdAt','doctor','doctorStaffId','status','statusRaw','locked','revision'];data=data.map(row=>Object.fromEntries(allowed.filter(key=>row[key]!==undefined).map(key=>[key,row[key]])));}
   return {identity,answer:data};
  }
  if(path==='/api/patients'){
@@ -118,6 +118,7 @@ export async function protectWorkspaceRequest(req){
   let data=await rows('SELECT maBenhNhan id,hoTen name,CONVERT(char(10),ngaySinh,23) birth,gioiTinh gender,soDienThoai phone,soBHYT insurance,diaChi address,soDinhDanh cccd,diUngThuoc allergy,trangThaiDiUng allergyStatus FROM dbo.BenhNhan');
   if(scope)data=data.filter(p=>scope.patients.has(p.id));
   if(identity.role==='patient')data=data.filter(p=>p.id===identity.patientId);
+  if(identity.role==='receptionist')data=data.map(({allergy,allergyStatus,...administrative})=>administrative);
   return {identity,answer:data.filter(p=>JSON.stringify(p).toLowerCase().includes(q))};
  }
  if(path==='/api/ancillary'){

@@ -92,7 +92,7 @@ export default function SpecialtyExamModule({ roomCode, department, specialtyDat
       border: `1px solid ${cfg.borderColor}`,
       borderRadius: '8px',
       background: '#ffffff',
-      overflow: 'hidden'
+      overflow: 'visible'
     }}>
       {/* Specialty Header Banner */}
       <div style={{

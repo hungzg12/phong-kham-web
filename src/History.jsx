@@ -1,3 +1,6 @@
+import {matchesPatient} from './patient-search.js';
+import ReceptionEncounter from './ReceptionEncounter';
+import {granted} from './session.js';
 import {assignedToDoctor} from './doctor-scope.js';
 import {currentIdentity} from './session.js';
 import {hisApi} from './api';
@@ -528,23 +531,16 @@ export default function History({role='admin',patientId,navigate,notify}){
   const [modal,setModal]=useState(null);
   const [error,setError]=useState('');
   const clinical=['admin','doctor'].includes(role);
+  const receptionOnly=role==='receptionist';
 
   // Filter matched patients based on search, strictly scoped if patient role/prop
   const matchedPatients = isPatientScoped
     ? patients.filter(p => p.id === effectivePatientId)
-    : patients.filter(p => {
-        if (!search.trim()) return true;
-        const q = search.toLowerCase();
-        return (p.name || '').toLowerCase().includes(q) ||
-          (p.id || '').toLowerCase().includes(q) ||
-          (p.phone || '').includes(q) ||
-          (p.cccd || '').includes(q) ||
-          (p.insurance || '').toLowerCase().includes(q);
-      });
+    : patients.filter(p => matchesPatient(p,search));
 
   const curPt = isPatientScoped
     ? patients.find(p => p.id === effectivePatientId)
-    : (matchedPatients.find(p => p.id === selectedPtId) || matchedPatients[0]);
+    : (patients.find(p => p.id === selectedPtId) || patients[0]);
 
   const bh = parseBhytCard(curPt?.insurance);
 
@@ -597,15 +593,16 @@ export default function History({role='admin',patientId,navigate,notify}){
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '12px' }}>
           <div>
             <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>
-              Bệnh án điện tử & Tra cứu Hồ sơ KCB (EMR Archive)
+              {receptionOnly?'Lịch sử tiếp đón':'Bệnh án điện tử & Tra cứu Hồ sơ KCB (EMR Archive)'}
             </h2>
             <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#64748b' }}>
-              Tra cứu lịch sử khám bệnh liên thông, theo dõi diễn biến bệnh án qua các năm và chi tiết cận lâm sàng/đơn thuốc.
+              {receptionOnly?'Tra cứu người bệnh, các lần tiếp đón, khoa, phòng, bác sĩ và trạng thái lượt khám.':'Tra cứu lịch sử khám bệnh liên thông, theo dõi diễn biến bệnh án qua các năm và chi tiết cận lâm sàng/đơn thuốc.'}
             </p>
           </div>
           <div className="row-actions">
             <button className="secondary" type="button" disabled={refreshing} onClick={refreshHistory}>{refreshing?'Đang tải…':'Tải lại hồ sơ'}</button>
             {['admin','receptionist'].includes(role)&&<button className="primary" onClick={()=>open({type:'visit'})}><Plus size={15}/>Tạo lượt khám mới</button>}
+            {role==='nurse'&&<button className="primary" onClick={()=>navigate('care','vitals')}><HeartPulse size={15}/>Ghi sinh hiệu</button>}
             {['admin','nurse'].includes(role)&&<button className="secondary" onClick={()=>navigate('inpatient')}><BedDouble size={15}/>Tiếp nhận nội trú</button>}
           </div>
         </div>
@@ -621,18 +618,20 @@ export default function History({role='admin',patientId,navigate,notify}){
                   placeholder="Tìm theo tên, mã hồ sơ, CCCD hoặc số điện thoại…"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
+                  onKeyDown={e=>{if(e.key==='Escape')setSearch('');if(e.key==='Enter'&&search.trim()&&matchedPatients.length===1){e.preventDefault();setSelectedPtId(matchedPatients[0].id);setSelectedEpisodeId('');setSearch('');}}}
                   className="his-input"
                   style={{ '--his-control-padding': '8px 12px 8px 36px', height: '42px', fontSize: '13px' }}
                 />
                 {search.trim() && (
-                  <div style={{ position: 'absolute', top: '44px', left: 0, right: 0, background: '#ffffff', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', border: '1px solid #cbd5e1', zIndex: 9999, maxHeight: '280px', overflowY: 'auto', padding: '6px' }}>
+                  <div style={{ position: 'relative', marginTop: '8px', background: '#ffffff', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', border: '1px solid #cbd5e1', zIndex: 9999, maxHeight: '280px', overflowY: 'auto', padding: '6px' }}>
                     <div style={{ fontSize: '11px', color: '#64748b', padding: '4px 8px', fontWeight: 600 }}>
-                      Tìm thấy {matchedPatients.length} người bệnh phù hợp:
+                      {matchedPatients.length?`Tìm thấy ${matchedPatients.length} người bệnh phù hợp — chọn để xem:`:'Không tìm thấy người bệnh phù hợp.'}
                     </div>
-                    {matchedPatients.slice(0, 6).map(p => {
+                    {matchedPatients.map(p => {
                       const pBh = parseBhytCard(p.insurance);
                       return (
-                        <div
+                        <button
+                          type="button"
                           key={p.id}
                           onClick={() => {
                             setSelectedPtId(p.id);
@@ -640,7 +639,7 @@ export default function History({role='admin',patientId,navigate,notify}){
                             setSearch('');
                           }}
                           style={{
-                            padding: '8px 10px',
+                            padding: '10px', width: '100%', textAlign: 'left', background: '#ffffff', border: 0,
                             borderRadius: 6,
                             cursor: 'pointer',
                             display: 'flex',
@@ -668,33 +667,14 @@ export default function History({role='admin',patientId,navigate,notify}){
                               <span className="badge gray" style={{ fontSize: '10px' }}>Viện phí</span>
                             )}
                           </div>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
                 )}
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#475569' }}>Chọn hồ sơ:</span>
-                <select
-                  aria-label="Chọn người bệnh xem bệnh án"
-                  value={curPt?.id || ''}
-                  onChange={e => {
-                    setSelectedPtId(e.target.value);
-                    setSelectedEpisodeId('');
-                  }}
-                  className="his-select"
-                  style={{ minWidth: '260px', height: '38px', fontWeight: 600, color: '#2563eb' }}
-                >
-                  {!matchedPatients.length&&<option value="">{refreshing?'Đang tải hồ sơ…':search.trim()?'Không tìm thấy người bệnh':'Chưa có hồ sơ trong phạm vi được phân công'}</option>}
-                  {matchedPatients.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} · {p.id} ({p.gender}, {p.birth ? `${new Date().getFullYear() - Number(String(p.birth).slice(0, 4))}T` : ''}) {p.insurance ? '· BHYT' : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
+
             </>
           )}
 
@@ -760,7 +740,7 @@ export default function History({role='admin',patientId,navigate,notify}){
               </small>
             </div>
 
-            <div>
+            {!receptionOnly&&<div>
               <small style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Cảnh báo y tế quan trọng</small>
               <div style={{ fontSize: '12px', color: curPt.allergy ? '#b91c1c' : '#1d4ed8', fontWeight: 600 }}>
                 {curPt.allergy ? `⚠️ Dị ứng: ${curPt.allergy}` : '✓ Không có tiền sử dị ứng'}
@@ -768,7 +748,7 @@ export default function History({role='admin',patientId,navigate,notify}){
               <small style={{ color: '#64748b', fontSize: '11px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={curPt.history}>
                 Bệnh nền: {curPt.history || 'Chưa ghi nhận'}
               </small>
-            </div>
+            </div>}
           </div>
         </section>
       ) : null}
@@ -779,7 +759,7 @@ export default function History({role='admin',patientId,navigate,notify}){
         <section className="panel" style={{ padding: '14px', maxHeight: '78vh', overflowY: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <span style={{ fontWeight: 700, fontSize: '13px', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Clock size={16} /> Lịch sử KCB ({ptEncounters.length} đợt)
+              <Clock size={16} /> {receptionOnly?'Lịch sử tiếp đón':'Lịch sử KCB'} ({ptEncounters.length} {receptionOnly?'lượt':'đợt'})
             </span>
           </div>
 
@@ -824,7 +804,7 @@ export default function History({role='admin',patientId,navigate,notify}){
                     </span>
                   </div>
 
-                  {ep.note?.diagnosis && (
+                  {!receptionOnly&&ep.note?.diagnosis && (
                     <div style={{ marginTop: '4px', fontSize: '11px', color: '#2563eb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ep.note.diagnosis}>
                       🩺 {ep.note.diagnosis}
                     </div>
@@ -842,7 +822,7 @@ export default function History({role='admin',patientId,navigate,notify}){
 
         {/* RIGHT PANE: COMPREHENSIVE EMR MEDICAL RECORD */}
         <section className="panel" style={{ padding: '20px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
-          {activeEp ? (
+          {receptionOnly?<ReceptionEncounter encounter={activeEp} canCancel={granted('biz.reception:cancel')} onCancel={()=>open({type:'cancel',row:activeEp})}/>:activeEp ? (
             <div>
               {/* Record Header */}
               <div className="emr-record-heading">
