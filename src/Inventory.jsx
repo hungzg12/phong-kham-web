@@ -591,7 +591,7 @@ export default function Inventory({ role = 'admin', notify, clinicalContext }) {
                             return (
                               <>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                  {v?.queueNumber && <span className="badge teal" style={{ fontSize: '10px', padding: '1px 5px' }}>#{v.queueNumber}</span>}
+                                  {(v?.queueTag || v?.queueNumber) && <span className="badge teal" style={{ fontSize: '10px', padding: '1px 5px' }}>{v.queueTag || `#${v.queueNumber}`}</span>}
                                   <b>{rx.id}</b>
                                 </div>
                                 <small>{rx.createdAt ? new Date(rx.createdAt).toLocaleString('vi-VN') : '—'}</small>

@@ -58,7 +58,7 @@ export async function receivePatient(data){
  WHEN NOT MATCHED THEN INSERT(maBuong,ngayCapSo,soThuTuHienTai) VALUES(@room,@day,1);
  SELECT @number=soThuTuHienTai FROM dbo.BoDemSoThuTuKham WHERE maBuong=@room AND ngayCapSo=@day;
  INSERT dbo.LuotKham(maLuotKham,maBenhNhan,maBuong,soThuTu,lyDoKham) VALUES(@visitId,@patient,@room,@number,@reason);
- SET @result=(SELECT @visitId AS visitId,@patient AS patientId,@number AS queueNumber,b.tenBuong AS roomName,N'Chờ khám' AS status,ISNULL(assigned.hoTen,N'Chưa phân công') AS doctor,assigned.maNhanVien AS doctorStaffId FROM dbo.BuongKham b OUTER APPLY(SELECT TOP 1 n.hoTen,n.maNhanVien FROM dbo.PhanCongKham pc JOIN dbo.NhanVien n ON n.maNhanVien=pc.maBacSi WHERE pc.maBuong=@room AND pc.ngayKham=@day AND pc.caKham=CASE WHEN DATEPART(HOUR,SYSDATETIME())<12 THEN 'SANG' ELSE 'CHIEU' END AND n.dangLamViec=1 AND pc.trangThai IN('DA_PHAN_CONG','DANG_TRUC','HOAN_TAT') ORDER BY pc.maPhanCong) assigned WHERE b.maBuong=@room FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
+ SET @result=(SELECT @visitId AS visitId,@patient AS patientId,@number AS queueNumber,CONCAT(@dept,'-',RIGHT('00'+CAST(@number AS varchar(10)),2)) AS queueTag,b.tenBuong AS roomName,N'Chờ khám' AS status,ISNULL(assigned.hoTen,N'Chưa phân công') AS doctor,assigned.maNhanVien AS doctorStaffId FROM dbo.BuongKham b OUTER APPLY(SELECT TOP 1 n.hoTen,n.maNhanVien FROM dbo.PhanCongKham pc JOIN dbo.NhanVien n ON n.maNhanVien=pc.maBacSi WHERE pc.maBuong=@room AND pc.ngayKham=@day AND pc.caKham=CASE WHEN DATEPART(HOUR,SYSDATETIME())<12 THEN 'SANG' ELSE 'CHIEU' END AND n.dangLamViec=1 AND pc.trangThai IN('DA_PHAN_CONG','DANG_TRUC','HOAN_TAT') ORDER BY pc.maPhanCong) assigned WHERE b.maBuong=@room FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
  `,{...values,patientId,dept:codes[data.dept],newPatient:uid('BN-'),visitId:uid('LK-'),reason:text(data.reason,255)||'Tiếp đón khám mới'});
 }
 
@@ -74,7 +74,7 @@ export async function updatePatient(data){
 }
 
 const visitSelect=`SELECT l.maLuotKham AS id,l.maBenhNhan AS patientId,k.tenKhoa AS department,r.tenBuong AS room,r.maBuong AS roomCode,
- l.soThuTu AS queueNumber,l.lyDoKham AS reason,CONVERT(char(10),l.ngayKham,23) AS date,LEFT(CONVERT(char(8),l.thoiDiemCapSo,108),5) AS time,CONVERT(varchar(23),l.thoiDiemCapSo,126) AS createdAt,
+ l.soThuTu AS queueNumber,CONCAT(k.maKhoa,'-',RIGHT('00'+CAST(ISNULL(l.soThuTu,1) AS varchar(10)),2)) AS queueTag,l.lyDoKham AS reason,CONVERT(char(10),l.ngayKham,23) AS date,LEFT(CONVERT(char(8),l.thoiDiemCapSo,108),5) AS time,CONVERT(varchar(23),l.thoiDiemCapSo,126) AS createdAt,
  ISNULL(assigned.hoTen,N'Chưa phân công') AS doctor,assigned.maNhanVien AS doctorStaffId,l.trangThai AS statusRaw,
  CASE l.trangThai 
   WHEN 'CHO_KHAM' THEN N'Chờ khám' 

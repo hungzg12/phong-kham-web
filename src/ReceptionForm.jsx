@@ -168,7 +168,7 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
         };
 
         result = await hisApi.createVisit(payload);
-        message = `Tiếp đón thành công! Cấp STT #${result.queueNumber} tại ${result.roomName || chosenRoom.name}`;
+        message = `Tiếp đón thành công! Cấp STT ${result.queueTag || `#${result.queueNumber}`} tại ${result.roomName || chosenRoom.name}`;
       }
 
       await syncWithSqlServer();

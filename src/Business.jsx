@@ -174,7 +174,7 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
         {pendingSettlementVisits.map(v=>{
           const p=patients.find(x=>x.id===v.patientId);
           return <button key={v.id} type="button" className="secondary" style={{fontSize:'12px',padding:'3px 8px',fontWeight:600,background:'#ffffff'}} onClick={()=>setDialog({type:'settlement',scope:{patientId:v.patientId,episodeId:v.id}})}>
-            {v.queueNumber ? `#${v.queueNumber} · ` : ''}{p?.name || v.patientId} ({v.id})
+            {v.queueTag ? `${v.queueTag} · ` : v.queueNumber ? `#${v.queueNumber} · ` : ''}{p?.name || v.patientId} ({v.id})
           </button>;
         })}
       </div>

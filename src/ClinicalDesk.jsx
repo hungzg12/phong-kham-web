@@ -24,6 +24,31 @@ const RX_FREQ_PRESETS = [
   { label: 'Khi sốt ≥ 38.5°C', freq: 'Khi sốt ≥ 38.5°C (Cách 4-6h)', morning: '', noon: '', evening: '', night: '', perDay: 0 }
 ];
 
+export const DEPT_PREFIX = {
+  'Nội tổng quát': 'NOI',
+  'Tim mạch': 'TIM',
+  'Tai Mũi Họng': 'TMH',
+  'Da liễu': 'DA',
+  'Sản phụ khoa': 'SAN',
+  'Cơ xương khớp': 'CXK'
+};
+
+export function getQueueLabel(v, departmentFilter = '') {
+  if (!v) return '—';
+  if (v.queueTag) {
+    if (departmentFilter && departmentFilter === v.department) {
+      return `#${v.queueNumber || v.queueTag.split('-')[1] || '01'}`;
+    }
+    return v.queueTag;
+  }
+  const prefix = DEPT_PREFIX[v.department] || (v.roomCode || '').replace(/^PK-|^B-/, '') || 'PK';
+  const num = String(v.queueNumber || 1).padStart(2, '0');
+  if (departmentFilter && departmentFilter === v.department) {
+    return `#${v.queueNumber || num}`;
+  }
+  return `${prefix}-${num}`;
+}
+
 export default function ClinicalDesk({role,notify,navigate,inpatient=false,clinicalContext}){
  const [globalIcd,setGlobalIcd]=useState(false);
  const [patients]=useWorkspace('patients'),[visits]=useWorkspace('visits'),[admissions]=useWorkspace('admissions');const actor=actorRoles[role];
@@ -33,6 +58,7 @@ export default function ClinicalDesk({role,notify,navigate,inpatient=false,clini
    const aPrio = a.status === 'Đã có kết quả' ? 1 : a.status === 'Đang khám' ? 2 : a.status === 'Chờ khám' ? 3 : a.status === 'Chờ kết quả' ? 4 : a.status === 'Tạm hoãn' ? 5 : 6;
    const bPrio = b.status === 'Đã có kết quả' ? 1 : b.status === 'Đang khám' ? 2 : b.status === 'Chờ khám' ? 3 : b.status === 'Chờ kết quả' ? 4 : b.status === 'Tạm hoãn' ? 5 : 6;
    if(aPrio !== bPrio) return aPrio - bPrio;
+   if(department === '' && a.department !== b.department) return (a.department||'').localeCompare(b.department||'');
    const aNum = Number(a.queueNumber)||9999;
    const bNum = Number(b.queueNumber)||9999;
    if(aNum !== bNum) return aNum - bNum;
@@ -53,7 +79,7 @@ export default function ClinicalDesk({role,notify,navigate,inpatient=false,clini
      setSelected(candidate.id);
      const p = patients.find(pat => pat.id === candidate.patientId);
      const isPriority = candidate.status === 'Đã có kết quả';
-     notify(`🔊 Đang gọi ${isPriority ? 'ƯU TIÊN (Đã có kết quả CLS)' : 'STT #' + (candidate.queueNumber || candidate.id)}: Người bệnh ${p?.name || ''} vào khám!`);
+     notify(`🔊 Đang gọi ${isPriority ? 'ƯU TIÊN (Đã có kết quả CLS)' : 'STT ' + getQueueLabel(candidate, department)}: Người bệnh ${p?.name || ''} vào phòng khám ${candidate.department || ''}!`);
    } catch {
      setSelected(candidate.id);
    }
@@ -85,7 +111,7 @@ export default function ClinicalDesk({role,notify,navigate,inpatient=false,clini
 
  function handleRecall() {
    if (!current) return;
-   notify(`🔊 Gọi lại: Mời người bệnh STT #${current.queueNumber || current.id} - ${patient?.name || ''} vào phòng khám!`);
+   notify(`🔊 Gọi lại: Mời người bệnh STT ${getQueueLabel(current, department)} - ${patient?.name || ''} vào phòng khám ${current?.department || ''}!`);
  }
 
  async function handleDefer() {
@@ -144,7 +170,7 @@ export default function ClinicalDesk({role,notify,navigate,inpatient=false,clini
        </div>
        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
          <span className="badge teal" style={{ fontSize: '13px', fontWeight: 700, padding: '3px 8px' }}>
-           STT #{current?.queueNumber || '—'}
+           STT {getQueueLabel(current, department)}
          </span>
          <b style={{ fontSize: '14px', color: '#0f172a' }}>{patient?.name || 'Chưa chọn hồ sơ'}</b>
          {patient?.gender && <span style={{ fontSize: '12px', color: '#64748b' }}>({patient.gender})</span>}
@@ -206,7 +232,7 @@ export default function ClinicalDesk({role,notify,navigate,inpatient=false,clini
   {/* Line 1: STT + Patient Name + Demographics (Full Width, No Truncation) */}
   <div className="desk-pat-row-top" style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:6,width:'100%'}}>
     <div className="desk-pat-top-left" style={{display:'flex',alignItems:'center',gap:6,minWidth:0,flex:1}}>
-      <span className="desk-pat-stt" style={{fontSize:'11px',fontWeight:700,padding:'1px 5px',borderRadius:'4px',flexShrink:0,background:v.status==='Đã có kết quả'?'#bbf7d0':'#e2e8f0',color:v.status==='Đã có kết quả'?'#166534':'#334155'}}>{v.queueNumber ? `#${v.queueNumber}` : String(i+1).padStart(2,'0')}</span>
+      <span className="desk-pat-stt" style={{fontSize:'11px',fontWeight:700,padding:'1px 5px',borderRadius:'4px',flexShrink:0,background:v.status==='Đã có kết quả'?'#bbf7d0':'#e2e8f0',color:v.status==='Đã có kết quả'?'#166534':'#334155'}}>{getQueueLabel(v, department)}</span>
       <b className="desk-pat-name" style={{fontSize:'13px',fontWeight:700,color:'#0f172a',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p?.name||'Hồ sơ chưa có tên'}</b>
       {demo&&<span className="desk-pat-demo" style={{fontSize:'11px',color:'#64748b',whiteSpace:'nowrap',flexShrink:0}}>({demo})</span>}
     </div>
