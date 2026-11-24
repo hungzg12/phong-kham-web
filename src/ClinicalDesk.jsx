@@ -53,7 +53,7 @@ export default function ClinicalDesk({role,notify,navigate,inpatient=false,clini
  const [globalIcd,setGlobalIcd]=useState(false);
  const [patients]=useWorkspace('patients'),[visits]=useWorkspace('visits'),[admissions]=useWorkspace('admissions');const actor=actorRoles[role];
  const episodes=(inpatient?admissions:visits).filter(v=>role!=='doctor'||(v.doctor||'').includes(actor.person)).filter(v=>!clinicalContext?.episodeId||v.id===clinicalContext.episodeId);
- const [selected,setSelected]=useState(''),[query,setQuery]=useState(''),[status,setStatus]=useState(''),[department,setDepartment]=useState(''),[day,setDay]=useState('');const dirty=useRef(false);
+ const [selected,setSelected]=useState(''),[calledId,setCalledId]=useState(''),[query,setQuery]=useState(''),[status,setStatus]=useState(''),[department,setDepartment]=useState(''),[day,setDay]=useState('');const dirty=useRef(false);
  const filtered=episodes.filter(v=>(!status ? v.status!=='Đã hủy' : v.status===status)&&(!department||v.department===department)&&(!day||v.date===day)).filter(v=>(v.id+' '+patients.find(p=>p.id===v.patientId)?.name).toLowerCase().includes(query.toLowerCase())).sort((a,b)=>{
    const aPrio = a.status === 'Đã có kết quả' ? 1 : a.status === 'Đang khám' ? 2 : a.status === 'Chờ khám' ? 3 : a.status === 'Chờ kết quả' ? 4 : a.status === 'Tạm hoãn' ? 5 : 6;
    const bPrio = b.status === 'Đã có kết quả' ? 1 : b.status === 'Đang khám' ? 2 : b.status === 'Chờ khám' ? 3 : b.status === 'Chờ kết quả' ? 4 : b.status === 'Tạm hoãn' ? 5 : 6;
@@ -65,31 +65,49 @@ export default function ClinicalDesk({role,notify,navigate,inpatient=false,clini
    return (b.date+b.time).localeCompare(a.date+a.time);
  });
  const current=filtered.find(v=>v.id===selected)||filtered[0];const patient=patients.find(p=>p.id===current?.patientId);
- function pick(id){if(dirty.current&&!window.confirm('Có nội dung chưa lưu. Bạn muốn bỏ thay đổi để chuyển hồ sơ?'))return;dirty.current=false;setSelected(id)}
+ const calledVisit = calledId ? episodes.find(v=>v.id===calledId) : null;
+ const calledPatient = calledVisit ? patients.find(p=>p.id===calledVisit.patientId) : null;
+
+ function pick(id){
+   if(dirty.current&&!window.confirm('Có nội dung chưa lưu. Bạn muốn bỏ thay đổi để chuyển hồ sơ?'))return;
+   dirty.current=false;
+   setSelected(id);
+   if(calledId===id) setCalledId('');
+ }
  function filter(fn){if(dirty.current&&!window.confirm('Có nội dung chưa lưu. Bạn muốn đổi bộ lọc?'))return;dirty.current=false;fn();setSelected('')}
 
- async function callPatient(candidate) {
+ async function callPatient(candidate, openRecord = false) {
    if (!candidate) return;
    try {
      await hisApi.callNextVisit(candidate.id);
      transact(d => {
        const v = d.visits.find(x => x.id === candidate.id);
-       if (v) v.status = 'Đang khám';
+       if (v && v.status === 'Chờ khám') v.status = 'Đang khám';
      });
-     setSelected(candidate.id);
+     setCalledId(candidate.id);
+     // QUAN TRỌNG: Gọi người bệnh vào cửa phòng KHÔNG tự ý đổi mẫu bệnh án đang khám của bác sĩ.
+     // Chỉ chuyển mở hồ sơ khám nếu:
+     // - Người dùng chỉ định mở khám (openRecord = true, ví dụ bấm nút Vào khám / bấm thẻ bệnh nhân)
+     // - HOẶC hiện tại chưa có hồ sơ nào đang mở trên màn hình (!current)
+     if (openRecord || !current) {
+       setSelected(candidate.id);
+     }
      const p = patients.find(pat => pat.id === candidate.patientId);
      const isPriority = candidate.status === 'Đã có kết quả';
      notify(`🔊 Đang gọi ${isPriority ? 'ƯU TIÊN (Đã có kết quả CLS)' : 'STT ' + getQueueLabel(candidate, department)}: Người bệnh ${p?.name || ''} vào phòng khám ${candidate.department || ''}!`);
    } catch {
-     setSelected(candidate.id);
+     setCalledId(candidate.id);
+     if (openRecord || !current) {
+       setSelected(candidate.id);
+     }
    }
  }
 
  async function handleCallNext() {
-   // 1. Ưu tiên hàng đầu: Ca vừa có kết quả CLS quay lại (Đã có kết quả) mà chưa phải ca đang khám
-   const priorityLabReturn = filtered.find(v => v.id !== current?.id && v.status === 'Đã có kết quả');
+   // 1. Ưu tiên hàng đầu: Ca vừa có kết quả CLS quay lại (Đã có kết quả) mà chưa phải ca đang khám hoặc đang gọi
+   const priorityLabReturn = filtered.find(v => v.id !== current?.id && v.id !== calledId && v.status === 'Đã có kết quả');
    if (priorityLabReturn) {
-     await callPatient(priorityLabReturn);
+     await callPatient(priorityLabReturn, false);
      return;
    }
 
@@ -103,44 +121,58 @@ export default function ClinicalDesk({role,notify,navigate,inpatient=false,clini
      return;
    }
 
-   // 3. Tìm vị trí của ca hiện tại và nhảy tuần tự tới ca tiếp theo trong danh sách:
-   const curIdx = activeCandidates.findIndex(v => v.id === current?.id);
+   // 3. Mốc tham chiếu: người vừa được gọi trước đó (nếu có), hoặc người đang khám
+   const refId = calledId || current?.id;
+   const curIdx = activeCandidates.findIndex(v => v.id === refId);
    let nextCandidate = null;
 
    if (curIdx >= 0 && curIdx < activeCandidates.length - 1) {
-     // Chuyển sang ca tiếp theo ngay bên dưới!
      nextCandidate = activeCandidates[curIdx + 1];
+     // Nếu nhảy trúng ca đang mở khám trên màn hình, nhảy tiếp thêm 1 nấc (nếu còn)
+     if (nextCandidate.id === current?.id && curIdx + 2 < activeCandidates.length) {
+       nextCandidate = activeCandidates[curIdx + 2];
+     }
    } else {
-     // Khi đã ở cuối danh sách, quay lại người đầu tiên (khác ca hiện tại)
+     // Khi đã ở cuối danh sách, quay lại người đầu tiên khác ca đang khám
      nextCandidate = activeCandidates.find(v => v.id !== current?.id) || activeCandidates[0];
    }
 
-   if (nextCandidate && nextCandidate.id !== current?.id) {
-     await callPatient(nextCandidate);
+   if (nextCandidate) {
+     // Gọi người bệnh vào cửa phòng, giữ nguyên mẫu bệnh án đang khám của bác sĩ
+     await callPatient(nextCandidate, false);
    } else {
      notify('Hàng đợi hiện không còn người bệnh nào khác để gọi tiếp.');
    }
  }
 
  function handleRecall() {
-   if (!current) return;
-   notify(`🔊 Gọi lại: Mời người bệnh STT ${getQueueLabel(current, department)} - ${patient?.name || ''} vào phòng khám ${current?.department || ''}!`);
+   const targetVisit = (calledId && episodes.find(v => v.id === calledId)) || current;
+   if (!targetVisit) return;
+   const targetPatient = patients.find(p => p.id === targetVisit.patientId);
+   notify(`🔊 Gọi lại: Mời người bệnh STT ${getQueueLabel(targetVisit, department)} - ${targetPatient?.name || ''} vào phòng khám ${targetVisit?.department || ''}!`);
  }
 
  async function handleDefer() {
-   if (!current) return;
+   // Ưu tiên tạm hoãn ca vừa gọi vào mà vắng mặt; nếu không có ca gọi riêng thì tạm hoãn ca đang khám
+   const targetVisit = (calledId && calledId !== current?.id && episodes.find(v => v.id === calledId)) || current;
+   if (!targetVisit) return;
+   const targetPatient = patients.find(p => p.id === targetVisit.patientId);
    try {
-     await hisApi.deferVisit(current.id);
+     await hisApi.deferVisit(targetVisit.id);
      transact(d => {
-       const v = d.visits.find(x => x.id === current.id);
+       const v = d.visits.find(x => x.id === targetVisit.id);
        if (v) v.status = 'Tạm hoãn';
      });
-     notify(`Đã chuyển người bệnh ${patient?.name || current.id} sang danh sách Tạm hoãn (vắng mặt).`);
-     const otherCandidates = filtered.filter(v => v.id !== current.id && !['Hoàn tất', 'Đã hủy', 'Đã ra viện', 'Chờ thanh toán'].includes(v.status));
-     if (otherCandidates.length) {
-       handleCallNext();
-     } else {
-       setSelected('');
+     notify(`Đã chuyển người bệnh ${targetPatient?.name || targetVisit.id} sang danh sách Tạm hoãn (vắng mặt).`);
+     if (targetVisit.id === calledId) {
+       setCalledId('');
+     } else if (targetVisit.id === current?.id) {
+       const otherCandidates = filtered.filter(v => v.id !== current.id && !['Hoàn tất', 'Đã hủy', 'Đã ra viện', 'Chờ thanh toán'].includes(v.status));
+       if (otherCandidates.length) {
+         handleCallNext();
+       } else {
+         setSelected('');
+       }
      }
    } catch (err) {
      notify(err.message || 'Không thể tạm hoãn.');
@@ -167,7 +199,7 @@ export default function ClinicalDesk({role,notify,navigate,inpatient=false,clini
        const v = d.visits.find(x => x.id === candidate.id);
        if (v) v.status = 'Chờ khám';
      });
-     await callPatient(candidate);
+     await callPatient(candidate, false);
    } catch (err) {
      notify(err.message || 'Không thể khôi phục và gọi.');
    }
@@ -176,12 +208,12 @@ export default function ClinicalDesk({role,notify,navigate,inpatient=false,clini
  return <div className="clinical-desk"><div className="desk-intro"><div><span className="eyebrow">{inpatient?'ĐIỀU TRỊ NỘI TRÚ':'KHÁM BỆNH NGOẠI TRÚ'}</span><h2 style={{margin:0,fontSize:18,fontWeight:700}}>{inpatient?'Bàn điều trị theo đợt':'Bàn làm việc bác sĩ'}</h2></div></div>
  {!inpatient && (
    <div className="queue-dispatch-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '10px', padding: '10px 16px', marginBottom: '14px', flexWrap: 'wrap', gap: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#0f766e', fontWeight: 600, fontSize: '13px' }}>
-         <Volume2 size={18} />
-         <span>Đang phục vụ:</span>
-       </div>
+     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#0f766e', fontWeight: 700, fontSize: '13px' }}>
+           <Stethoscope size={17} />
+           <span>Đang khám:</span>
+         </div>
          <span className="badge teal" style={{ fontSize: '13px', fontWeight: 700, padding: '3px 8px' }}>
            STT {getQueueLabel(current, department)}
          </span>
@@ -193,6 +225,23 @@ export default function ClinicalDesk({role,notify,navigate,inpatient=false,clini
            </span>
          )}
        </div>
+
+       {/* Thông tin ca vừa gọi vào cửa (nếu khác ca đang khám trên màn hình) */}
+       {calledVisit && calledVisit.id !== current?.id && (
+         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '6px', padding: '3px 10px', fontSize: '12px' }}>
+           <Volume2 size={15} style={{ color: '#7c3aed' }} />
+           <span style={{ color: '#6d28d9', fontWeight: 500 }}>Vừa gọi vào:</span>
+           <b style={{ color: '#5b21b6' }}>STT {getQueueLabel(calledVisit, department)} - {calledPatient?.name}</b>
+           <button
+             type="button"
+             style={{ fontSize: '11px', padding: '2px 8px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+             onClick={() => pick(calledVisit.id)}
+             title="Chuyển sang mở hồ sơ bệnh nhân này để khám khi người bệnh đã bước vào bàn khám"
+           >
+             Vào khám <ArrowRight size={11} />
+           </button>
+         </div>
+       )}
      </div>
 
      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -259,12 +308,19 @@ export default function ClinicalDesk({role,notify,navigate,inpatient=false,clini
         <span className="text-button" style={{fontSize:'10px',color:'#b45309',padding:'1px 6px',background:'#fffbeb',border:'1px solid #fde68a',borderRadius:'3px',fontWeight:600}} onClick={(e)=>{e.stopPropagation();handleRestoreAndCall(v);}} title="Khôi phục và gọi vào khám ngay">
           ↺ Gọi lại
         </span>
-      ) : !isSelected && !['Hoàn tất','Đã hủy','Đã ra viện','Chờ thanh toán'].includes(v.status) ? (
-        <span className="text-button" style={{fontSize:'10px',color:'#0f766e',padding:'1px 6px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:'3px',fontWeight:600}} onClick={(e)=>{e.stopPropagation();callPatient(v);}} title="Gọi người bệnh này vào khám ngay">
-          ▶ Gọi vào
-        </span>
       ) : isSelected ? (
         <span style={{fontSize:'10px',color:'#0f766e',fontWeight:700,background:'#ecfdf5',border:'1px solid #a7f3d0',padding:'1px 5px',borderRadius:'3px'}}>● Đang khám</span>
+      ) : v.id === calledId ? (
+        <div style={{display:'flex',alignItems:'center',gap:4}}>
+          <span style={{fontSize:'9.5px',color:'#7c3aed',fontWeight:700,background:'#f5f3ff',border:'1px solid #ddd6fe',padding:'1px 5px',borderRadius:'3px'}}>🔊 Đã gọi</span>
+          <span className="text-button" style={{fontSize:'10px',color:'#0f766e',padding:'1px 6px',background:'#ecfdf5',border:'1px solid #a7f3d0',borderRadius:'3px',fontWeight:600}} onClick={(e)=>{e.stopPropagation();pick(v.id);}} title="Mở hồ sơ bệnh nhân này để khám">
+            Vào khám
+          </span>
+        </div>
+      ) : !['Hoàn tất','Đã hủy','Đã ra viện','Chờ thanh toán'].includes(v.status) ? (
+        <span className="text-button" style={{fontSize:'10px',color:'#0f766e',padding:'1px 6px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:'3px',fontWeight:600}} onClick={(e)=>{e.stopPropagation();callPatient(v, false);}} title="Phát loa gọi người bệnh này vào cửa phòng (Không đổi mẫu bệnh án đang khám)">
+          ▶ Gọi vào
+        </span>
       ) : (
         <span className={`badge ${statusClass}`} style={{fontSize:'9.5px',padding:'1px 5px'}}>{v.status==='Đã có kết quả'?'⚡ Có KQ':v.status}</span>
       )}
