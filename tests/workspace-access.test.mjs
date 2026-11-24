@@ -95,6 +95,21 @@ test('cashier staff identity comes from session, persists across reload and logo
  r=await get('/api/finance','cashier');const data=await r.json();assert.equal(data.shifts[0].cashier,'QA_TEST_CASH');
  r=await post('/api/auth/logout','cashier',{});assert.equal(r.status,200);assert.equal((await get('/api/finance','cashier')).status,401);
 });
+test('merged queue actions use saved permissions, assigned doctor and controlled transitions',async()=>{
+ const patch=(role,data)=>get('/api/visits',role,{method:'PATCH',headers:{'content-type':'application/json','x-csrf-token':sessions[role].csrf},body:JSON.stringify(data)});
+ assert.equal((await patch('doctor',{visitId:other.visitId,action:'call_next',role:'admin'})).status,403);
+ assert.equal((await patch('doctor',{visitId:own.visitId,action:'call_next'})).status,200);
+ assert.equal(await querySql('SELECT trangThai FROM dbo.LuotKham WHERE maLuotKham=@id',{id:own.visitId}),'DANG_KHAM');
+ assert.equal((await patch('doctor',{visitId:own.visitId,action:'defer',reason:'QA_TEST absent'})).status,200);
+ assert.equal(await querySql('SELECT trangThai FROM dbo.LuotKham WHERE maLuotKham=@id',{id:own.visitId}),'TAM_HOAN');
+ assert.equal((await patch('doctor',{visitId:own.visitId,action:'restore'})).status,200);
+ assert.equal((await patch('doctor',{visitId:own.visitId,action:'dispatch',status:'DA_CO_KET_QUA'})).status,403);
+ assert.equal((await patch('technician',{visitId:own.visitId,action:'dispatch',status:'DA_CO_KET_QUA'})).status,403);
+ let old;await transactAdmin(d=>{const r=d.roles.find(r=>r.id==='doctor');old=[...r.permissions];r.permissions=r.permissions.filter(p=>p!=='biz.exam:save');});
+ assert.equal((await patch('doctor',{visitId:own.visitId,action:'call_next',permissions:['biz.exam:save']})).status,403);
+ await transactAdmin(d=>{d.roles.find(r=>r.id==='doctor').permissions=old;});
+});
+
 test('each of eight roles needs saved grants; live revocation and same-role doctor scope stay enforced',async()=>{
  const endpoints={admin:'/api/equipment',receptionist:'/api/appointments',doctor:'/api/queue',nurse:'/api/inpatient/beds',technician:'/api/ancillary',pharmacist:'/api/pharmacy/state',cashier:'/api/finance',patient:'/api/portal'};
  // The cashier logged out in the previous test; restore the session explicitly.

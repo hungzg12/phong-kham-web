@@ -63,7 +63,7 @@ test('save rejects wrong doctor, stale revision, invalid vitals, and incomplete 
  assert.equal((await detail(a.visitId)).note.diagnosis,note.diagnosis);
 });
 test('complete locks the visit; correction requires reason and persists across restart',async()=>{
- const a=await receive({phone:'0900000305'});const saved=await call('/api/clinical/exam','POST',{visitId:a.visitId,note,revision:0,lock:true});assert.equal(saved.status,200,JSON.stringify(saved));assert.equal(saved.data.locked,true);assert.equal(saved.data.status,'Hoàn tất');
+ const a=await receive({phone:'0900000305'});const saved=await call('/api/clinical/exam','POST',{visitId:a.visitId,note,revision:0,lock:true});assert.equal(saved.status,200,JSON.stringify(saved));assert.equal(saved.data.locked,true);assert.equal(saved.data.status,'Chờ thanh toán');
  assert.equal((await call('/api/clinical/exam','POST',{visitId:a.visitId,note,revision:saved.data.revision})).status,409);
  assert.equal((await call('/api/visits','PATCH',{visitId:a.visitId,action:'cancel',reason:'QA_TEST'})).status,409);
  assert.equal((await call('/api/clinical/exam','POST',{visitId:a.visitId,note,revision:saved.data.revision,reopen:true})).status,400);

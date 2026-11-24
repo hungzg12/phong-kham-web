@@ -139,7 +139,12 @@ export function requestGrant(path,method='GET',data={}){
  '/api/equipment':['biz.equipment:view'], '/api/notifications':['biz.notifications:view']
  })[path]||null;
  if(path==='/api/appointments')return 'biz.appointments:'+({POST:'create',PUT:'edit',PATCH:'cancel'}[method]||'invalid');
- if(path==='/api/visits')return method==='PATCH'?'biz.reception:'+ (data.action==='cancel'?'cancel':'transfer'):data.appointmentId?'biz.appointments:checkin':'biz.reception:receive';
+ if(path==='/api/visits'){
+  if(method!=='PATCH')return data.appointmentId?'biz.appointments:checkin':'biz.reception:receive';
+  if(['call_next','defer','restore'].includes(data.action))return 'biz.exam:save';
+  if(data.action==='dispatch')return ({CHO_KET_QUA_CLS:'biz.labs:order',DA_CO_KET_QUA:'biz.labs:publish',CHO_THANH_TOAN:'biz.exam:save',CHO_NHAP_VIEN:'biz.inpatient:admit'})[data.status]||null;
+  return ({cancel:'biz.reception:cancel',transfer:'biz.reception:transfer'})[data.action]||null;
+ }
  if(path==='/api/patients')return 'biz.reception:edit';
  const direct={'/api/clinical/exam':'biz.exam:save','/api/nursing/vitals':'biz.care:vitals','/api/nursing/perform':'biz.care:perform','/api/labs/orders':'biz.labs:order','/api/inpatient/admit':'biz.inpatient:admit','/api/inpatient/discharge':'biz.inpatient:discharge','/api/inpatient/clean':'biz.inpatient:clean'};
  if(direct[path])return direct[path];

@@ -1,7 +1,7 @@
 import {assignedToDoctor} from './doctor-scope.js';
 import {granted} from './session.js';
 import React,{useState,useEffect,useRef} from 'react';
-import {Search,Stethoscope,Save,Plus,Printer,LockKeyhole,ArrowRight,X,Check,FileText,Trash2,BookOpen,Sparkles,Shield} from 'lucide-react';
+import {Search,Stethoscope,Save,Plus,Printer,LockKeyhole,ArrowRight,X,Check,FileText,Trash2,BookOpen,Sparkles,Shield,Volume2,Play,RotateCcw,UserX,Send,CheckCircle2} from 'lucide-react';
 import {useWorkspace,getWorkspace,transact,id,audit,syncLatestPatient,syncWithSqlServer} from './workspace';
 import {hisApi} from './api';
 import {actorRoles} from './roles';
@@ -26,34 +26,308 @@ const RX_FREQ_PRESETS = [
   { label: 'Khi sốt ≥ 38.5°C', freq: 'Khi sốt ≥ 38.5°C (Cách 4-6h)', morning: '', noon: '', evening: '', night: '', perDay: 0 }
 ];
 
+export const DEPT_PREFIX = {
+  'Nội tổng quát': 'NOI',
+  'Tim mạch': 'TIM',
+  'Tai Mũi Họng': 'TMH',
+  'Da liễu': 'DA',
+  'Sản phụ khoa': 'SAN',
+  'Cơ xương khớp': 'CXK'
+};
+
+export function getQueueLabel(v, departmentFilter = '') {
+  if (!v) return '—';
+  if (v.queueTag) {
+    if (departmentFilter && departmentFilter === v.department) {
+      return `#${v.queueNumber || v.queueTag.split('-')[1] || '01'}`;
+    }
+    return v.queueTag;
+  }
+  const prefix = DEPT_PREFIX[v.department] || (v.roomCode || '').replace(/^PK-|^B-/, '') || 'PK';
+  const num = String(v.queueNumber || 1).padStart(2, '0');
+  if (departmentFilter && departmentFilter === v.department) {
+    return `#${v.queueNumber || num}`;
+  }
+  return `${prefix}-${num}`;
+}
+
 export default function ClinicalDesk({role,notify,navigate,inpatient=false,clinicalContext}){
  const [globalIcd,setGlobalIcd]=useState(false);
  const [patients]=useWorkspace('patients'),[visits]=useWorkspace('visits'),[admissions]=useWorkspace('admissions');const actor=actorRoles[role];
  useEffect(()=>{syncWithSqlServer();},[]);
  const episodes=(inpatient?admissions:visits).filter(v=>role!=='doctor'||assignedToDoctor(v,actor.staffId)).filter(v=>!clinicalContext?.episodeId||v.id===clinicalContext.episodeId);
- const [selected,setSelected]=useState(''),[query,setQuery]=useState(''),[status,setStatus]=useState(''),[department,setDepartment]=useState(''),[day,setDay]=useState('');const dirty=useRef(false);
- const filtered=episodes.filter(v=>(!status ? v.status!=='Đã hủy' : v.status===status)&&(!department||v.department===department)&&(!day||v.date===day)).filter(v=>(v.id+' '+patients.find(p=>p.id===v.patientId)?.name).toLowerCase().includes(query.toLowerCase())).sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+ const [selected,setSelected]=useState(''),[calledId,setCalledId]=useState(''),[query,setQuery]=useState(''),[status,setStatus]=useState(''),[department,setDepartment]=useState(''),[day,setDay]=useState('');const dirty=useRef(false);
+ const filtered=episodes.filter(v=>(!status ? v.status!=='Đã hủy' : v.status===status)&&(!department||v.department===department)&&(!day||v.date===day)).filter(v=>(v.id+' '+patients.find(p=>p.id===v.patientId)?.name).toLowerCase().includes(query.toLowerCase())).sort((a,b)=>{
+   const aPrio = a.status === 'Đã có kết quả' ? 1 : a.status === 'Đang khám' ? 2 : a.status === 'Chờ khám' ? 3 : a.status === 'Chờ kết quả' ? 4 : a.status === 'Tạm hoãn' ? 5 : 6;
+   const bPrio = b.status === 'Đã có kết quả' ? 1 : b.status === 'Đang khám' ? 2 : b.status === 'Chờ khám' ? 3 : b.status === 'Chờ kết quả' ? 4 : b.status === 'Tạm hoãn' ? 5 : 6;
+   if(aPrio !== bPrio) return aPrio - bPrio;
+   if(department === '' && a.department !== b.department) return (a.department||'').localeCompare(b.department||'');
+   const aNum = Number(a.queueNumber)||9999;
+   const bNum = Number(b.queueNumber)||9999;
+   if(aNum !== bNum) return aNum - bNum;
+   return (b.date+b.time).localeCompare(a.date+a.time);
+ });
+
  const current=filtered.find(v=>v.id===selected)||filtered[0];const patient=patients.find(p=>p.id===current?.patientId);
- function pick(id){if(dirty.current&&!window.confirm('Có nội dung chưa lưu. Bạn muốn bỏ thay đổi để chuyển hồ sơ?'))return;dirty.current=false;setSelected(id)}
+ const calledVisit = calledId ? episodes.find(v=>v.id===calledId) : null;
+ const calledPatient = calledVisit ? patients.find(p=>p.id===calledVisit.patientId) : null;
+
+ function pick(id){
+   if(dirty.current&&!window.confirm('Có nội dung chưa lưu. Bạn muốn bỏ thay đổi để chuyển hồ sơ?'))return;
+   dirty.current=false;
+   setSelected(id);
+   if(calledId===id) setCalledId('');
+ }
  function filter(fn){if(dirty.current&&!window.confirm('Có nội dung chưa lưu. Bạn muốn đổi bộ lọc?'))return;dirty.current=false;fn();setSelected('')}
- return <div className="clinical-desk"><div className="desk-intro"><div><span className="eyebrow">{inpatient?'ĐIỀU TRỊ NỘI TRÚ':'KHÁM BỆNH NGOẠI TRÚ'}</span><h2 style={{margin:0,fontSize:18,fontWeight:700}}>{inpatient?'Bàn điều trị theo đợt':'Bàn làm việc bác sĩ'}</h2></div></div><div className="desk-layout"><aside className="desk-queue"><div className="desk-queue-title"><Stethoscope size={17}/><b>{inpatient?'Đợt điều trị':'Hàng đợi lượt khám'}</b><span>{filtered.length}</span></div><label className="search"><Search size={15}/><input aria-label="Tìm hồ sơ bàn khám" placeholder="Tên hoặc mã hồ sơ…" value={query} onChange={e=>filter(()=>setQuery(e.target.value))}/></label><div className="desk-filters"><label>Ngày<input aria-label="Ngày hồ sơ" type="date" value={day} onChange={e=>filter(()=>setDay(e.target.value))}/></label><label>Khoa<select aria-label="Khoa bàn khám" value={department} onChange={e=>filter(()=>setDepartment(e.target.value))}><option value="">Tất cả khoa</option>{clinics.map(c=><option key={c}>{c}</option>)}</select></label><label>Trạng thái<select aria-label="Trạng thái bàn khám" value={status} onChange={e=>filter(()=>setStatus(e.target.value))}><option value="">Đang tiếp nhận (ẩn đã hủy)</option>{['Chờ khám','Đang khám','Chờ kết quả','Hoàn tất','Đã hủy'].map(s=><option key={s} value={s}>{s}</option>)}</select></label></div><div className="desk-patient-list">{filtered.map((v,i)=>{const p=patients.find(pat=>pat.id===v.patientId);const age=p?.birth?`${new Date().getFullYear()-Number(String(p.birth).slice(0,4))}T`:'';const gender=p?.gender==='female'||p?.gender==='Nữ'?'Nữ':p?.gender==='male'||p?.gender==='Nam'?'Nam':'';const demo=[age,gender].filter(Boolean).join('·');const isSelected=current?.id===v.id;const statusClass=v.status==='Đang khám'?'teal':v.status==='Chờ khám'?'amber':v.status==='Hoàn tất'?'green':'gray';const isBhyt=p?.insurance&&p?.insurance!=='Không có';return <button key={v.id} aria-pressed={isSelected} onClick={()=>pick(v.id)} title={`${p?.name||'Bệnh nhân'} - ${v.id} (${v.department})`}>
-  {/* Line 1: STT + Patient Name + Demographics (Full Width, No Truncation) */}
-  <div className="desk-pat-row-top" style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:6,width:'100%'}}>
-    <div className="desk-pat-top-left" style={{display:'flex',alignItems:'center',gap:6,minWidth:0,flex:1}}>
-      <span className="desk-pat-stt" style={{fontSize:'11px',fontWeight:700,padding:'1px 5px',borderRadius:'4px',flexShrink:0}}>{String(i+1).padStart(2,'0')}</span>
-      <b className="desk-pat-name" style={{fontSize:'13px',fontWeight:700,color:'#0f172a',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p?.name||'Hồ sơ chưa có tên'}</b>
-      {demo&&<span className="desk-pat-demo" style={{fontSize:'11px',color:'#64748b',whiteSpace:'nowrap',flexShrink:0}}>({demo})</span>}
-    </div>
+
+ async function callPatient(candidate, openRecord = false) {
+   if (!candidate) return;
+   try {
+     await hisApi.callNextVisit(candidate.id);
+     transact(d => {
+       const v = d.visits.find(x => x.id === candidate.id);
+       if (v && v.status === 'Chờ khám') v.status = 'Đang khám';
+     });
+     setCalledId(candidate.id);
+     // QUAN TRỌNG: Gọi người bệnh vào cửa phòng KHÔNG tự ý đổi mẫu bệnh án đang khám của bác sĩ.
+     // Chỉ chuyển mở hồ sơ khám nếu:
+     // - Người dùng chỉ định mở khám (openRecord = true, ví dụ bấm nút Vào khám / bấm thẻ bệnh nhân)
+     // - HOẶC hiện tại chưa có hồ sơ nào đang mở trên màn hình (!current)
+     if (openRecord || !current) {
+       setSelected(candidate.id);
+     }
+     const p = patients.find(pat => pat.id === candidate.patientId);
+     const isPriority = candidate.status === 'Đã có kết quả';
+     notify(`🔊 Đang gọi ${isPriority ? 'ƯU TIÊN (Đã có kết quả CLS)' : 'STT ' + getQueueLabel(candidate, department)}: Người bệnh ${p?.name || ''} vào phòng khám ${candidate.department || ''}!`);
+   } catch {
+     setCalledId(candidate.id);
+     if (openRecord || !current) {
+       setSelected(candidate.id);
+     }
+   }
+ }
+
+ async function handleCallNext() {
+   // 1. Ưu tiên hàng đầu: Ca vừa có kết quả CLS quay lại (Đã có kết quả) mà chưa phải ca đang khám hoặc đang gọi
+   const priorityLabReturn = filtered.find(v => v.id !== current?.id && v.id !== calledId && v.status === 'Đã có kết quả');
+   if (priorityLabReturn) {
+     await callPatient(priorityLabReturn, false);
+     return;
+   }
+
+   // 2. Lấy danh sách các ca còn có thể khám tiếp trong hàng đợi hiện hành
+   const activeCandidates = filtered.filter(v =>
+     !['Hoàn tất', 'Đã hủy', 'Đã ra viện', 'Chờ thanh toán', 'Chờ kết quả'].includes(v.status)
+   );
+
+   if (!activeCandidates.length) {
+     notify('Hàng đợi hiện không còn người bệnh nào khác để gọi tiếp.');
+     return;
+   }
+
+   // 3. Mốc tham chiếu: người vừa được gọi trước đó (nếu có), hoặc người đang khám
+   const refId = calledId || current?.id;
+   const curIdx = activeCandidates.findIndex(v => v.id === refId);
+   let nextCandidate = null;
+
+   if (curIdx >= 0 && curIdx < activeCandidates.length - 1) {
+     nextCandidate = activeCandidates[curIdx + 1];
+     // Nếu nhảy trúng ca đang mở khám trên màn hình, nhảy tiếp thêm 1 nấc (nếu còn)
+     if (nextCandidate.id === current?.id && curIdx + 2 < activeCandidates.length) {
+       nextCandidate = activeCandidates[curIdx + 2];
+     }
+   } else {
+     // Khi đã ở cuối danh sách, quay lại người đầu tiên khác ca đang khám
+     nextCandidate = activeCandidates.find(v => v.id !== current?.id) || activeCandidates[0];
+   }
+
+   if (nextCandidate) {
+     // Gọi người bệnh vào cửa phòng, giữ nguyên mẫu bệnh án đang khám của bác sĩ
+     await callPatient(nextCandidate, false);
+   } else {
+     notify('Hàng đợi hiện không còn người bệnh nào khác để gọi tiếp.');
+   }
+ }
+
+ function handleRecall() {
+   const targetVisit = (calledId && episodes.find(v => v.id === calledId)) || current;
+   if (!targetVisit) return;
+   const targetPatient = patients.find(p => p.id === targetVisit.patientId);
+   notify(`🔊 Gọi lại: Mời người bệnh STT ${getQueueLabel(targetVisit, department)} - ${targetPatient?.name || ''} vào phòng khám ${targetVisit?.department || ''}!`);
+ }
+
+ async function handleDefer() {
+   // Ưu tiên tạm hoãn ca vừa gọi vào mà vắng mặt; nếu không có ca gọi riêng thì tạm hoãn ca đang khám
+   const targetVisit = (calledId && calledId !== current?.id && episodes.find(v => v.id === calledId)) || current;
+   if (!targetVisit) return;
+   const targetPatient = patients.find(p => p.id === targetVisit.patientId);
+   try {
+     await hisApi.deferVisit(targetVisit.id);
+     transact(d => {
+       const v = d.visits.find(x => x.id === targetVisit.id);
+       if (v) v.status = 'Tạm hoãn';
+     });
+     notify(`Đã chuyển người bệnh ${targetPatient?.name || targetVisit.id} sang danh sách Tạm hoãn (vắng mặt).`);
+     if (targetVisit.id === calledId) {
+       setCalledId('');
+     } else if (targetVisit.id === current?.id) {
+       const otherCandidates = filtered.filter(v => v.id !== current.id && !['Hoàn tất', 'Đã hủy', 'Đã ra viện', 'Chờ thanh toán'].includes(v.status));
+       if (otherCandidates.length) {
+         handleCallNext();
+       } else {
+         setSelected('');
+       }
+     }
+   } catch (err) {
+     notify(err.message || 'Không thể tạm hoãn.');
+   }
+ }
+
+ async function handleRestore(visitId) {
+   try {
+     await hisApi.restoreVisit(visitId);
+     transact(d => {
+       const v = d.visits.find(x => x.id === visitId);
+       if (v) v.status = 'Chờ khám';
+     });
+     notify('Đã khôi phục người bệnh vào hàng đợi chờ khám.');
+   } catch (err) {
+     notify(err.message || 'Không thể khôi phục.');
+   }
+ }
+
+ async function handleRestoreAndCall(candidate) {
+   try {
+     await hisApi.restoreVisit(candidate.id);
+     transact(d => {
+       const v = d.visits.find(x => x.id === candidate.id);
+       if (v) v.status = 'Chờ khám';
+     });
+     await callPatient(candidate, false);
+   } catch (err) {
+     notify(err.message || 'Không thể khôi phục và gọi.');
+   }
+ }
+
+ return <div className="clinical-desk"><div className="desk-intro"><div><span className="eyebrow">{inpatient?'ĐIỀU TRỊ NỘI TRÚ':'KHÁM BỆNH NGOẠI TRÚ'}</span><h2 style={{margin:0,fontSize:18,fontWeight:700}}>{inpatient?'Bàn điều trị theo đợt':'Bàn làm việc bác sĩ'}</h2></div></div>
+ {!inpatient && (
+   <div className="queue-dispatch-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '10px', padding: '10px 16px', marginBottom: '14px', flexWrap: 'wrap', gap: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#0f766e', fontWeight: 700, fontSize: '13px' }}>
+           <Stethoscope size={17} />
+           <span>Đang khám:</span>
+         </div>
+         <span className="badge teal" style={{ fontSize: '13px', fontWeight: 700, padding: '3px 8px' }}>
+           STT {getQueueLabel(current, department)}
+         </span>
+         <b style={{ fontSize: '14px', color: '#0f172a' }}>{patient?.name || 'Chưa chọn hồ sơ'}</b>
+         {patient?.gender && <span style={{ fontSize: '12px', color: '#64748b' }}>({patient.gender})</span>}
+         {current?.status && (
+           <span className={`badge ${current.status==='Đã có kết quả'?'green':current.status==='Đang khám'?'teal':current.status==='Chờ khám'?'amber':'gray'}`} style={{ fontSize: '11px' }}>
+             {current.status==='Đã có kết quả' ? '⚡ ĐÃ CÓ KQ CLS' : current.status}
+           </span>
+         )}
+       </div>
+
+       {/* Thông tin ca vừa gọi vào cửa (nếu khác ca đang khám trên màn hình) */}
+       {calledVisit && calledVisit.id !== current?.id && (
+         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '6px', padding: '3px 10px', fontSize: '12px' }}>
+           <Volume2 size={15} style={{ color: '#7c3aed' }} />
+           <span style={{ color: '#6d28d9', fontWeight: 500 }}>Vừa gọi vào:</span>
+           <b style={{ color: '#5b21b6' }}>STT {getQueueLabel(calledVisit, department)} - {calledPatient?.name}</b>
+           <button
+             type="button"
+             style={{ fontSize: '11px', padding: '2px 8px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+             onClick={() => pick(calledVisit.id)}
+             title="Chuyển sang mở hồ sơ bệnh nhân này để khám khi người bệnh đã bước vào bàn khám"
+           >
+             Vào khám <ArrowRight size={11} />
+           </button>
+         </div>
+       )}
+     </div>
+
+     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+       <button
+         type="button"
+         className="primary"
+         style={{ fontSize: '12.5px', padding: '6px 13px', display: 'flex', alignItems: 'center', gap: '6px', background: '#0f766e', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}
+         onClick={handleCallNext}
+         title="Gọi ca kế tiếp (Tự động ưu tiên ca đã có kết quả xét nghiệm)"
+       >
+         <Play size={14} fill="currentColor" /> Gọi số tiếp theo
+       </button>
+
+       <button
+         type="button"
+         className="secondary"
+         style={{ fontSize: '12.5px', padding: '6px 11px', display: 'flex', alignItems: 'center', gap: '5px' }}
+         onClick={handleRecall}
+         disabled={!current}
+         title="Nhắc lại loa gọi người bệnh"
+       >
+         <RotateCcw size={14} /> Gọi lại
+       </button>
+
+       <button
+         type="button"
+         className="secondary"
+         style={{ fontSize: '12.5px', padding: '6px 11px', display: 'flex', alignItems: 'center', gap: '5px', color: '#b45309' }}
+         onClick={handleDefer}
+         disabled={!current || current.status==='Tạm hoãn'}
+         title="Bệnh nhân vắng mặt, tạm hoãn để gọi ca sau"
+       >
+         <UserX size={14} /> Vắng / Tạm hoãn
+       </button>
+     </div>
+
+     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '12px', color: '#64748b', borderLeft: '1px solid #e2e8f0', paddingLeft: '12px' }}>
+       <span>Hàng đợi: <b style={{ color: '#0f172a' }}>{filtered.filter(v => !['Hoàn tất', 'Đã hủy', 'Đã ra viện'].includes(v.status)).length}</b></span>
+       <span style={{ color: '#16a34a' }}>⚡ Có KQ: <b>{episodes.filter(v => v.status === 'Đã có kết quả').length}</b></span>
+       <span>Chờ khám: <b style={{ color: '#0284c7' }}>{episodes.filter(v => v.status === 'Chờ khám').length}</b></span>
+       <span>Đang khám: <b style={{ color: '#0f766e' }}>{episodes.filter(v => v.status === 'Đang khám').length}</b></span>
+       <span>Đang CLS: <b style={{ color: '#6366f1' }}>{episodes.filter(v => v.status === 'Chờ kết quả').length}</b></span>
+       {episodes.filter(v => v.status === 'Tạm hoãn').length > 0 && (
+         <span style={{ color: '#d97706' }}>Tạm hoãn: <b>{episodes.filter(v => v.status === 'Tạm hoãn').length}</b></span>
+       )}
+     </div>
+   </div>
+ )}
+ <div className="desk-layout"><aside className="desk-queue"><div className="desk-queue-title"><Stethoscope size={17}/><b>{inpatient?'Đợt điều trị':'Hàng đợi lượt khám'}</b><span>{filtered.length}</span></div><label className="search"><Search size={15}/><input aria-label="Tìm hồ sơ bàn khám" placeholder="Tên hoặc mã hồ sơ…" value={query} onChange={e=>filter(()=>setQuery(e.target.value))}/></label><div className="desk-filters"><label>Ngày<input aria-label="Ngày hồ sơ" type="date" value={day} onChange={e=>filter(()=>setDay(e.target.value))}/></label><label>Khoa<select aria-label="Khoa bàn khám" value={department} onChange={e=>filter(()=>setDepartment(e.target.value))}><option value="">Tất cả khoa</option>{clinics.map(c=><option key={c}>{c}</option>)}</select></label><label>Trạng thái<select aria-label="Trạng thái bàn khám" value={status} onChange={e=>filter(()=>setStatus(e.target.value))}><option value="">Đang tiếp nhận (ẩn đã hủy)</option>{['Chờ khám','Đang khám','Chờ kết quả','Đã có kết quả','Tạm hoãn','Chờ thanh toán','Hoàn tất','Đã hủy'].map(s=><option key={s} value={s}>{s}</option>)}</select></label></div><div className="desk-patient-list">{filtered.map((v,i)=>{const p=patients.find(pat=>pat.id===v.patientId);const age=p?.birth?`${new Date().getFullYear()-Number(String(p.birth).slice(0,4))}T`:'';const gender=p?.gender==='female'||p?.gender==='Nữ'?'Nữ':p?.gender==='male'||p?.gender==='Nam'?'Nam':'';const demo=[age,gender].filter(Boolean).join('·');const isSelected=current?.id===v.id;const statusClass=v.status==='Đã có kết quả'?'green':v.status==='Đang khám'?'teal':v.status==='Chờ khám'?'amber':v.status==='Tạm hoãn'?'amber':'gray';const isBhyt=p?.insurance&&p?.insurance!=='Không có';return <button key={v.id} aria-pressed={isSelected} onClick={()=>pick(v.id)} title={`${p?.name||'Bệnh nhân'} - ${v.id} (${v.department})`}>
+  {/* Line 1: STT + Full Patient Name + Demographics (Takes 100% width, NEVER truncate!) */}
+  <div className="desk-pat-row-top" style={{display:'flex',alignItems:'center',gap:6,width:'100%',minWidth:0}}>
+    <span className="desk-pat-stt" style={{fontSize:'11px',fontWeight:700,padding:'1px 6px',borderRadius:'4px',flexShrink:0,background:v.status==='Đã có kết quả'?'#bbf7d0':'#e2e8f0',color:v.status==='Đã có kết quả'?'#166534':'#334155'}}>{getQueueLabel(v, department)}</span>
+    <b className="desk-pat-name" style={{fontSize:'13px',fontWeight:700,color:'#0f172a',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',flex:1,minWidth:0}} title={p?.name||'Hồ sơ chưa có tên'}>{p?.name||'Hồ sơ chưa có tên'}</b>
+    {demo&&<span className="desk-pat-demo" style={{fontSize:'11px',color:'#64748b',whiteSpace:'nowrap',flexShrink:0}}>({demo})</span>}
   </div>
-  {/* Line 2: Department & Time on left, BHYT & Status badge on right */}
-  <div className="desk-pat-row-bottom" style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:6,width:'100%',fontSize:'11px',color:'#64748b',marginTop:'2px'}}>
+  {/* Line 2: Department, Time & BHYT on left, Action Button on right */}
+  <div className="desk-pat-row-bottom" style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:6,width:'100%',fontSize:'11px',color:'#64748b',marginTop:'4px'}}>
     <div className="desk-pat-bottom-left" style={{display:'flex',alignItems:'center',gap:4,minWidth:0,flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-      <span>{v.department}</span><span>·</span><span>{v.time||v.date}</span><span>·</span>
-      <span style={{fontFamily:'monospace',fontSize:'10px',color:'#94a3b8'}}>{v.id}</span>
+      <span style={{fontWeight:500}}>{v.department}</span><span>·</span><span>{v.time||v.date}</span><span>·</span>
+      {isBhyt?<span style={{fontSize:'9px',background:'#ecfdf5',color:'#047857',border:'1px solid #a7f3d0',padding:'0 4px',borderRadius:'3px',fontWeight:600}}>BHYT</span>:<span style={{fontSize:'9px',background:'#f8fafc',color:'#64748b',border:'1px solid #e2e8f0',padding:'0 4px',borderRadius:'3px'}}>VP</span>}
     </div>
     <div style={{display:'flex',alignItems:'center',gap:'4px',flexShrink:0}}>
-      {isBhyt?<span style={{fontSize:'9.5px',background:'#ecfdf5',color:'#047857',border:'1px solid #a7f3d0',padding:'1px 5px',borderRadius:'3px',fontWeight:600}}>BHYT</span>:<span style={{fontSize:'9.5px',background:'#f8fafc',color:'#64748b',border:'1px solid #e2e8f0',padding:'1px 5px',borderRadius:'3px'}}>Viện phí</span>}
-      <span className={`badge ${statusClass}`} style={{fontSize:'10px',padding:'1px 6px',whiteSpace:'nowrap'}}>{v.status}</span>
+      {v.status==='Tạm hoãn' ? (
+        <span className="text-button" style={{fontSize:'10px',color:'#b45309',padding:'1px 6px',background:'#fffbeb',border:'1px solid #fde68a',borderRadius:'3px',fontWeight:600}} onClick={(e)=>{e.stopPropagation();handleRestoreAndCall(v);}} title="Khôi phục và gọi vào khám ngay">
+          ↺ Gọi lại
+        </span>
+      ) : isSelected ? (
+        <span style={{fontSize:'10px',color:'#0f766e',fontWeight:700,background:'#ecfdf5',border:'1px solid #a7f3d0',padding:'1px 5px',borderRadius:'3px'}}>● Đang khám</span>
+      ) : v.id === calledId ? (
+        <div style={{display:'flex',alignItems:'center',gap:4}}>
+          <span style={{fontSize:'9.5px',color:'#7c3aed',fontWeight:700,background:'#f5f3ff',border:'1px solid #ddd6fe',padding:'1px 5px',borderRadius:'3px'}}>🔊 Đã gọi</span>
+          <span className="text-button" style={{fontSize:'10px',color:'#0f766e',padding:'1px 6px',background:'#ecfdf5',border:'1px solid #a7f3d0',borderRadius:'3px',fontWeight:600}} onClick={(e)=>{e.stopPropagation();pick(v.id);}} title="Mở hồ sơ bệnh nhân này để khám">
+            Vào khám
+          </span>
+        </div>
+      ) : !['Hoàn tất','Đã hủy','Đã ra viện','Chờ thanh toán'].includes(v.status) ? (
+        <span className="text-button" style={{fontSize:'10px',color:'#0f766e',padding:'1px 6px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:'3px',fontWeight:600}} onClick={(e)=>{e.stopPropagation();callPatient(v, false);}} title="Phát loa gọi người bệnh này vào cửa phòng (Không đổi mẫu bệnh án đang khám)">
+          ▶ Gọi vào
+        </span>
+      ) : (
+        <span className={`badge ${statusClass}`} style={{fontSize:'9.5px',padding:'1px 5px'}}>{v.status==='Đã có kết quả'?'⚡ Có KQ':v.status}</span>
+      )}
     </div>
   </div>
 </button>;})}{!filtered.length&&<p className="desk-empty">Không có hồ sơ phù hợp. Thử bỏ bộ lọc.</p>}</div></aside><section className="desk-workspace">{current&&patient?<EpisodeDesk key={current.id} episode={current} patient={patient} role={role} notify={notify} navigate={navigate} inpatient={inpatient} dirtyRef={dirty}/>:<div className="desk-empty"><FileText size={35}/><h3>Chọn hồ sơ để bắt đầu</h3><p>Tạo lượt khám hoặc tiếp nhận nội trú từ Lịch sử khám & điều trị.</p><button className="secondary" onClick={()=>navigate('history')}>Mở lịch sử hồ sơ</button></div>}</section></div>{globalIcd&&<Icd10ManagerModal onClose={()=>setGlobalIcd(false)} notify={notify}/>}</div>
@@ -115,7 +389,14 @@ function EpisodeDesk({episode,patient,role,notify,navigate,inpatient,dirtyRef}){
     const saved=await hisApi.saveExamNote({visitId:episode.id,note,revision,lock,doctorStaffId:episode.doctorStaffId});
     transact(d=>{const index=d.visits.findIndex(v=>v.id===saved.id);if(index>=0)d.visits[index]={...d.visits[index],...saved};syncLatestPatient(d,patient.id);});
     fresh();
-    notify(lock?'Đã hoàn tất và khóa phiếu khám trong SQL Server':'Đã lưu nháp phiếu khám trong SQL Server');
+    const targetMsg=saved.status==='Chờ thanh toán'
+     ?'Đã kết thúc khám và chuyển BN sang Quầy Thu ngân (Chờ thanh toán)'
+     :saved.status==='Chờ nhập viện'
+     ?'Đã kết thúc khám và chuyển BN sang Khoa Điều trị (Chờ nhập viện)'
+     :saved.status==='Chờ kết quả'
+     ?'Đã chuyển BN sang phòng Cận lâm sàng (Chờ kết quả)'
+     :'Đã hoàn tất và khóa phiếu khám trong SQL Server';
+    notify(lock?targetMsg:'Đã lưu nháp phiếu khám trong SQL Server');
    }
   }catch(e){setError(e.message);}
   finally{setSaving(false);}
@@ -169,7 +450,11 @@ function EpisodeDesk({episode,patient,role,notify,navigate,inpatient,dirtyRef}){
       <p style={{fontSize:'12px',color:'#475569'}}><span>Chế độ:</span><b>Viện phí 100%</b></p>
     )}
   </>;
-})()}<label>Ưu tiên<select value={priority} onChange={e=>setPriority(e.target.value)}><option>Thường quy</option><option>Khẩn cấp</option></select></label><p className="desk-muted">Đơn giá chuẩn kỹ thuật từ CSDL SQL Server.</p><button className="primary" disabled={!granted('biz.labs:order')||locked||!selectedServices.length} onClick={async()=>{setError('');try{await hisApi.createLabOrders({episodeId:episode.id,patient:patient.id,role,staffId:actor.staffId,diagnosis:note.diagnosis,priority,services:selectedServices});await syncWithSqlServer();setSelectedServices([]);notify('Đã lưu chỉ định CLS trong SQL Server');}catch(e){setError(e.message)}}}>Lưu chỉ định</button></div></div><RecordList rows={charges} columns={[['id','Mã phiếu'],['name','Dịch vụ'],['status','Trạng thái']]}/></>}
+})()}<label>Ưu tiên<select value={priority} onChange={e=>setPriority(e.target.value)}><option>Thường quy</option><option>Khẩn cấp</option></select></label><p className="desk-muted">Đơn giá chuẩn kỹ thuật từ CSDL SQL Server.</p><div style={{display:'flex',gap:'8px',flexWrap:'wrap',marginTop:'8px'}}>
+<button className="secondary" disabled={!granted('biz.labs:order')||locked||!selectedServices.length||saving} onClick={async()=>{setError('');setSaving(true);try{await hisApi.createLabOrders({episodeId:episode.id,patient:patient.id,role,staffId:actor.staffId,diagnosis:note.diagnosis,priority,services:selectedServices});await syncWithSqlServer();setSelectedServices([]);notify('Đã lưu chỉ định CLS trong SQL Server');}catch(e){setError(e.message)}finally{setSaving(false);}}}>Lưu chỉ định nháp</button>
+<button className="primary" disabled={!granted('biz.labs:order')||locked||!selectedServices.length||saving} style={{display:'inline-flex',alignItems:'center',gap:6}} onClick={async()=>{setError('');setSaving(true);try{await hisApi.createLabOrders({episodeId:episode.id,patient:patient.id,role,staffId:actor.staffId,diagnosis:note.diagnosis,priority,services:selectedServices});await hisApi.dispatchVisit(episode.id,'CHO_KET_QUA_CLS','Chỉ định CLS & Chuyển phòng xét nghiệm');await syncWithSqlServer();setSelectedServices([]);fresh();notify(`Đã chuyển bệnh nhân #${episode.queueNumber||episode.id} sang phòng Cận lâm sàng (Chờ kết quả)`);}catch(e){setError(e.message)}finally{setSaving(false);}}}><Send size={14}/>Gửi chỉ định & Chuyển CLS</button>
+</div></div></div><RecordList rows={charges} columns={[['id','Mã phiếu'],['name','Dịch vụ'],['status','Trạng thái']]}/></>}
+
  {tab==='results'&&<><div className="desk-section-heading"><h3>Kết quả cận lâm sàng của hồ sơ</h3><button className="text-button" onClick={()=>navigate('clinical')}>Mở Bàn làm việc CLS & CĐHA<ArrowRight size={13}/></button></div>{labs.map(l=><article className="desk-result" key={l.id}><div><h4>{db.services.find(s=>s.id===l.service)?.name||l.service}</h4><span className="badge gray">{l.status}</span></div><small>{l.id} · {l.episodeId}</small>{l.status==='Đã phát hành'?<><p>{l.result||'Chưa có nội dung kết quả'}</p><p><b>Kết luận:</b> {l.conclusion||'—'}</p>{l.critical==='Có'&&<span className="badge amber" style={{marginTop:4,display:'inline-block'}}>Chỉ số cần theo dõi</span>}</>:<p className="desk-muted">{['admin','doctor'].includes(role)&&l.result?'Bản nháp chưa phát hành: '+l.result:'Chưa có kết quả được phát hành.'}</p>}</article>)}{!labs.length&&<p className="desk-empty">Chưa có chỉ định cận lâm sàng cho hồ sơ này.</p>}</>}
  {tab==='rx'&&(()=>{
   const bh = parseBhytCard(patient.insurance);

@@ -119,6 +119,13 @@ export async function financeAction(data){
   IF @balance<>0 INSERT dbo.GiaoDichThanhToan(maGiaoDich,maBenhNhan,maLuotKham,maDotDieuTri,maQuyetToan,loaiGiaoDich,phuongThuc,soTien,maNhanVienXacNhan,maCaTruc)
   VALUES(@transaction,@patient,@visit,@admission,@id,CASE WHEN @balance<0 THEN 'HOAN_VIEN_PHI' ELSE 'THU_THEM' END,'TIEN_MAT',ABS(@balance),@staff,@shift);
   UPDATE dbo.QuyetToan SET trangThai='DA_QUYET_TOAN',maNguoiChot=@staff,thoiDiemChot=SYSDATETIME() WHERE maQuyetToan=@id;
+  IF @visit IS NOT NULL
+  BEGIN
+   IF EXISTS(SELECT 1 FROM dbo.DonThuoc WHERE maLuotKham=@visit AND thoiDiemDuyet IS NOT NULL AND trangThaiCapPhat NOT IN('DA_HUY','DA_CAP_DU'))
+    UPDATE dbo.LuotKham SET trangThai='CHO_PHAT_THUOC' WHERE maLuotKham=@visit;
+   ELSE
+    UPDATE dbo.LuotKham SET trangThai='HOAN_TAT_KHAM',thoiDiemKetThuc=SYSDATETIME() WHERE maLuotKham=@visit;
+  END
   ${shiftTotals}
   SELECT TOP 1 @lines=JSON_QUERY(duLieuSau,'$.lines') FROM dbo.NhatKyThayDoi WHERE loaiDoiTuong='Finance' AND maDoiTuong=@id ORDER BY maNhatKy DESC;
   SET @result=(SELECT @id id,@advance advance,@balance balance,@signedBy signedBy,JSON_QUERY(@lines) lines FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);`;break;

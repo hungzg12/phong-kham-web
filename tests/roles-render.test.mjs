@@ -10,6 +10,7 @@ let fixture,bundle;
 before(async()=>{
  await fs.mkdir('.data',{recursive:true});bundle=path.resolve('.data/QA_TEST_render_'+randomUUID()+'.mjs');
  await build({stdin:{contents:`
+ import ReceptionForm from './src/ReceptionForm.jsx';
  import ActorHome from './src/Actors.jsx';
  import React from 'react';import {renderToStaticMarkup} from 'react-dom/server';
  import {ReferralPaperForm,ConsultationPaperForm,DischargePaperForm,MedicalBillPaperForm,PrescriptionPaperForm,MedicalRecordSummaryPaperForm} from './src/MedicalPaperForms.jsx';
@@ -24,7 +25,7 @@ before(async()=>{
  d.appointments=[{id:'QA_TEST_APPT_1',patientId:'BN0001',name:'QA_TEST_MINE',phone:'0900000201',dept:'Nội tổng quát',date:'2026-11-21T08:30',status:'Đã xác nhận'},{id:'QA_TEST_APPT_2',name:'QA_TEST_CHECKED',date:'2026-11-21T09:00',status:'Đã tiếp đón'},{id:'QA_TEST_APPT_3',name:'QA_TEST_CANCELLED',date:'2026-11-21T09:30',status:'Đã hủy'}];
  });}
  export function render(kind,role,tab){const d=getWorkspace();const shared={role,notify:()=>{},navigate:()=>{}};
- const node=kind==='home'?React.createElement(ActorHome,{...shared,patients:d.patients,beds:d.beds,stock:d.stock,appointments:d.appointments}):kind==='auth'?React.createElement(Auth,{onLogin:()=>{}}):kind==='inventory'?React.createElement(Inventory,shared):kind==='portal'&&role==='patient'?React.createElement(PatientPortalView,{data:{patient:d.patients.find(p=>p.id==='BN0001'),history:d.visits.filter(v=>v.patientId==='BN0001'),results:[],labs:[],prescriptions:[],appointments:[],settlements:[],advances:[]},tab:tab||'summary'}):kind==='appointments'?React.createElement(Appointments,{...shared,appointments:d.appointments,setAppointments:()=>{},patients:d.patients}):kind==='desk'?React.createElement(ClinicalDesk,shared):kind==='lab'?React.createElement(LabDesk,shared):kind==='history'?React.createElement(History,{...shared,patientId:role==='patient'?'BN0001':undefined}):React.createElement(Business,{...shared,page:kind,requestedTab:tab,patients:d.patients,stock:d.stock,beds:d.beds,notes:d.notes,appointments:d.appointments,setStock:()=>{},setBeds:()=>{},setAppointments:()=>{}});
+ const node=kind==='reception'?React.createElement(ReceptionForm,{mode:'register',onDone:()=>{}}):kind==='home'?React.createElement(ActorHome,{...shared,patients:d.patients,beds:d.beds,stock:d.stock,appointments:d.appointments}):kind==='auth'?React.createElement(Auth,{onLogin:()=>{}}):kind==='inventory'?React.createElement(Inventory,shared):kind==='portal'&&role==='patient'?React.createElement(PatientPortalView,{data:{patient:d.patients.find(p=>p.id==='BN0001'),history:d.visits.filter(v=>v.patientId==='BN0001'),results:[],labs:[],prescriptions:[],appointments:[],settlements:[],advances:[]},tab:tab||'summary'}):kind==='appointments'?React.createElement(Appointments,{...shared,appointments:d.appointments,setAppointments:()=>{},patients:d.patients}):kind==='desk'?React.createElement(ClinicalDesk,shared):kind==='lab'?React.createElement(LabDesk,shared):kind==='history'?React.createElement(History,{...shared,patientId:role==='patient'?'BN0001':undefined}):React.createElement(Business,{...shared,page:kind,requestedTab:tab,patients:d.patients,stock:d.stock,beds:d.beds,notes:d.notes,appointments:d.appointments,setStock:()=>{},setBeds:()=>{},setAppointments:()=>{}});
  return renderToStaticMarkup(node);}
  export function renderPaper(kind,row={},patient={}){const Form={referral:ReferralPaperForm,consultation:ConsultationPaperForm,discharge:DischargePaperForm,bill:MedicalBillPaperForm,rx:PrescriptionPaperForm,summary:MedicalRecordSummaryPaperForm}[kind];return renderToStaticMarkup(React.createElement(Form,{row,patient}));}
  export function renderHistoryScope(patientId){return renderToStaticMarkup(React.createElement(History,{role:'patient',patientId,notify:()=>{},navigate:()=>{}}));}
@@ -118,3 +119,5 @@ test('bill print preserves actual zero totals and quantity field from finance AP
 test('doctor and all actor home screens render without an undefined task list',()=>{
  for(const role of ['doctor','receptionist','nurse','technician','pharmacist','cashier','patient'])assert.match(fixture.render('home',role),/Công việc trong ca|Dịch vụ dành cho bạn/);
 });
+
+test('merged reception form renders its ticket preview using the live room state without undefined constants',()=>{assert.match(fixture.render('reception','receptionist'),/Đăng ký khám/);});

@@ -50,7 +50,7 @@ const writeRoles={
  '/api/equipment/action':['admin'],
  '/api/clinical/care':['admin','doctor'],
  '/api/notifications':[...roles],
- '/api/appointments':['admin','receptionist'], '/api/patients':['admin','receptionist'], '/api/visits':['admin','receptionist'],
+ '/api/appointments':['admin','receptionist'], '/api/patients':['admin','receptionist'], '/api/visits':['admin','receptionist','doctor','technician'],
  '/api/clinical/exam':['admin','doctor'], '/api/nursing/vitals':['admin','nurse'], '/api/nursing/perform':['admin','nurse'], '/api/nursing/bed':['admin','nurse'],
  '/api/inpatient/admit':['admin','doctor','nurse'], '/api/inpatient/discharge':['admin','doctor'], '/api/inpatient/clean':['admin','nurse'],
  '/api/labs/orders':['admin','doctor'], '/api/labs/action':['admin','technician'], '/api/pharmacy/action':['admin','doctor','pharmacist'],
@@ -75,6 +75,15 @@ export async function protectWorkspaceRequest(req){
   let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>65536)fail(413,'Dữ liệu quá dài.');}
   let data;try{data=JSON.parse(raw);}catch{fail(400,'JSON không hợp lệ.');}
   if(!data||Array.isArray(data)||typeof data!=='object')fail(400,'Dữ liệu không hợp lệ.');
+  if(path==='/api/visits'){
+   if(req.method!=='PATCH'&&!['admin','receptionist'].includes(identity.role))fail(403,'Chỉ tiếp tân được tạo lượt khám.');
+   if(req.method==='PATCH'&&identity.role==='doctor'&&(!['call_next','defer','restore','dispatch'].includes(data.action)||(data.action==='dispatch'&&!['CHO_KET_QUA_CLS','CHO_THANH_TOAN','CHO_NHAP_VIEN'].includes(data.status))))fail(403,'Bác sĩ không được thực hiện thao tác điều phối này.');
+   if(req.method==='PATCH'&&identity.role==='technician'){
+    if(data.action!=='dispatch'||data.status!=='DA_CO_KET_QUA')fail(403,'Kỹ thuật viên chỉ được chuyển kết quả đã phát hành.');
+    const published=await rows("SELECT TOP 1 ct.maChiTiet id FROM dbo.KetQuaCLS k JOIN dbo.ChiTietChiDinh ct ON ct.maChiTiet=k.maChiTiet JOIN dbo.ChiDinhCLS c ON c.maChiDinh=ct.maChiDinh WHERE c.maLuotKham=@visit AND k.maKyThuatVien=@staff AND k.trangThai='DA_DUYET' AND k.laBanHienHanh=1",{visit:data.visitId,staff:identity.staffId});
+    if(!published.length)fail(403,'Không có kết quả đã phát hành của kỹ thuật viên cho lượt này.');
+   }
+  }
   if(!checkRequestGrant(identity.permissions,path,req.method,data))fail(403,'Chưa được cấp quyền thực hiện thao tác này.');
   if(['/api/notifications','/api/equipment/action'].includes(path)){
    const trusted=Buffer.from(JSON.stringify(data));req[Symbol.asyncIterator]=async function*(){yield trusted;};return {identity};

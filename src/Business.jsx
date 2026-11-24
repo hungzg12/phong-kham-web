@@ -2,7 +2,7 @@ import PatientPortal from './PatientPortal';
 import {hisApi} from './api';
 import {syncWithSqlServer} from './workspace';
 import React,{useState,useEffect,useRef} from 'react';
-import {Plus,Search,Download,Eye,Pencil,X,Check,ArrowRight,FileText,Trash2,Printer,Shield,ShieldCheck,ShieldAlert,Lock,AlertCircle,Activity,ClipboardList,Wallet,ChevronLeft,ChevronRight,HeartPulse,Pill,FileSpreadsheet,Receipt} from 'lucide-react';
+import {Plus,Search,Download,Eye,Pencil,X,Check,ArrowRight,FileText,Trash2,Printer,Shield,ShieldCheck,ShieldAlert,Lock,AlertCircle,Activity,ClipboardList,Wallet,ChevronLeft,ChevronRight,HeartPulse,Pill,FileSpreadsheet,Receipt,Volume2,Play,RotateCcw} from 'lucide-react';
 import {definitions,pageGroups,extraTitles,permissionNames,specialLabels,today} from './business-data';
 import './business.css';
 import {useWorkspace,getWorkspace,episodeOptions,applyClinicalStock,approveInventoryRow,dischargeAdmission,financialRows} from './workspace';
@@ -142,7 +142,10 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
  async function saveFinance(action,values){
   const body={...values,action,role,staffId:actor.staffId};const signature=JSON.stringify(body);
   if(financeRequest.current?.signature!==signature)financeRequest.current={signature,key:crypto.randomUUID()};
-  try{await hisApi.financeAction({...body,requestId:financeRequest.current.key});await syncWithSqlServer();setDialog(null);notify('Đã lưu chứng từ viện phí trong SQL Server');return null;}catch(error){await syncWithSqlServer();return error.message;}
+  try{
+   await hisApi.financeAction({...body,requestId:financeRequest.current.key});
+   await syncWithSqlServer();setDialog(null);notify('Đã lưu chứng từ viện phí và điều phối người bệnh tiếp theo!');return null;
+  }catch(error){await syncWithSqlServer();return error.message;}
  }
  
  async function saveSettlement(values){return saveFinance('createSettlement',values);}
@@ -150,7 +153,57 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
  
  const summary=<div className="business-summary">{[{label:'Tổng bản ghi',value:rows.length,Icon:ClipboardList},{label:'Cần xử lý',value:rows.filter(x=>/Chờ|Nháp/.test(x.status)).length,Icon:Activity},{label:'Đã hoàn tất',value:rows.filter(x=>/Đã/.test(x.status)&&!['Đã hủy','Đã từ chối','Đã thu hồi'].includes(x.status)).length,Icon:Check}].map(({label,value,Icon})=><div key={label}><span><Icon size={18}/>{label}</span><b>{value}</b></div>)}</div>;
  
- const renderTable=()=>{const baseColumns=tab==='settlements'?['patient','gross','insurance','advance','balance','status']:def.columns;const columns=episodeTab?[...baseColumns.filter(k=>k!=='status'),'episodeId','status']:baseColumns;return <section className="panel"><div className="panel-heading"><div><h2>{def?.title||'Quyết toán viện phí'} <span className="count">{rows.length}</span></h2><p>{def?.description||'Lập chi phí, cấn trừ BHYT và tạm ứng; thu thêm, hoàn tiền hoặc xác nhận đủ tiền.'}</p></div>{editable&&<button className="primary" onClick={()=>setDialog({type:tab==='settlements'?'settlement':'form'})}><Plus size={16}/>Tạo {def?.singular||'quyết toán'}</button>}</div><div className="table-tools"><label className="search"><Search size={16}/><input aria-label="Tìm kiếm bản ghi" placeholder="Tìm mã, tên, nội dung..." value={search} onChange={e=>{setSearch(e.target.value);setIndex(0)}}/></label><select aria-label="Lọc trạng thái" value={status} onChange={e=>{setStatus(e.target.value);setIndex(0)}}>{['Tất cả',...new Set(rows.map(x=>x.status))].map(s=><option key={s}>{s}</option>)}</select><button className="secondary" onClick={()=>csvDownload(tab,['Mã',...columns.map(c=>label(c))],filtered.map(r=>[r.id,...columns.map(k=>display(k,r[k]))]))}><Download size={15}/>Xuất CSV</button></div><div className="table-scroll"><table><thead><tr><th>MÃ CHỨNG TỪ</th>{columns.map(k=><th key={k}>{label(k)}</th>)}<th>THAO TÁC</th></tr></thead><tbody>{filtered.slice(index*8,index*8+8).map(row=><tr key={row.id}><td><button className="record-link" onClick={()=>setDialog({type:'detail',row})}>{row.id}</button><small>{row.createdAt||'Đang cập nhật'}</small></td>{columns.map(k=><td key={k} className={['conclusion','description','reason','diagnosis'].includes(k)?'wrap-cell':''}>{k==='status'?<Tone value={row.status}/>:display(k,row[k])}</td>)}<td><div className="row-actions"><button className="icon-button" aria-label={'Chi tiết '+row.id} onClick={()=>setDialog({type:'detail',row})}><Eye size={16}/></button>{canEdit(role,tab)&&!['prescriptions','movements','counts'].includes(tab)&&!terminal.includes(row.status)&&!['Đã phát hành','Đã ghi sổ'].includes(row.status)&&tab!=='settlements'&&<button className="icon-button" aria-label={'Sửa '+row.id} onClick={()=>setDialog({type:'form',row})}><Pencil size={15}/>{tab==='accounts'&&isDoctorAccount(row,db)&&<span>Phân quyền</span>}</button>}{tab==='settlements'&&row.status==='Chờ quyết toán'?<button className="secondary" onClick={()=>setDialog({type:'settle',row})}>Quyết toán</button>:actions(row).slice(0,1).map(([title,action])=><button key={action} className="secondary" onClick={()=>setDialog({type:'action',row,action,title})}>{title}</button>)}</div></td></tr>)}</tbody></table></div>{!filtered.length&&<div className="business-empty"><ClipboardList size={33}/><h3>{search||status!=='Tất cả'?'Không tìm thấy bản ghi':'Chưa có '+(def?.singular||'quyết toán')}</h3><p>{search?'Thử thay đổi từ khóa hoặc bộ lọc.':'Nhấn nút tạo mới để bắt đầu ghi nhận thông tin.'}</p></div>}<div className="table-footer"><span>{filtered.length?index*8+1:0}–{Math.min(index*8+8,filtered.length)} / {filtered.length} bản ghi</span><div><button className="icon-button" disabled={index===0} onClick={()=>setIndex(index-1)} aria-label="Trang trước"><ChevronLeft size={16}/></button><span>Trang {index+1}</span><button className="icon-button" disabled={(index+1)*8>=filtered.length} onClick={()=>setIndex(index+1)} aria-label="Trang sau"><ChevronRight size={16}/></button></div></div></section>};
+ const renderTable=()=>{
+  const pendingSettlementVisits=(visits||[]).filter(v=>v.status==='Chờ thanh toán');
+
+  const handleCallNextCashier = () => {
+    if (!pendingSettlementVisits.length) {
+      notify('Hàng đợi hiện không có người bệnh nào đang chờ thanh toán.');
+      return;
+    }
+    const target = pendingSettlementVisits[0];
+    const p = patients.find(x => x.id === target.patientId);
+    notify(`🔊 Đang gọi STT ${target.queueTag || '#' + target.queueNumber}: Người bệnh ${p?.name || target.patientId} vào Quầy Thu ngân Viện phí thanh toán!`);
+    setDialog({type: 'settlement', scope: {patientId: target.patientId, episodeId: target.id}});
+  };
+  const baseColumns=tab==='settlements'?['patient','gross','insurance','advance','balance','status']:def.columns;
+  const columns=episodeTab?[...baseColumns.filter(k=>k!=='status'),'episodeId','status']:baseColumns;
+  return <section className="panel">
+  {tab==='settlements'&&(
+    <div className="queue-dispatch-bar" style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:'10px',padding:'12px 16px',margin:'12px 16px 0',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'10px'}}>
+      <div style={{display:'flex',alignItems:'center',gap:'10px',flexWrap:'wrap'}}>
+        <div style={{display:'flex',alignItems:'center',gap:'6px',color:'#1e40af',fontWeight:700,fontSize:'13px'}}>
+          <Volume2 size={18} />
+          <span>Quầy Thu ngân Viện phí:</span>
+        </div>
+        <span className="badge amber" style={{fontSize:'12px',padding:'3px 8px',fontWeight:700}}>⚡ HÀNG ĐỢI: {pendingSettlementVisits.length} ca chờ thanh toán</span>
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}}>
+        <button
+          type="button"
+          className="primary"
+          style={{fontSize:'12.5px',padding:'6px 13px',display:'flex',alignItems:'center',gap:'6px',background:'#0284c7',color:'#fff',border:'none',borderRadius:'6px',fontWeight:600,cursor: pendingSettlementVisits.length ? 'pointer' : 'not-allowed', opacity: pendingSettlementVisits.length ? 1 : 0.6}}
+          onClick={handleCallNextCashier}
+          disabled={!pendingSettlementVisits.length}
+          title="Gọi người bệnh kế tiếp vào Quầy Thu ngân thanh toán viện phí / BHYT"
+        >
+          <Play size={14} fill="currentColor" /> Gọi số tiếp theo vào thu tiền
+        </button>
+      </div>
+      {pendingSettlementVisits.length > 0 && (
+        <div style={{display:'flex',gap:'6px',flexWrap:'wrap',width:'100%',marginTop:'4px',paddingTop:'8px',borderTop:'1px dashed #bfdbfe'}}>
+          <span style={{fontSize:'12px',color:'#64748b',marginRight:'4px',alignSelf:'center'}}>Danh sách chờ:</span>
+          {pendingSettlementVisits.map(v=>{
+            const p=patients.find(x=>x.id===v.patientId);
+            return <button key={v.id} type="button" className="secondary" style={{fontSize:'12px',padding:'3px 8px',fontWeight:600,background:'#ffffff'}} onClick={()=>{notify(`🔊 Đang gọi STT ${v.queueTag || '#' + v.queueNumber}: Người bệnh ${p?.name || v.patientId} vào Quầy Thu ngân!`);setDialog({type:'settlement',scope:{patientId:v.patientId,episodeId:v.id}});}}>
+              {v.queueTag ? `${v.queueTag} · ` : v.queueNumber ? `#${v.queueNumber} · ` : ''}{p?.name || v.patientId} ({v.id})
+            </button>;
+          })}
+        </div>
+      )}
+    </div>
+  )}
+  <div className="panel-heading"><div><h2>{def?.title||'Quyết toán viện phí'} <span className="count">{rows.length}</span></h2><p>{def?.description||'Lập chi phí, cấn trừ BHYT và tạm ứng; thu thêm, hoàn tiền hoặc xác nhận đủ tiền.'}</p></div>{editable&&<button className="primary" onClick={()=>setDialog({type:tab==='settlements'?'settlement':'form'})}><Plus size={16}/>Tạo {def?.singular||'quyết toán'}</button>}</div><div className="table-tools"><label className="search"><Search size={16}/><input aria-label="Tìm kiếm bản ghi" placeholder="Tìm mã, tên, nội dung..." value={search} onChange={e=>{setSearch(e.target.value);setIndex(0)}}/></label><select aria-label="Lọc trạng thái" value={status} onChange={e=>{setStatus(e.target.value);setIndex(0)}}>{['Tất cả',...new Set(rows.map(x=>x.status))].map(s=><option key={s}>{s}</option>)}</select><button className="secondary" onClick={()=>csvDownload(tab,['Mã',...columns.map(c=>label(c))],filtered.map(r=>[r.id,...columns.map(k=>display(k,r[k]))]))}><Download size={15}/>Xuất CSV</button></div><div className="table-scroll"><table><thead><tr><th>MÃ CHỨNG TỪ</th>{columns.map(k=><th key={k}>{label(k)}</th>)}<th>THAO TÁC</th></tr></thead><tbody>{filtered.slice(index*8,index*8+8).map(row=><tr key={row.id}><td><button className="record-link" onClick={()=>setDialog({type:'detail',row})}>{row.id}</button><small>{row.createdAt||'Đang cập nhật'}</small></td>{columns.map(k=><td key={k} className={['conclusion','description','reason','diagnosis'].includes(k)?'wrap-cell':''}>{k==='status'?<Tone value={row.status}/>:display(k,row[k])}</td>)}<td><div className="row-actions"><button className="icon-button" aria-label={'Chi tiết '+row.id} onClick={()=>setDialog({type:'detail',row})}><Eye size={16}/></button>{canEdit(role,tab)&&!['prescriptions','movements','counts'].includes(tab)&&!terminal.includes(row.status)&&!['Đã phát hành','Đã ghi sổ'].includes(row.status)&&tab!=='settlements'&&<button className="icon-button" aria-label={'Sửa '+row.id} onClick={()=>setDialog({type:'form',row})}><Pencil size={15}/>{tab==='accounts'&&isDoctorAccount(row,db)&&<span>Phân quyền</span>}</button>}{tab==='settlements'&&row.status==='Chờ quyết toán'?<button className="secondary" onClick={()=>setDialog({type:'settle',row})}>Quyết toán</button>:actions(row).slice(0,1).map(([title,action])=><button key={action} className="secondary" onClick={()=>setDialog({type:'action',row,action,title})}>{title}</button>)}</div></td></tr>)}</tbody></table></div>{!filtered.length&&<div className="business-empty"><ClipboardList size={33}/><h3>{search||status!=='Tất cả'?'Không tìm thấy bản ghi':'Chưa có '+(def?.singular||'quyết toán')}</h3><p>{search?'Thử thay đổi từ khóa hoặc bộ lọc.':'Nhấn nút tạo mới để bắt đầu ghi nhận thông tin.'}</p></div>}<div className="table-footer"><span>{filtered.length?index*8+1:0}–{Math.min(index*8+8,filtered.length)} / {filtered.length} bản ghi</span><div><button className="icon-button" disabled={index===0} onClick={()=>setIndex(index-1)} aria-label="Trang trước"><ChevronLeft size={16}/></button><span>Trang {index+1}</span><button className="icon-button" disabled={(index+1)*8>=filtered.length} onClick={()=>setIndex(index+1)} aria-label="Trang sau"><ChevronRight size={16}/></button></div></div></section>};
  
  const renderReports=()=>{const tx=financialTransactions().filter(x=>x.date>=reportRange.from&&x.date<=reportRange.to),incoming=tx.filter(x=>x.signed>=0).reduce((s,x)=>s+x.signed,0),outgoing=-tx.filter(x=>x.signed<0).reduce((s,x)=>s+x.signed,0);return <><section className="panel report-panel"><div className="panel-heading"><div><h2>Báo cáo thu chi viện phí</h2><p>Chỉ tổng hợp giao dịch tiền mặt đã xác nhận trong phân hệ quyết toán này.</p></div><button className="secondary" onClick={()=>csvDownload('bao-cao-thu-chi',['Mã','Bệnh nhân','Ngày','Loại','Số tiền'],tx.map(x=>[x.id,display('patient',x.patient),x.date,x.kind,x.signed]))}><Download size={15}/>Xuất báo cáo</button></div><div className="report-filters"><label>Từ ngày<input type="date" value={reportRange.from} max={reportRange.to} onChange={e=>setReportRange({...reportRange,from:e.target.value})}/></label><label>Đến ngày<input type="date" value={reportRange.to} min={reportRange.from} onChange={e=>setReportRange({...reportRange,to:e.target.value})}/></label></div><div className="business-summary financial">{[['Tổng thu',incoming],['Tổng hoàn',outgoing],['Thuần tiền mặt',incoming-outgoing]].map(([name,total])=><div key={name}><span><Wallet size={17}/>{name}</span><b>{currency(total)}</b></div>)}</div><div className="table-scroll"><table><thead><tr><th>GIAO DỊCH</th><th>BỆNH NHÂN</th><th>NGÀY</th><th>NỘI DUNG</th><th>SỐ TIỀN</th></tr></thead><tbody>{tx.map(x=><tr key={x.id}><td>{x.id}</td><td>{display('patient',x.patient)}</td><td>{x.date}</td><td>{x.kind}</td><td><b>{currency(x.signed)}</b></td></tr>)}</tbody></table></div>{!tx.length&&<div className="business-empty">Chưa có giao dịch đã xác nhận trong khoảng thời gian này.</div>}</section><section className="panel audit-panel"><div className="panel-heading"><div><h2>Nhật ký thao tác</h2><p>Các thay đổi gần nhất trong phân hệ mở rộng</p></div><ShieldCheck size={19}/></div><div className="audit-list">{db.audit.slice(0,15).map(a=><div key={a.id}><span className="audit-dot"/><div><b>{a.event}</b><small>{a.actor} · {a.time}</small></div></div>)}{!db.audit.length&&<p>Chưa có thao tác được ghi nhận.</p>}</div></section></>};
  

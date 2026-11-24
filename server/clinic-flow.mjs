@@ -59,8 +59,9 @@ export async function receivePatient(data){
  WHEN NOT MATCHED THEN INSERT(maBuong,ngayCapSo,soThuTuHienTai) VALUES(@room,@day,1);
  SELECT @number=soThuTuHienTai FROM dbo.BoDemSoThuTuKham WHERE maBuong=@room AND ngayCapSo=@day;
  INSERT dbo.LuotKham(maLuotKham,maBenhNhan,maBuong,soThuTu,lyDoKham) VALUES(@visitId,@patient,@room,@number,@reason);
- SET @result=(SELECT @visitId AS visitId,@patient AS patientId,@number AS queueNumber,b.tenBuong AS roomName,N'Chờ khám' AS status,ISNULL(assigned.hoTen,N'Chưa phân công') AS doctor,assigned.maNhanVien AS doctorStaffId FROM dbo.BuongKham b OUTER APPLY(SELECT TOP 1 n.hoTen,n.maNhanVien FROM dbo.PhanCongKham pc JOIN dbo.NhanVien n ON n.maNhanVien=pc.maBacSi WHERE pc.maBuong=@room AND pc.ngayKham=@day AND pc.caKham=CASE WHEN DATEPART(HOUR,SYSDATETIME())<12 THEN 'SANG' ELSE 'CHIEU' END AND n.dangLamViec=1 AND pc.trangThai IN('DA_PHAN_CONG','DANG_TRUC','HOAN_TAT') ORDER BY pc.maPhanCong) assigned WHERE b.maBuong=@room FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
+ SET @result=(SELECT @visitId AS visitId,@patient AS patientId,@number AS queueNumber,CONCAT(@dept,'-',RIGHT('00'+CAST(@number AS varchar(10)),2)) AS queueTag,b.tenBuong AS roomName,N'Chờ khám' AS status,ISNULL(assigned.hoTen,N'Chưa phân công') AS doctor,assigned.maNhanVien AS doctorStaffId FROM dbo.BuongKham b OUTER APPLY(SELECT TOP 1 n.hoTen,n.maNhanVien FROM dbo.PhanCongKham pc JOIN dbo.NhanVien n ON n.maNhanVien=pc.maBacSi WHERE pc.maBuong=@room AND pc.ngayKham=@day AND pc.caKham=CASE WHEN DATEPART(HOUR,SYSDATETIME())<12 THEN 'SANG' ELSE 'CHIEU' END AND n.dangLamViec=1 AND pc.trangThai IN('DA_PHAN_CONG','DANG_TRUC','HOAN_TAT') ORDER BY pc.maPhanCong) assigned WHERE b.maBuong=@room FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
  `,{...values,patientId,dept:departmentId,newPatient:uid('BN-'),visitId:uid('LK-'),reason:text(data.reason,255)||'Tiếp đón khám mới'});
+
 }
 
 export async function updatePatient(data){
@@ -75,9 +76,20 @@ export async function updatePatient(data){
 }
 
 const visitSelect=`SELECT l.maLuotKham AS id,l.maBenhNhan AS patientId,k.tenKhoa AS department,r.tenBuong AS room,r.maBuong AS roomCode,
- l.soThuTu AS queueNumber,l.lyDoKham AS reason,CONVERT(char(10),l.ngayKham,23) AS date,LEFT(CONVERT(char(8),l.thoiDiemCapSo,108),5) AS time,CONVERT(varchar(23),l.thoiDiemCapSo,126) AS createdAt,
+ l.soThuTu AS queueNumber,CONCAT(k.maKhoa,'-',RIGHT('00'+CAST(ISNULL(l.soThuTu,1) AS varchar(10)),2)) AS queueTag,l.lyDoKham AS reason,CONVERT(char(10),l.ngayKham,23) AS date,LEFT(CONVERT(char(8),l.thoiDiemCapSo,108),5) AS time,CONVERT(varchar(23),l.thoiDiemCapSo,126) AS createdAt,
  ISNULL(assigned.hoTen,N'Chưa phân công') AS doctor,assigned.maNhanVien AS doctorStaffId,l.trangThai AS statusRaw,
- CASE l.trangThai WHEN 'CHO_KHAM' THEN N'Chờ khám' WHEN 'DANG_KHAM' THEN N'Đang khám' WHEN 'CHO_KET_QUA_CLS' THEN N'Chờ kết quả' WHEN 'HOAN_TAT_KHAM' THEN N'Hoàn tất' WHEN 'DA_HUY' THEN N'Đã hủy' ELSE l.trangThai END AS status,
+ CASE l.trangThai
+  WHEN 'CHO_KHAM' THEN N'Chờ khám'
+  WHEN 'DANG_KHAM' THEN N'Đang khám'
+  WHEN 'CHO_KET_QUA_CLS' THEN N'Chờ kết quả'
+  WHEN 'DA_CO_KET_QUA' THEN N'Đã có kết quả'
+  WHEN 'CHO_THANH_TOAN' THEN N'Chờ thanh toán'
+  WHEN 'CHO_PHAT_THUOC' THEN N'Chờ phát thuốc'
+  WHEN 'CHO_NHAP_VIEN' THEN N'Chờ nhập viện'
+  WHEN 'TAM_HOAN' THEN N'Tạm hoãn'
+  WHEN 'HOAN_TAT_KHAM' THEN N'Hoàn tất'
+  WHEN 'DA_HUY' THEN N'Đã hủy'
+  ELSE l.trangThai END AS status,
  CAST(CASE WHEN h.trangThai IN('DA_KHOA','HOAN_TAT') THEN 1 ELSE 0 END AS bit) AS locked,
  ISNULL(latest.maNhatKy,0) AS revision,JSON_QUERY(latest.duLieuSau,'$.note') AS note,
  h.benhSu AS symptoms,h.tienSuBanThan AS history,h.khamToanThan AS examination,h.chanDoanXacDinh AS diagnosis,h.maICDXacDinh AS icd,h.huongDieuTri AS [plan],h.loiDanBacSi AS advice,
@@ -112,13 +124,32 @@ export async function listDoctors(){
 }
 
 export async function changeVisit(data){
- if(!data?.visitId||!['transfer','cancel'].includes(data.action)||!text(data.reason)||data.action==='transfer'&&!text(data.dept))fail(400,'Chọn lượt khám, thao tác và nhập lý do hợp lệ.');
+ const validActions=['transfer','cancel','dispatch','call_next','defer','restore'];
+ if(!data?.visitId||!validActions.includes(data.action))fail(400,'Chọn lượt khám và thao tác điều phối hợp lệ.');
+ if(data.action==='transfer'&&(!text(data.reason)||!text(data.dept)))fail(400,'Chọn chuyên khoa và lý do chuyển phòng hợp lệ.');
+ if(data.action==='cancel'&&!text(data.reason))fail(400,'Nhập lý do hủy lượt khám.');
+
  return transaction(`
  DECLARE @room varchar(20),@number int,@day date=CONVERT(date,SYSDATETIME());
  IF NOT EXISTS(SELECT 1 FROM dbo.LuotKham WHERE maLuotKham=@id) THROW 51000,'FLOW_MISSING',1;
- IF EXISTS(SELECT 1 FROM dbo.LuotKham WHERE maLuotKham=@id AND trangThai IN('DA_HUY','HOAN_TAT_KHAM')) OR EXISTS(SELECT 1 FROM dbo.HoSoKham WHERE maLuotKham=@id AND trangThai<>'DANG_KHAM') THROW 51000,'FLOW_LOCKED',1;
- IF @action='cancel' UPDATE dbo.LuotKham SET trangThai='DA_HUY' WHERE maLuotKham=@id;
- ELSE
+ IF @action IN('transfer','cancel') AND (EXISTS(SELECT 1 FROM dbo.HoSoKham WHERE maLuotKham=@id AND trangThai IN('DA_KHOA','HOAN_TAT')) OR EXISTS(SELECT 1 FROM dbo.LuotKham WHERE maLuotKham=@id AND trangThai IN('DA_HUY','HOAN_TAT_KHAM'))) THROW 51000,'FLOW_LOCKED',1;
+ IF @action IN('call_next','defer') AND EXISTS(SELECT 1 FROM dbo.LuotKham WHERE maLuotKham=@id AND trangThai NOT IN('CHO_KHAM','DANG_KHAM','DA_CO_KET_QUA','CHO_KET_QUA_CLS','TAM_HOAN')) THROW 51000,'FLOW_LOCKED',1;
+ IF @action='restore' AND EXISTS(SELECT 1 FROM dbo.LuotKham WHERE maLuotKham=@id AND trangThai<>'TAM_HOAN') THROW 51000,'FLOW_LOCKED',1;
+ IF @action='cancel'
+  UPDATE dbo.LuotKham SET trangThai='DA_HUY' WHERE maLuotKham=@id;
+ ELSE IF @action='call_next'
+  UPDATE dbo.LuotKham SET trangThai='DANG_KHAM' WHERE maLuotKham=@id;
+ ELSE IF @action='defer'
+  UPDATE dbo.LuotKham SET trangThai='TAM_HOAN' WHERE maLuotKham=@id;
+ ELSE IF @action='restore'
+  UPDATE dbo.LuotKham SET trangThai='CHO_KHAM' WHERE maLuotKham=@id;
+ ELSE IF @action='dispatch'
+ BEGIN
+  DECLARE @newStatus varchar(30)=@status;
+  IF @newStatus IN('CHO_KHAM','DANG_KHAM','CHO_KET_QUA_CLS','DA_CO_KET_QUA','CHO_THANH_TOAN','CHO_PHAT_THUOC','CHO_NHAP_VIEN','TAM_HOAN','HOAN_TAT_KHAM')
+   UPDATE dbo.LuotKham SET trangThai=@newStatus,thoiDiemKetThuc=CASE WHEN @newStatus='HOAN_TAT_KHAM' THEN SYSDATETIME() ELSE thoiDiemKetThuc END WHERE maLuotKham=@id;
+ END
+ ELSE IF @action='transfer'
  BEGIN
   SELECT TOP 1 @room=b.maBuong FROM dbo.BuongKham b WHERE b.maKhoa=@dept AND b.dangHoatDong=1 ORDER BY CASE WHEN EXISTS(SELECT 1 FROM dbo.PhanCongKham pc JOIN dbo.NhanVien n ON n.maNhanVien=pc.maBacSi WHERE pc.maBuong=b.maBuong AND pc.ngayKham=@day AND pc.caKham=CASE WHEN DATEPART(HOUR,SYSDATETIME())<12 THEN 'SANG' ELSE 'CHIEU' END AND pc.trangThai IN('DA_PHAN_CONG','DANG_TRUC') AND n.dangLamViec=1) THEN 0 ELSE 1 END,b.maBuong;
   IF @room IS NULL THROW 51000,'FLOW_ROOM',1;
@@ -128,9 +159,10 @@ export async function changeVisit(data){
   SELECT @number=soThuTuHienTai FROM dbo.BoDemSoThuTuKham WHERE maBuong=@room AND ngayCapSo=@day;
   UPDATE dbo.LuotKham SET maBuong=@room,soThuTu=@number WHERE maLuotKham=@id;
  END
- INSERT dbo.NhatKyThayDoi(loaiDoiTuong,maDoiTuong,hanhDong,loaiTacNhan,ketQua,lyDo) VALUES('LuotKham',@id,@action,'DICH_VU','THANH_CONG',@reason);
+ INSERT dbo.NhatKyThayDoi(loaiDoiTuong,maDoiTuong,hanhDong,loaiTacNhan,ketQua,lyDo) VALUES('LuotKham',@id,@action,'DICH_VU','THANH_CONG',ISNULL(@reason,N'Điều phối hàng đợi'));
  SET @result=(SELECT @id AS visitId FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
- `,{id:data.visitId,action:data.action,dept:data.action==='transfer'?await resolveDepartment(data.dept):null,reason:text(data.reason)});
+ `,{id:data.visitId,action:data.action,status:data.status||null,dept:data.action==='transfer'?await resolveDepartment(data.dept):null,reason:text(data.reason||'')});
+
 }
 
 export async function saveExam(data){
@@ -189,7 +221,7 @@ export async function saveExam(data){
    INSERT dbo.PhieuSinhHieu(maPhieu,maLuotKham,maNhanVien,mach,nhietDo,huyetApTamThu,huyetApTamTruong,nhipTho,spo2,chieuCao,canNang)
    VALUES(@vitalsId,@id,@doctor,TRY_CONVERT(int,@pulse),TRY_CONVERT(decimal(4,1),@temperature),TRY_CONVERT(int,@bpSystolic),TRY_CONVERT(int,@bpDiastolic),TRY_CONVERT(int,@respiration),TRY_CONVERT(decimal(4,1),@spo2),TRY_CONVERT(decimal(5,1),@height),TRY_CONVERT(decimal(5,1),@weight));
   END
-  UPDATE dbo.LuotKham SET lyDoKham=CASE WHEN @chiefComplaint<>'' THEN @chiefComplaint ELSE lyDoKham END,trangThai=CASE WHEN @finish='1' THEN CASE WHEN @outcome=N'Chờ kết quả CLS' THEN 'CHO_KET_QUA_CLS' ELSE 'HOAN_TAT_KHAM' END ELSE 'DANG_KHAM' END,thoiDiemKetThuc=CASE WHEN @finish='1' AND @outcome<>N'Chờ kết quả CLS' THEN SYSDATETIME() ELSE NULL END WHERE maLuotKham=@id;
+  UPDATE dbo.LuotKham SET lyDoKham=CASE WHEN @chiefComplaint<>'' THEN @chiefComplaint ELSE lyDoKham END,trangThai=CASE WHEN @finish='1' THEN CASE WHEN @outcome=N'Chờ kết quả CLS' THEN 'CHO_KET_QUA_CLS' WHEN @outcome=N'Chỉ định nhập viện' THEN 'CHO_NHAP_VIEN' ELSE 'CHO_THANH_TOAN' END ELSE 'DANG_KHAM' END,thoiDiemKetThuc=CASE WHEN @finish='1' AND @outcome<>N'Chờ kết quả CLS' THEN SYSDATETIME() ELSE NULL END WHERE maLuotKham=@id;
  END
  INSERT dbo.NhatKyThayDoi(loaiDoiTuong,maDoiTuong,hanhDong,loaiTacNhan,maNguoiThucHien,ketQua,lyDo,duLieuSau)
  VALUES('HoSoKham',@id,CASE WHEN @reopen='1' THEN 'MO_DINH_CHINH' ELSE 'LUU_KHAM' END,'NHAN_VIEN',@doctor,'THANH_CONG',@reason,@snapshot);

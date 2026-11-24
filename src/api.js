@@ -50,6 +50,10 @@ export const hisApi = {
   getQueue: (dept = '', history = false) => req(`/api/queue?dept=${encodeURIComponent(dept)}${history?'&history=1':''}`),
   updatePatient: (data) => req('/api/patients', {method:'PUT',headers:jsonHeaders,body:JSON.stringify(data)}),
   changeVisit: (data) => req('/api/visits', {method:'PATCH',headers:jsonHeaders,body:JSON.stringify(data)}),
+  dispatchVisit: (visitId, status, reason = '') => req('/api/visits', {method:'PATCH',headers:jsonHeaders,body:JSON.stringify({visitId, action:'dispatch', status, reason})}),
+  callNextVisit: (visitId) => req('/api/visits', {method:'PATCH',headers:jsonHeaders,body:JSON.stringify({visitId, action:'call_next'})}),
+  deferVisit: (visitId, reason = 'Tạm vắng mặt') => req('/api/visits', {method:'PATCH',headers:jsonHeaders,body:JSON.stringify({visitId, action:'defer', reason})}),
+  restoreVisit: (visitId) => req('/api/visits', {method:'PATCH',headers:jsonHeaders,body:JSON.stringify({visitId, action:'restore'})}),
 
   // 3. Clinical Examination & Vitals
   getVisitDetail: (visitId) => req(`/api/clinical/visit?id=${encodeURIComponent(visitId)}`),
