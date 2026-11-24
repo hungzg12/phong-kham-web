@@ -293,12 +293,6 @@
   word-break: break-word;
   transition: background-image 0.2s ease;
 }
-  resize: vertical;
-  box-sizing: border-box;
-  padding: 0 4px;
-  overflow-wrap: break-word;
-  transition: background-image 0.2s ease;
-}
 
 .paper-textarea-leader:focus {
   background-image: repeating-linear-gradient(
