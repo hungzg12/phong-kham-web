@@ -1,10 +1,55 @@
 import {csrfHeaders} from './session.js';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Printer, X, Download, ShieldCheck, FileText, CheckCircle2, Save, Edit3, AlertCircle } from 'lucide-react';
 import { parseBhytCard, isBhytEligibleItem } from './bhyt-utils';
 import './medical-paper-forms.css';
 
 const currency = n => n == null || n === '' || !Number.isFinite(Number(n)) ? 'Chưa ghi nhận' : new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(n));
+
+/**
+ * Component Textarea tự co giãn chiều cao theo nội dung (chống cụt chữ / mất chữ khi in ra giấy),
+ * kết hợp dòng chấm lặp lại liên tục chuẩn văn bản y tế Bộ Y tế.
+ */
+export function PaperAutoTextarea({
+  value,
+  onChange,
+  placeholder,
+  rows = 2,
+  className = 'paper-textarea-leader',
+  style = {},
+  title
+}) {
+  const ref = useRef(null);
+
+  const resize = useCallback(() => {
+    if (ref.current) {
+      ref.current.style.height = 'auto';
+      const lineHeight = 24;
+      const targetHeight = Math.max(rows * lineHeight, ref.current.scrollHeight);
+      ref.current.style.height = `${targetHeight}px`;
+    }
+  }, [rows]);
+
+  useEffect(() => {
+    resize();
+  }, [value, resize]);
+
+  return (
+    <textarea
+      ref={ref}
+      rows={rows}
+      value={value || ''}
+      onChange={e => {
+        onChange?.(e.target.value);
+        resize();
+      }}
+      placeholder={placeholder}
+      className={className}
+      style={{ overflow: 'hidden', resize: 'none', ...style }}
+      title={title}
+    />
+  );
+}
 
 /**
  * 1. MẪU GIẤY CHUYỂN CƠ SỞ KCB BẢO HIỂM Y TẾ (MẪU SỐ 06)
@@ -46,11 +91,12 @@ export function ReferralPaperForm({ row, patient, doctorStaff, compact = false, 
 
       <div className="paper-recipient" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
         <b>Kính gửi:</b>
-        <input
+        <PaperAutoTextarea
+          rows={1}
           className="paper-input"
-          style={{ width: '65%', fontWeight: 700, textAlign: 'center' }}
+          style={{ width: '70%', fontWeight: 700, textAlign: 'center' }}
           value={row.destination || ''}
-          onChange={e => onChange('destination', e.target.value)}
+          onChange={val => onChange('destination', val)}
           placeholder="Tên cơ sở tiếp nhận khám bệnh, chữa bệnh..."
         />
       </div>
@@ -62,7 +108,7 @@ export function ReferralPaperForm({ row, patient, doctorStaff, compact = false, 
           <span className="paper-label">- Họ và tên người bệnh:</span>
           <input
             className="paper-input"
-            style={{ fontWeight: 700 }}
+            style={{ fontWeight: 700, textTransform: 'uppercase' }}
             value={row.patientName || patient?.name || ''}
             onChange={e => onChange('patientName', e.target.value)}
           />
@@ -84,10 +130,12 @@ export function ReferralPaperForm({ row, patient, doctorStaff, compact = false, 
 
       <div className="paper-row">
         <span className="paper-label">- Địa chỉ nơi cư trú:</span>
-        <input
+        <PaperAutoTextarea
+          rows={1}
           className="paper-input"
           value={row.address || patient?.address || ''}
-          onChange={e => onChange('address', e.target.value)}
+          onChange={val => onChange('address', val)}
+          placeholder="Số nhà, đường/thôn, xã/phường, quận/huyện, tỉnh/TP..."
         />
       </div>
 
@@ -96,6 +144,7 @@ export function ReferralPaperForm({ row, patient, doctorStaff, compact = false, 
           <span className="paper-label">- Số CCCD / Định danh cá nhân:</span>
           <input
             className="paper-input"
+            style={{ fontFamily: 'monospace', fontWeight: 600 }}
             value={row.cccd || patient?.cccd || ''}
             onChange={e => onChange('cccd', e.target.value)}
           />
@@ -115,7 +164,7 @@ export function ReferralPaperForm({ row, patient, doctorStaff, compact = false, 
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
           <input
             className="paper-input"
-            style={{ width: 180, fontWeight: 700, letterSpacing: 1 }}
+            style={{ width: 180, fontWeight: 700, letterSpacing: 1, color: '#047857', fontFamily: 'monospace' }}
             value={bh.code || row.insurance || ''}
             onChange={e => onChange('insurance', e.target.value)}
           />
@@ -127,10 +176,12 @@ export function ReferralPaperForm({ row, patient, doctorStaff, compact = false, 
 
       <div className="paper-row">
         <span className="paper-label">- Khám bệnh / Vào điều trị từ:</span>
-        <input
+        <PaperAutoTextarea
+          rows={1}
           className="paper-input"
           value={row.treatmentPeriod || ''}
-          onChange={e => onChange('treatmentPeriod', e.target.value)}
+          onChange={val => onChange('treatmentPeriod', val)}
+          placeholder="Thời gian khám và điều trị tại cơ sở chuyển đi..."
         />
       </div>
 
@@ -138,75 +189,74 @@ export function ReferralPaperForm({ row, patient, doctorStaff, compact = false, 
       <div className="paper-section-title" style={{ marginTop: 12 }}>II. TÓM TẮT BỆNH ÁN VÀ QUÁ TRÌNH ĐIỀU TRỊ:</div>
       <div className="paper-row" style={{ alignItems: 'flex-start' }}>
         <span className="paper-label" style={{ marginTop: 4 }}>1. Dấu hiệu lâm sàng:</span>
-        <textarea
-          className="paper-textarea-leader"
+        <PaperAutoTextarea
           rows={2}
           value={row.symptoms || row.note || ''}
-          onChange={e => onChange('symptoms', e.target.value)}
+          onChange={val => onChange('symptoms', val)}
           placeholder="Mô tả triệu chứng lâm sàng lúc tiếp nhận..."
         />
       </div>
 
       <div className="paper-row" style={{ alignItems: 'flex-start' }}>
         <span className="paper-label" style={{ marginTop: 4 }}>2. Kết quả cận lâm sàng chính:</span>
-        <textarea
-          className="paper-textarea-leader"
+        <PaperAutoTextarea
           rows={2}
           value={row.labSummary || ''}
-          onChange={e => onChange('labSummary', e.target.value)}
+          onChange={val => onChange('labSummary', val)}
           placeholder="Tóm tắt kết quả xét nghiệm, chẩn đoán hình ảnh..."
         />
       </div>
 
       <div className="paper-row" style={{ alignItems: 'flex-start' }}>
         <span className="paper-label" style={{ marginTop: 4 }}>3. Chẩn đoán chuyển tuyến:</span>
-        <input
+        <PaperAutoTextarea
+          rows={1}
           className="paper-input"
           style={{ fontWeight: 700 }}
           value={row.diagnosis || ''}
-          onChange={e => onChange('diagnosis', e.target.value)}
+          onChange={val => onChange('diagnosis', val)}
           placeholder="Mã ICD-10 và tên chẩn đoán xác định..."
         />
       </div>
 
       <div className="paper-row" style={{ alignItems: 'flex-start' }}>
         <span className="paper-label" style={{ marginTop: 4 }}>4. Phương pháp / thuốc đã dùng:</span>
-        <textarea
-          className="paper-textarea-leader"
+        <PaperAutoTextarea
           rows={2}
           value={row.treatment || ''}
-          onChange={e => onChange('treatment', e.target.value)}
+          onChange={val => onChange('treatment', val)}
           placeholder="Thuốc, dịch truyền và can thiệp đã xử trí..."
         />
       </div>
 
       <div className="paper-row" style={{ alignItems: 'flex-start' }}>
         <span className="paper-label" style={{ marginTop: 4 }}>5. Tình trạng lúc chuyển tuyến:</span>
-        <input
+        <PaperAutoTextarea
+          rows={1}
           className="paper-input"
           value={row.condition || ''}
-          onChange={e => onChange('condition', e.target.value)}
+          onChange={val => onChange('condition', val)}
           placeholder="Dấu hiệu sinh tồn và tri giác người bệnh khi bàn giao chuyển viện..."
         />
       </div>
 
       <div className="paper-row" style={{ alignItems: 'flex-start' }}>
         <span className="paper-label" style={{ marginTop: 4 }}>6. Lý do chuyển tuyến:</span>
-        <textarea
-          className="paper-textarea-leader"
+        <PaperAutoTextarea
           rows={2}
           value={row.reason || ''}
-          onChange={e => onChange('reason', e.target.value)}
+          onChange={val => onChange('reason', val)}
           placeholder="1: Vượt quá khả năng chuyên môn / 2: Theo nguyện vọng người bệnh..."
         />
       </div>
 
       <div className="paper-row">
         <span className="paper-label">7. Hướng điều trị tiếp theo:</span>
-        <input
+        <PaperAutoTextarea
+          rows={1}
           className="paper-input"
           value={row.plan || ''}
-          onChange={e => onChange('plan', e.target.value)}
+          onChange={val => onChange('plan', val)}
           placeholder="Kế hoạch điều trị dự kiến tại cơ sở tiếp nhận..."
         />
       </div>
@@ -311,11 +361,11 @@ export function ConsultationPaperForm({ row, patient, doctorStaff, compact = fal
 
       <div className="paper-row" style={{ alignItems: 'flex-start' }}>
         <span className="paper-label" style={{ marginTop: 4 }}>- Lý do hội chẩn:</span>
-        <textarea
-          className="paper-textarea-leader"
+        <PaperAutoTextarea
           rows={2}
           value={row.reason || ''}
-          onChange={e => onChange('reason', e.target.value)}
+          onChange={val => onChange('reason', val)}
+          placeholder="Lý do tổ chức hội chẩn chuyên khoa..."
         />
       </div>
 
@@ -343,22 +393,22 @@ export function ConsultationPaperForm({ row, patient, doctorStaff, compact = fal
 
       <div className="paper-row" style={{ alignItems: 'flex-start' }}>
         <span className="paper-label" style={{ marginTop: 4 }}>3. Thành viên tham gia:</span>
-        <textarea
-          className="paper-textarea-leader"
+        <PaperAutoTextarea
           rows={2}
           value={row.participants || ''}
-          onChange={e => onChange('participants', e.target.value)}
+          onChange={val => onChange('participants', val)}
+          placeholder="Danh sách bác sĩ tham gia hội chẩn..."
         />
       </div>
 
       {/* Tóm tắt diễn biến */}
       <div className="paper-section-title">II. TÓM TẮT DIỄN BIẾN BỆNH & QUÁ TRÌNH ĐIỀU TRỊ:</div>
       <div className="paper-row" style={{ alignItems: 'flex-start' }}>
-        <textarea
-          className="paper-textarea-leader"
+        <PaperAutoTextarea
           rows={3}
           value={row.summary || ''}
-          onChange={e => onChange('summary', e.target.value)}
+          onChange={val => onChange('summary', val)}
+          placeholder="Tóm tắt quá trình diễn biến bệnh và điều trị..."
         />
       </div>
 
@@ -366,22 +416,22 @@ export function ConsultationPaperForm({ row, patient, doctorStaff, compact = fal
       <div className="paper-section-title">III. KẾT LUẬN VÀ PHÁC ĐỒ THỐNG NHẤT:</div>
       <div className="paper-row" style={{ alignItems: 'flex-start' }}>
         <span className="paper-label" style={{ marginTop: 4 }}>1. Chẩn đoán thống nhất:</span>
-        <textarea
-          className="paper-textarea-leader"
+        <PaperAutoTextarea
           rows={2}
           style={{ fontWeight: 700 }}
           value={row.conclusion || ''}
-          onChange={e => onChange('conclusion', e.target.value)}
+          onChange={val => onChange('conclusion', val)}
+          placeholder="Chẩn đoán xác định sau hội chẩn..."
         />
       </div>
 
       <div className="paper-row" style={{ alignItems: 'flex-start' }}>
         <span className="paper-label" style={{ marginTop: 4 }}>2. Hướng điều trị thống nhất:</span>
-        <textarea
-          className="paper-textarea-leader"
+        <PaperAutoTextarea
           rows={3}
           value={row.plan || ''}
-          onChange={e => onChange('plan', e.target.value)}
+          onChange={val => onChange('plan', val)}
+          placeholder="Phác đồ và kế hoạch can thiệp tiếp theo..."
         />
       </div>
 
@@ -492,10 +542,12 @@ export function DischargePaperForm({ row, patient, doctorStaff, compact = false,
 
       <div className="paper-row">
         <span className="paper-label">- Địa chỉ cư trú:</span>
-        <input
+        <PaperAutoTextarea
+          rows={1}
           className="paper-input"
           value={row.address || patient?.address || ''}
-          onChange={e => onChange('address', e.target.value)}
+          onChange={val => onChange('address', val)}
+          placeholder="Địa chỉ nơi cư trú..."
         />
       </div>
 
@@ -512,23 +564,22 @@ export function DischargePaperForm({ row, patient, doctorStaff, compact = false,
 
       <div className="paper-row" style={{ alignItems: 'flex-start' }}>
         <span className="paper-label" style={{ marginTop: 4 }}>- Chẩn đoán ra viện:</span>
-        <textarea
-          className="paper-textarea-leader"
+        <PaperAutoTextarea
           rows={2}
           style={{ fontWeight: 700 }}
           value={row.diagnosis || ''}
-          onChange={e => onChange('diagnosis', e.target.value)}
+          onChange={val => onChange('diagnosis', val)}
           placeholder="Chẩn đoán xác định khi kết thúc đợt điều trị..."
         />
       </div>
 
       <div className="paper-row" style={{ alignItems: 'flex-start' }}>
         <span className="paper-label" style={{ marginTop: 4 }}>- Phương pháp điều trị:</span>
-        <textarea
-          className="paper-textarea-leader"
+        <PaperAutoTextarea
           rows={2}
           value={row.treatment || ''}
-          onChange={e => onChange('treatment', e.target.value)}
+          onChange={val => onChange('treatment', val)}
+          placeholder="Các can thiệp phẫu thuật, thủ thuật và phác đồ dùng thuốc..."
         />
       </div>
 
@@ -544,11 +595,11 @@ export function DischargePaperForm({ row, patient, doctorStaff, compact = false,
 
       <div className="paper-row" style={{ alignItems: 'flex-start' }}>
         <span className="paper-label" style={{ marginTop: 4 }}>- Ghi chú / Lời dặn của thầy thuốc:</span>
-        <textarea
-          className="paper-textarea-leader"
+        <PaperAutoTextarea
           rows={2}
           value={row.advice || ''}
-          onChange={e => onChange('advice', e.target.value)}
+          onChange={val => onChange('advice', val)}
+          placeholder="Chế độ dinh dưỡng, dùng thuốc và hẹn tái khám..."
         />
       </div>
 
@@ -906,12 +957,13 @@ export function PrescriptionPaperForm({ row, patient, doctorStaff, compact = fal
 
       <div className="paper-row" style={{ alignItems: 'flex-start' }}>
         <span className="paper-label" style={{ marginTop: 4 }}>- Chẩn đoán:</span>
-        <input
+        <PaperAutoTextarea
+          rows={1}
           className="paper-input"
           style={{ fontWeight: 700 }}
           value={row.diagnosis || ''}
-          onChange={e => onChange('diagnosis', e.target.value)}
-          placeholder="Chẩn đoán xác định..."
+          onChange={val => onChange('diagnosis', val)}
+          placeholder="Mã ICD-10 và tên chẩn đoán xác định..."
         />
       </div>
 
@@ -933,11 +985,11 @@ export function PrescriptionPaperForm({ row, patient, doctorStaff, compact = fal
 
       <div className="paper-row" style={{ alignItems: 'flex-start' }}>
         <span className="paper-label" style={{ marginTop: 4 }}>- Lời dặn của bác sĩ:</span>
-        <textarea
-          className="paper-textarea-leader"
+        <PaperAutoTextarea
           rows={2}
           value={row.advice || row.loiDan || ''}
-          onChange={e => onChange('advice', e.target.value)}
+          onChange={val => onChange('advice', val)}
+          placeholder="Chế độ sinh hoạt, dùng thuốc và tái khám..."
         />
       </div>
 
@@ -1063,10 +1115,12 @@ export function MedicalRecordSummaryPaperForm({ row, patient, doctorStaff, compa
 
       <div className="paper-row">
         <span className="paper-label">- Địa chỉ cư trú:</span>
-        <input
+        <PaperAutoTextarea
+          rows={1}
           className="paper-input"
           value={row.address || patient?.address || ''}
-          onChange={e => onChange('address', e.target.value)}
+          onChange={val => onChange('address', val)}
+          placeholder="Địa chỉ cư trú..."
         />
       </div>
 
@@ -1074,60 +1128,64 @@ export function MedicalRecordSummaryPaperForm({ row, patient, doctorStaff, compa
 
       <div className="paper-row" style={{ alignItems: 'flex-start' }}>
         <span className="paper-label" style={{ marginTop: 4 }}>1. Quá trình bệnh lý và diễn biến:</span>
-        <textarea
-          className="paper-textarea-leader"
+        <PaperAutoTextarea
           rows={3}
           value={row.pathology || row.quaTrinhBenhLy || ''}
-          onChange={e => onChange('pathology', e.target.value)}
+          onChange={val => onChange('pathology', val)}
+          placeholder="Mô tả quá trình bệnh lý và diễn biến..."
         />
       </div>
 
       <div className="paper-row" style={{ alignItems: 'flex-start' }}>
         <span className="paper-label" style={{ marginTop: 4 }}>2. Tóm tắt kết quả xét nghiệm CLS:</span>
-        <textarea
-          className="paper-textarea-leader"
+        <PaperAutoTextarea
           rows={3}
           value={row.labSummary || row.tomTatCLS || ''}
-          onChange={e => onChange('labSummary', e.target.value)}
+          onChange={val => onChange('labSummary', val)}
+          placeholder="Tóm tắt kết quả xét nghiệm, chẩn đoán hình ảnh chính..."
         />
       </div>
 
       <div className="paper-row" style={{ alignItems: 'flex-start' }}>
         <span className="paper-label" style={{ marginTop: 4 }}>3. Chẩn đoán:</span>
-        <input
+        <PaperAutoTextarea
+          rows={1}
           className="paper-input"
           style={{ fontWeight: 700 }}
           value={row.diagnosis || ''}
-          onChange={e => onChange('diagnosis', e.target.value)}
+          onChange={val => onChange('diagnosis', val)}
+          placeholder="Mã ICD-10 và tên chẩn đoán xác định..."
         />
       </div>
 
       <div className="paper-row" style={{ alignItems: 'flex-start' }}>
         <span className="paper-label" style={{ marginTop: 4 }}>4. Phương pháp điều trị:</span>
-        <textarea
-          className="paper-textarea-leader"
+        <PaperAutoTextarea
           rows={2}
           value={row.treatment || row.phuongPhapDieuTri || ''}
-          onChange={e => onChange('treatment', e.target.value)}
+          onChange={val => onChange('treatment', val)}
+          placeholder="Phương pháp điều trị..."
         />
       </div>
 
       <div className="paper-row">
         <span className="paper-label">5. Tình trạng người bệnh khi ra viện/kết thúc:</span>
-        <input
+        <PaperAutoTextarea
+          rows={1}
           className="paper-input"
           value={row.outcome || row.tinhTrangRaVien || ''}
-          onChange={e => onChange('outcome', e.target.value)}
+          onChange={val => onChange('outcome', val)}
+          placeholder="Tình trạng khi kết thúc..."
         />
       </div>
 
       <div className="paper-row" style={{ alignItems: 'flex-start' }}>
         <span className="paper-label" style={{ marginTop: 4 }}>6. Hướng điều trị tiếp theo và lời dặn:</span>
-        <textarea
-          className="paper-textarea-leader"
+        <PaperAutoTextarea
           rows={2}
           value={row.advice || row.ghiChuLoiDan || ''}
-          onChange={e => onChange('advice', e.target.value)}
+          onChange={val => onChange('advice', val)}
+          placeholder="Hướng điều trị tiếp theo và lời dặn của thầy thuốc..."
         />
       </div>
 
@@ -1246,10 +1304,12 @@ export function ReexaminationPaperForm({ row, patient, doctorStaff, compact = fa
 
       <div className="paper-field-row">
         <span className="paper-label">- Địa chỉ nơi cư trú:</span>
-        <input
+        <PaperAutoTextarea
+          rows={1}
           className="paper-input paper-input-fill"
           value={row.address || patient?.address || ''}
-          onChange={e => onChange('address', e.target.value)}
+          onChange={val => onChange('address', val)}
+          placeholder="Số nhà, đường/thôn, xã/phường, quận/huyện, tỉnh/TP..."
         />
       </div>
 
@@ -1273,10 +1333,12 @@ export function ReexaminationPaperForm({ row, patient, doctorStaff, compact = fa
 
       <div className="paper-field-row">
         <span className="paper-label">- Đã được khám bệnh/điều trị tại:</span>
-        <input
+        <PaperAutoTextarea
+          rows={1}
           className="paper-input paper-input-fill"
           value={row.treatedAt || ''}
-          onChange={e => onChange('treatedAt', e.target.value)}
+          onChange={val => onChange('treatedAt', val)}
+          placeholder="Khoa/phòng đã tiếp nhận khám bệnh và điều trị..."
         />
       </div>
 
@@ -1284,11 +1346,13 @@ export function ReexaminationPaperForm({ row, patient, doctorStaff, compact = fa
       <div className="paper-section-title">II. CHẨN ĐOÁN & ĐÁNH GIÁ ĐỢT ĐIỀU TRỊ:</div>
       <div className="paper-field-row">
         <span className="paper-label">- Chẩn đoán xác định:</span>
-        <input
+        <PaperAutoTextarea
+          rows={1}
           className="paper-input paper-input-fill"
           style={{ fontWeight: 600 }}
           value={row.diagnosis || ''}
-          onChange={e => onChange('diagnosis', e.target.value)}
+          onChange={val => onChange('diagnosis', val)}
+          placeholder="Chẩn đoán xác định..."
         />
       </div>
       <div className="paper-field-row">
@@ -1300,10 +1364,12 @@ export function ReexaminationPaperForm({ row, patient, doctorStaff, compact = fa
           onChange={e => onChange('icd', e.target.value)}
         />
         <span className="paper-label" style={{ marginLeft: 16 }}>Bệnh kèm theo:</span>
-        <input
+        <PaperAutoTextarea
+          rows={1}
           className="paper-input paper-input-fill"
           value={row.comorbidities || ''}
-          onChange={e => onChange('comorbidities', e.target.value)}
+          onChange={val => onChange('comorbidities', val)}
+          placeholder="Bệnh kèm theo..."
         />
       </div>
 
@@ -1334,38 +1400,46 @@ export function ReexaminationPaperForm({ row, patient, doctorStaff, compact = fa
 
       <div className="paper-field-row">
         <span className="paper-label">- Địa điểm / Phòng khám hẹn:</span>
-        <input
+        <PaperAutoTextarea
+          rows={1}
           className="paper-input paper-input-fill"
           style={{ fontWeight: 600 }}
           value={row.clinicRoom || ''}
-          onChange={e => onChange('clinicRoom', e.target.value)}
+          onChange={val => onChange('clinicRoom', val)}
+          placeholder="Phòng khám hẹn tái khám..."
         />
       </div>
 
       <div className="paper-field-row">
         <span className="paper-label">- Lý do hẹn khám lại:</span>
-        <input
+        <PaperAutoTextarea
+          rows={1}
           className="paper-input paper-input-fill"
           value={row.reason || ''}
-          onChange={e => onChange('reason', e.target.value)}
+          onChange={val => onChange('reason', val)}
+          placeholder="Lý do chuyên môn cần hẹn khám lại..."
         />
       </div>
 
       <div className="paper-field-row">
         <span className="paper-label">- Xét nghiệm / Cận lâm sàng cần thực hiện lại:</span>
-        <input
+        <PaperAutoTextarea
+          rows={1}
           className="paper-input paper-input-fill"
           value={row.testsNeeded || ''}
-          onChange={e => onChange('testsNeeded', e.target.value)}
+          onChange={val => onChange('testsNeeded', val)}
+          placeholder="Xét nghiệm, CĐHA cần làm lại khi tái khám..."
         />
       </div>
 
       <div className="paper-field-row">
         <span className="paper-label">- Lời dặn trước khi đến khám:</span>
-        <input
+        <PaperAutoTextarea
+          rows={1}
           className="paper-input paper-input-fill"
           value={row.advice || ''}
-          onChange={e => onChange('advice', e.target.value)}
+          onChange={val => onChange('advice', val)}
+          placeholder="Lời dặn của bác sĩ trước khi người bệnh đến tái khám..."
         />
       </div>
 

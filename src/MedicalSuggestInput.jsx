@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { getClinicalSuggestions, removeVietnameseAccents } from './clinicalPhrases';
 import { Sparkles } from 'lucide-react';
 import './medical-suggest.css';
@@ -92,9 +93,11 @@ export default function MedicalSuggestInput({
 
   const [isOpen, setIsOpen] = useState(false);
   const [dropUp, setDropUp] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState(null);
   const [highlightIdx, setHighlightIdx] = useState(-1);
   const [suggestions, setSuggestions] = useState([]);
   const wrapperRef = useRef(null);
+  const dropdownRef = useRef(null);
 
   // Cập nhật gợi ý mỗi khi value hoặc type thay đổi
   useEffect(() => {
@@ -103,24 +106,44 @@ export default function MedicalSuggestInput({
     setHighlightIdx(-1);
   }, [type, currentValue]);
 
-  // Tự động tính toán hướng mở dropdown (dropUp nếu gần đáy màn hình/form)
-  useEffect(() => {
-    if (isOpen && wrapperRef.current && typeof window !== 'undefined') {
-      const rect = wrapperRef.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const spaceAbove = rect.top;
-      if (spaceBelow < 220 && spaceAbove > 200) {
-        setDropUp(true);
-      } else {
-        setDropUp(false);
-      }
-    }
-  }, [isOpen, suggestions]);
+  // Tự động tính toán vị trí hiển thị dropdown (theo tọa độ tuyệt đối Viewport bằng React Portal)
+  const updatePosition = useCallback(() => {
+    if (!wrapperRef.current || typeof window === 'undefined') return;
+    const rect = wrapperRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const isUp = spaceBelow < 230 && spaceAbove > 200;
+    setDropUp(isUp);
+    setDropdownPos({
+      dropUp: isUp,
+      left: rect.left,
+      width: rect.width,
+      top: isUp ? undefined : rect.bottom + 4,
+      bottom: isUp ? (window.innerHeight - rect.top + 4) : undefined,
+    });
+  }, []);
 
-  // Đóng dropdown khi click ra ngoài
+  useEffect(() => {
+    if (isOpen && suggestions.length > 0) {
+      updatePosition();
+      // Bắt cả sự kiện scroll ở các container con (overflow: auto) bằng capture: true
+      window.addEventListener('resize', updatePosition);
+      window.addEventListener('scroll', updatePosition, true);
+      return () => {
+        window.removeEventListener('resize', updatePosition);
+        window.removeEventListener('scroll', updatePosition, true);
+      };
+    } else {
+      setDropdownPos(null);
+    }
+  }, [isOpen, suggestions, updatePosition]);
+
+  // Đóng dropdown khi click ra ngoài cả wrapper lẫn dropdown Portal
   useEffect(() => {
     function handleClickOutside(e) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+      const inWrapper = wrapperRef.current && wrapperRef.current.contains(e.target);
+      const inDropdown = dropdownRef.current && dropdownRef.current.contains(e.target);
+      if (!inWrapper && !inDropdown) {
         setIsOpen(false);
       }
     }
@@ -179,7 +202,7 @@ export default function MedicalSuggestInput({
     style: { ...style }
   };
 
-  const isDropdownActive = isOpen && suggestions.length > 0 && !disabled;
+  const isDropdownActive = isOpen && suggestions.length > 0 && !disabled && dropdownPos;
 
   return (
     <div
@@ -188,7 +211,6 @@ export default function MedicalSuggestInput({
       style={{
         position: 'relative',
         width: '100%',
-        zIndex: isDropdownActive ? 99999 : 'auto'
       }}
     >
       {multiline ? (
@@ -197,8 +219,20 @@ export default function MedicalSuggestInput({
         <input type="text" {...inputProps} />
       )}
 
-      {isDropdownActive && (
-        <div className={`his-suggest-dropdown ${dropUp ? 'drop-up' : ''}`} role="listbox">
+      {isDropdownActive && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={dropdownRef}
+          className={`his-suggest-dropdown ${dropdownPos.dropUp ? 'drop-up' : ''}`}
+          role="listbox"
+          style={{
+            position: 'fixed',
+            left: `${dropdownPos.left}px`,
+            width: `${dropdownPos.width}px`,
+            top: dropdownPos.top !== undefined ? `${dropdownPos.top}px` : 'auto',
+            bottom: dropdownPos.bottom !== undefined ? `${dropdownPos.bottom}px` : 'auto',
+            zIndex: 99999999,
+          }}
+        >
           <div className="his-suggest-dropdown-header">
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               <Sparkles size={12} color="#0f766e" />
@@ -226,7 +260,8 @@ export default function MedicalSuggestInput({
               </li>
             ))}
           </ul>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

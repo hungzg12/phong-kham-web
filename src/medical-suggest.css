@@ -40,23 +40,19 @@
 
 /* Dropdown Container: Luôn nằm ở lớp trên cùng (z-index cực đại, nền trắng đục hoàn toàn) */
 .his-suggest-dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
+  position: fixed;
   background: #ffffff !important;
   border: 1px solid #0f766e;
   border-radius: 8px;
   box-shadow: 0 20px 45px rgba(15, 23, 42, 0.4), 0 8px 20px rgba(15, 23, 42, 0.25) !important;
-  z-index: 999999 !important;
+  z-index: 99999999 !important;
   overflow: hidden;
+  max-height: 280px;
   animation: hisFadeDown 0.15s ease-out;
 }
 
 /* Khi trường nhập liệu ở đáy màn hình hoặc đáy modal: Mở ngược lên trên */
 .his-suggest-dropdown.drop-up {
-  top: auto;
-  bottom: calc(100% + 4px);
   box-shadow: 0 -20px 45px rgba(15, 23, 42, 0.4), 0 -8px 20px rgba(15, 23, 42, 0.25) !important;
   animation: hisFadeUp 0.15s ease-out;
 }

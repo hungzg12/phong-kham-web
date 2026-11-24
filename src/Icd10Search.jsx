@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, Database, Check, X, BookOpen } from 'lucide-react';
 
 export default function Icd10Search({ valueCode = '', valueName = '', onChange, onOpenManager, disabled = false }) {
@@ -6,16 +7,48 @@ export default function Icd10Search({ valueCode = '', valueName = '', onChange, 
   const [results, setResults] = useState([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState(null);
   const containerRef = useRef(null);
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     setQuery(valueCode ? `[${valueCode}] ${valueName}` : (valueName || ''));
   }, [valueCode, valueName]);
 
+  const updatePosition = useCallback(() => {
+    if (!containerRef.current || typeof window === 'undefined') return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const isUp = spaceBelow < 260 && spaceAbove > 220;
+    setDropdownPos({
+      left: rect.left,
+      width: rect.width,
+      top: isUp ? undefined : rect.bottom + 4,
+      bottom: isUp ? (window.innerHeight - rect.top + 4) : undefined,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      updatePosition();
+      window.addEventListener('resize', updatePosition);
+      window.addEventListener('scroll', updatePosition, true);
+      return () => {
+        window.removeEventListener('resize', updatePosition);
+        window.removeEventListener('scroll', updatePosition, true);
+      };
+    } else {
+      setDropdownPos(null);
+    }
+  }, [open, results, updatePosition]);
+
   // Click outside to close dropdown
   useEffect(() => {
     function handleClickOutside(event) {
-      if (containerRef.current && !containerRef.current.contains(event.target)) {
+      const inContainer = containerRef.current && containerRef.current.contains(event.target);
+      const inDropdown = dropdownRef.current && dropdownRef.current.contains(event.target);
+      if (!inContainer && !inDropdown) {
         setOpen(false);
       }
     }
@@ -107,22 +140,23 @@ export default function Icd10Search({ valueCode = '', valueName = '', onChange, 
         )}
       </div>
 
-      {/* Autocomplete Dropdown - Luôn nằm trên cùng mọi form */}
-      {open && (results.length > 0 || loading) && (
+      {/* Autocomplete Dropdown - Luôn nằm trên cùng mọi form bằng React Portal */}
+      {open && (results.length > 0 || loading) && dropdownPos && typeof document !== 'undefined' && createPortal(
         <div
+          ref={dropdownRef}
           style={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            right: 0,
-            zIndex: 999999,
+            position: 'fixed',
+            left: `${dropdownPos.left}px`,
+            width: `${dropdownPos.width}px`,
+            top: dropdownPos.top !== undefined ? `${dropdownPos.top}px` : 'auto',
+            bottom: dropdownPos.bottom !== undefined ? `${dropdownPos.bottom}px` : 'auto',
+            zIndex: 99999999,
             background: '#ffffff',
             border: '1px solid #0f766e',
             borderRadius: 8,
             boxShadow: '0 20px 45px rgba(15, 23, 42, 0.4), 0 8px 18px rgba(15, 23, 42, 0.25)',
             maxHeight: 260,
             overflowY: 'auto',
-            marginTop: 4
           }}
         >
           {loading && <div style={{ padding: '8px 12px', fontSize: 12, color: '#64748b' }}>Đang tra cứu từ điển CSDL...</div>}
@@ -161,7 +195,8 @@ export default function Icd10Search({ valueCode = '', valueName = '', onChange, 
               )}
             </div>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
