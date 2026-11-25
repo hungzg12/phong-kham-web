@@ -1,4 +1,20 @@
-import {matchesPatient} from './patient-search.js';
+/**
+ * ====================================================================================
+ * PHÂN HỆ: LỊCH SỬ KHÁM BỆNH & BỆNH ÁN ĐIỆN TỬ (EMR - ELECTRONIC MEDICAL RECORD)
+ * TỆP: src/History.jsx
+ * 
+ * CHỨC NĂNG CHÍNH:
+ *   1. Tra cứu toàn diện hồ sơ bệnh án người bệnh: Lịch sử các lần khám ngoại trú & các đợt điều trị nội trú.
+ *   2. Thuật toán tìm kiếm thông minh & xếp hạng (Scoring):
+ *        + Gõ tên, SĐT, CCCD, Mã BN -> Đưa người khớp nhất lên đầu danh sách.
+ *        + Nếu gõ gần đúng hoặc sai dấu -> Tìm kết quả gần nhất có thể (Fuzzy match).
+ *        + Nếu hoàn toàn không tìm thấy -> Thông báo số điện thoại Hotline tổng đài (1900 1234) hỗ trợ trực tiếp.
+ *   3. Xem chi tiết từng lần khám: Sinh hiệu, Chẩn đoán ICD-10, Kết quả CLS (xét nghiệm, siêu âm), Đơn thuốc đã cấp.
+ *   4. Xem và in ấn các biểu mẫu giấy tờ y tế chuẩn Bộ Y Tế (Tóm tắt bệnh án, Giấy ra viện, Giấy hẹn khám lại).
+ * ====================================================================================
+ */
+
+import {searchPatients, HOSPITAL_HOTLINE} from './patient-search.js';
 import ReceptionEncounter from './ReceptionEncounter';
 import {granted} from './session.js';
 import {assignedToDoctor} from './doctor-scope.js';
@@ -548,10 +564,11 @@ export default function History({role='admin',patientId,navigate,notify}){
       return r !== 0 ? r : (Number(a.queueNumber) || 999) - (Number(b.queueNumber) || 999);
     }) : [];
 
-  // Filter matched patients based on search, strictly scoped if patient role/prop
+  // Lọc và xếp hạng bệnh nhân theo thuật toán tìm kiếm thông minh
+  const searchObj = searchPatients(patients, search);
   const matchedPatients = isPatientScoped
     ? patients.filter(p => p.id === effectivePatientId)
-    : patients.filter(p => matchesPatient(p,search));
+    : searchObj.results;
 
   const curPt = isPatientScoped
     ? patients.find(p => p.id === effectivePatientId)
@@ -640,7 +657,15 @@ export default function History({role='admin',patientId,navigate,notify}){
                 {search.trim() && (
                   <div style={{ position: 'relative', marginTop: '8px', background: '#ffffff', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', border: '1px solid #cbd5e1', zIndex: 9999, maxHeight: '280px', overflowY: 'auto', padding: '6px' }}>
                     <div style={{ fontSize: '11px', color: '#64748b', padding: '4px 8px', fontWeight: 600 }}>
-                      {matchedPatients.length?`Tìm thấy ${matchedPatients.length} người bệnh phù hợp — chọn để xem:`:'Không tìm thấy người bệnh phù hợp.'}
+                      {matchedPatients.length ? (
+                        searchObj.isFuzzy
+                          ? `Kết quả gần nhất có thể (${matchedPatients.length} người bệnh) — chọn để xem:`
+                          : `Tìm thấy ${matchedPatients.length} người bệnh phù hợp — chọn để xem:`
+                      ) : (
+                        <div style={{ color: '#b91c1c', padding: '8px 10px', fontSize: '12.5px', lineHeight: 1.5, background: '#fef2f2', borderRadius: 6, border: '1px solid #fecaca' }}>
+                          Không tìm thấy người bệnh phù hợp. Vui lòng liên hệ số điện thoại tổng đài: <strong>{HOSPITAL_HOTLINE}</strong> để được hỗ trợ tra cứu trực tiếp.
+                        </div>
+                      )}
                     </div>
                     {matchedPatients.map(p => {
                       const pBh = parseBhytCard(p.insurance);
