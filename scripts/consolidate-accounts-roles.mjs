@@ -2,6 +2,14 @@ import { transactAdmin, querySql } from '../server/admin-store.mjs';
 import { hashPassword } from '../server/admin-domain.mjs';
 import { adminPermissions, permissions } from '../src/admin-schema.js';
 import { businessPermissions } from '../src/business-permissions.js';
+import { scrypt as scryptCb, randomBytes } from 'node:crypto';
+import { promisify } from 'node:util';
+
+const scrypt = promisify(scryptCb);
+async function hashRaw(password) {
+  const salt = randomBytes(16).toString('hex');
+  return `${salt}:${Buffer.from(await scrypt(password, salt, 64)).toString('hex')}`;
+}
 
 async function main() {
   console.log('>>> Bắt đầu chuẩn hóa & làm gọn Danh mục Nhân viên, Tài khoản và Vai trò & Quyền...');
@@ -68,6 +76,7 @@ async function main() {
         'biz.inpatient:discharge',
         'biz.appointments:view',
         'biz.reception:view',
+        'biz.reception:transfer',
         'biz.notifications:view',
         'biz.notifications:read',
         'departments:view',
@@ -187,29 +196,29 @@ async function main() {
     }
   ];
 
-  // 2. Danh mục tài khoản chuẩn (không trùng lặp)
+  // 2. Danh mục tài khoản chuẩn (không trùng lặp, dùng chung mật khẩu 123)
   const canonicalAccounts = [
-    { username: 'admin', name: 'Quản trị viên', email: 'admin@medicare.vn', roleId: 'admin', staffId: '', password: 'Admin@12345678' },
-    { username: 'tieptan', name: 'Nguyễn Thu Trang', email: 'trang.nt@medicare.vn', roleId: 'receptionist', staffId: 'NV-QT01', password: 'Tieptan@12345678' },
-    { username: 'bacsi', name: 'BS.CKI Trần Minh Anh', email: 'anh.tm@medicare.vn', roleId: 'doctor', staffId: 'NV-BS01', password: 'Doctor@12345678' },
-    { username: 'dieuduong', name: 'ĐD. Hoàng Thị Lan', email: 'lan.ht@medicare.vn', roleId: 'nurse', staffId: 'NV-DD01', password: 'Nurse@12345678' },
-    { username: 'kythuatvien', name: 'KTV. Đỗ Văn Tuấn', email: 'tuan.dv@medicare.vn', roleId: 'technician', staffId: 'NV-KTV01', password: 'Tech@12345678' },
-    { username: 'duocsi', name: 'DS. Vũ Đức Thắng', email: 'thang.vd@medicare.vn', roleId: 'pharmacist', staffId: 'NV-DS01', password: 'Pharmacist@12345678' },
-    { username: 'thungan', name: 'CN. Đặng Thu Thảo', email: 'thao.dt@medicare.vn', roleId: 'cashier', staffId: 'NV-TC01', password: 'Cashier@12345678' },
-    { username: 'benhnhan', name: 'Lê Thị Thu Hương', email: 'huong.lt@gmail.com', roleId: 'patient', staffId: '', patientId: 'BN-240101-001', password: 'Patient@12345678' },
+    { username: 'admin', name: 'Quản trị viên', email: 'admin@medicare.vn', roleId: 'admin', staffId: '', password: '123' },
+    { username: 'tieptan', name: 'Nguyễn Thu Trang', email: 'trang.nt@medicare.vn', roleId: 'receptionist', staffId: 'NV-QT01', password: '123' },
+    { username: 'bacsi', name: 'BS.CKI Trần Minh Anh', email: 'anh.tm@medicare.vn', roleId: 'doctor', staffId: 'NV-BS01', password: '123' },
+    { username: 'dieuduong', name: 'ĐD. Hoàng Thị Lan', email: 'lan.ht@medicare.vn', roleId: 'nurse', staffId: 'NV-DD01', password: '123' },
+    { username: 'kythuatvien', name: 'KTV. Đỗ Văn Tuấn', email: 'tuan.dv@medicare.vn', roleId: 'technician', staffId: 'NV-KTV01', password: '123' },
+    { username: 'duocsi', name: 'DS. Vũ Đức Thắng', email: 'thang.vd@medicare.vn', roleId: 'pharmacist', staffId: 'NV-DS01', password: '123' },
+    { username: 'thungan', name: 'CN. Đặng Thu Thảo', email: 'thao.dt@medicare.vn', roleId: 'cashier', staffId: 'NV-TC01', password: '123' },
+    { username: 'benhnhan', name: 'Lê Thị Thu Hương', email: 'huong.lt@gmail.com', roleId: 'patient', staffId: '', patientId: 'BN-240101-001', password: '123' },
     // Bác sĩ chuyên khoa phụ trách các phòng khám
-    { username: 'bacsi_an', name: 'ThS.BS Nguyễn Văn An', email: 'an.nv@medicare.vn', roleId: 'doctor', staffId: 'NV-BS02', password: 'Doctor@12345678' },
-    { username: 'bacsi_mai', name: 'BS.CKII Lê Thị Mai', email: 'mai.lt@medicare.vn', roleId: 'doctor', staffId: 'NV-BS03', password: 'Doctor@12345678' },
-    { username: 'bacsi_long', name: 'BS Đỗ Hoàng Long', email: 'long.dh@medicare.vn', roleId: 'doctor', staffId: 'NV-BS04', password: 'Doctor@12345678' },
-    { username: 'bacsi_hoa', name: 'BS.CKI Phạm Quỳnh Hoa', email: 'hoa.pq@medicare.vn', roleId: 'doctor', staffId: 'NV-BS05', password: 'Doctor@12345678' },
-    { username: 'bacsi_tuan', name: 'ThS.BS Đặng Quốc Tuấn', email: 'tuan.dq@medicare.vn', roleId: 'doctor', staffId: 'NV-BS06', password: 'Doctor@12345678' }
+    { username: 'bacsi_an', name: 'ThS.BS Nguyễn Văn An', email: 'an.nv@medicare.vn', roleId: 'doctor', staffId: 'NV-BS02', password: '123' },
+    { username: 'bacsi_mai', name: 'BS.CKII Lê Thị Mai', email: 'mai.lt@medicare.vn', roleId: 'doctor', staffId: 'NV-BS03', password: '123' },
+    { username: 'bacsi_long', name: 'BS Đỗ Hoàng Long', email: 'long.dh@medicare.vn', roleId: 'doctor', staffId: 'NV-BS04', password: '123' },
+    { username: 'bacsi_hoa', name: 'BS.CKI Phạm Quỳnh Hoa', email: 'hoa.pq@medicare.vn', roleId: 'doctor', staffId: 'NV-BS05', password: '123' },
+    { username: 'bacsi_tuan', name: 'ThS.BS Đặng Quốc Tuấn', email: 'tuan.dq@medicare.vn', roleId: 'doctor', staffId: 'NV-BS06', password: '123' }
   ];
 
   // Hash mật khẩu cho các tài khoản
   const hashedAccounts = await Promise.all(
     canonicalAccounts.map(async acc => ({
       ...acc,
-      passwordHash: await hashPassword(acc.password),
+      passwordHash: await hashRaw(acc.password),
       active: true,
       authVersion: 1,
       version: 1

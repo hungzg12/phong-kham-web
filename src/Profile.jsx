@@ -1,6 +1,7 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {User,Mail,Phone,MapPin,Camera,Check,X,LogOut,ChevronRight,ShieldCheck,Building2,CalendarDays,Save} from 'lucide-react';
 import {actorRoles} from './roles';
+import {currentIdentity} from './session.js';
 import {useWorkspace,transact,audit} from './workspace';
 import {today} from './business-data';
 import './profile.css';
@@ -15,12 +16,15 @@ function presentationName(name,role,source){
  return role==='doctor'&&specialty?qaDoctorNames[specialty]:qaDisplayNames[role]||name;
 }
 export function profileFor(role,{profiles,patients,business}){
- const actor=actorRoles[role],saved=profiles?.[role]||{};
- const source=actor.patientId?patients.find(p=>p.id===actor.patientId):business.staff.find(s=>s.id===actor.staffId);
- const profile={displayName:actor.person,email:'',phone:'',birth:'',gender:'',address:'',bio:'',avatar:null,...saved};
+ const actor=actorRoles[role],saved=profiles?.[role]||{},identity=currentIdentity();
+ const targetPatientId=role==='patient'?(identity?.patientId||actor.patientId):null;
+ const targetStaffId=role!=='patient'?(identity?.staffId||actor.staffId):null;
+ const source=targetPatientId?patients.find(p=>p.id===targetPatientId):business.staff.find(s=>s.id===targetStaffId);
+ const fallbackName=identity?.person||identity?.name||actor.person;
+ const profile={displayName:fallbackName,email:identity?.email||'',phone:'',birth:'',gender:'',address:'',bio:'',avatar:null,...saved};
  profile.displayName=presentationName(profile.displayName,role,source);
  for(const key of ['email','phone','birth','gender','address']){const sourceKey=key==='birth'?'birth':key;if(source?.[sourceKey]!==undefined)profile[key]=source[sourceKey]}
- return {...profile,legalName:source?.name||actor.person,recordId:source?.id||actor.username,department:source?.department||source?.dept||'',title:source?.title||actor.name,certificate:source?.certificate||'',initials:profile.displayName.trim().split(/\s+/).slice(-2).map(v=>v[0]||'').join('').toUpperCase()||actor.initials};
+ return {...profile,legalName:source?.name||fallbackName,recordId:source?.id||targetPatientId||targetStaffId||actor.username,department:source?.department||source?.dept||'',title:source?.title||actor.name,certificate:source?.certificate||'',initials:profile.displayName.trim().split(/\s+/).slice(-2).map(v=>v[0]||'').join('').toUpperCase()||actor.initials};
 }
 export function useProfile(role){const [profiles]=useWorkspace('profiles'),[patients]=useWorkspace('patients'),[business]=useWorkspace('business');return profileFor(role,{profiles,patients,business})}
 export function ProfileAvatar({profile,className=''}){return <span className={'personal-avatar '+className}>{profile.avatar?<img src={profile.avatar} alt=""/>:profile.initials}</span>}

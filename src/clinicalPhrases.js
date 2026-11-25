@@ -430,6 +430,269 @@ export const CLINICAL_PHRASE_DICTIONARY = {
   ]
 };
 
+export const SPECIALTY_CLINICAL_DICTIONARY = {
+  'Tim mạch': {
+    reason: [
+      'Đau thắt ngực trái lan lên vai và cánh tay trái khi gắng sức',
+      'Đau tức ngực âm ỉ kèm khó thở khi nằm phẳng, phải kê gối cao',
+      'Hồi hộp, đánh trống ngực từng cơn, cảm giác tim đập nhanh hẫng hụt',
+      'Chóng mặt, choáng váng khi thay đổi tư thế, huyết áp tăng cao',
+      'Tái khám định kỳ Tăng huyết áp - Bệnh tim thiếu máu cục bộ'
+    ],
+    history: [
+      'Tăng huyết áp 7 năm, đang dùng Amlodipine 5mg + Losartan 50mg hàng ngày',
+      'Bệnh mạch vành mạn tính, tiền sử đặt Stent LAD năm 2021',
+      'Rối loạn lipid máu hỗn hợp, đang uống Atorvastatin 20mg tối',
+      'Suy tim mạn tính NYHA II phân suất tống máu giảm nhẹ',
+      'Tiền sử rung nhĩ cơn, đang dùng thuốc chống đông máu'
+    ],
+    symptoms: [
+      'Cơn đau thắt ngực vùng sau xương ức kéo dài 10-15 phút, giảm khi nghỉ',
+      'Khó thở khi gắng sức nhẹ độ II-III theo NYHA, không ho ra máu',
+      'Mạch nhanh 95-105 ck/p, không sốt, tĩnh mạch cổ nổi nhẹ tư thế 45 độ',
+      'Phù nhẹ hai mắt cá chân về chiều, ấn lõm nhẹ không đau',
+      'Huyết áp đo tại phòng khám 155/95 mmHg, nhịp tim đều rõ'
+    ],
+    examination: [
+      'Tim đều, T1 T2 rõ, không âm thổi bệnh lý. Phổi thông khí đều hai bên, không rale.',
+      'Mạch đập rõ đều tần số 82 ck/p. Huyết áp 150/90 mmHg. Không tiếng cọ màng tim.',
+      'Mỏm tim đập ở liên sườn V đường trung đòn trái, diện đập 2cm. T2 đanh ở ổ van ĐMC.'
+    ],
+    diagnosis: [
+      'I10 - Bệnh tăng huyết áp vô căn (nguyên phát)',
+      'I20.0 - Cơn đau thắt ngực không ổn định (Hội chứng vành cấp)',
+      'I20.9 - Cơn đau thắt ngực, không đặc hiệu (Thiếu máu cơ tim)',
+      'I25.1 - Bệnh tim do xơ vữa động mạch (Bệnh mạch vành mạn)',
+      'I48 - Rung nhĩ và cuồng nhĩ',
+      'I50.0 - Suy tim sung huyết (Suy tim mạn tính NYHA II)',
+      'E78.2 - Rối loạn lipid máu hỗn hợp'
+    ],
+    advice: [
+      'Ăn nhạt giảm muối (dưới 3-5g muối/ngày), kiêng mỡ động vật và phủ tạng',
+      'Uống thuốc hạ huyết áp và tim mạch đều đặn cùng một giờ mỗi ngày',
+      'Theo dõi huyết áp và nhịp tim tại nhà sáng - tối, ghi sổ theo dõi',
+      'Tránh làm việc nặng gắng sức đột ngột, kiêng rượu bia thuốc lá',
+      'Tái khám định kỳ sau 2-4 tuần hoặc khám ngay khi có cơn đau ngực tái phát'
+    ]
+  },
+  'Tai Mũi Họng': {
+    reason: [
+      'Đau rát cổ họng, nuốt đau vướng, sốt nhẹ 38°C, mệt mỏi',
+      'Ngạt mũi, chảy nước mũi trong liên tục, ngứa mũi, hắt hơi từng tràng',
+      'Đau nhức vùng má và trán hai bên, chảy dịch mũi vàng đục tanh',
+      'Đau nhức trong tai, ù tai, cảm giác bít tắc tai, nghe kém',
+      'Khàn tiếng kéo dài trên 1 tuần, vướng họng, đằng hắng nhiều'
+    ],
+    history: [
+      'Tiền sử viêm mũi dị ứng thời tiết nhiều năm, hay tái phát mùa lạnh',
+      'Viêm họng hạt mạn tính, hay nói nhiều do đặc thù nghề nghiệp',
+      'Tiền sử viêm amidan mủ tái phát 3-4 đợt/năm',
+      'Đã mổ nạo VA hồi nhỏ, chưa phẫu thuật vách ngăn mũi'
+    ],
+    symptoms: [
+      'Niêm mạc họng đỏ rực, thành sau họng nhiều hạt lympho sung huyết',
+      'Amidan hai bên sưng nề độ II, bề mặt có vài chấm mủ trắng rải rác',
+      'Niêm mạc cuốn mũi dưới phù nề nhợt, khe giữa có nhiều dịch nhầy trong',
+      'Màng nhĩ tai hai bên sáng bóng, nón sáng rõ, không thủng màng nhĩ',
+      'Thanh quản: Hai dây thanh khép kín tốt, bờ dây thanh phù nề nhẹ'
+    ],
+    examination: [
+      'Ống tai ngoài thông thoáng, màng nhĩ nguyên vẹn sáng bóng. Niêm mạc họng đỏ nhẹ.',
+      'Họng sung huyết, amidan độ II có chất bựa trắng, thành sau họng sạch.',
+      'Vách ngăn mũi thẳng, khe giữa có nhầy đục, cuốn mũi sưng to cản trở thông khí.'
+    ],
+    diagnosis: [
+      'J02.9 - Viêm họng cấp, không đặc hiệu',
+      'J03.9 - Viêm amidan cấp mủ, không đặc hiệu',
+      'J30.4 - Viêm mũi dị ứng, không đặc hiệu',
+      'J01.0 - Viêm xoang hàm cấp tính',
+      'J31.2 - Viêm họng mạn tính (Viêm họng hạt)',
+      'H66.0 - Viêm tai giữa nung mủ cấp tính',
+      'J04.0 - Viêm thanh quản cấp tính'
+    ],
+    advice: [
+      'Súc họng bằng nước muối sinh lý 0.9% ngày 3-4 lần sau ăn và trước khi ngủ',
+      'Uống nhiều nước ấm, giữ ấm vùng cổ ngực, tránh uống nước đá lạnh',
+      'Đeo khẩu trang khi ra đường, tránh tiếp xúc khói bụi và hóa chất',
+      'Uống đủ liều kháng sinh và thuốc chống viêm theo đơn đã kê',
+      'Tái khám sau 5 ngày hoặc khám lại ngay nếu sốt cao hay nuốt khó tăng'
+    ]
+  },
+  'Cơ xương khớp': {
+    reason: [
+      'Đau nhức khớp gối hai bên, lục cục khi co duỗi và lên xuống cầu thang',
+      'Đau sưng nóng đỏ dữ dội khớp bàn ngón 1 chân phải sau bữa ăn nhiều đạm',
+      'Đau thắt lưng lan xuống mông và mặt sau đùi cẳng chân trái',
+      'Đau cứng khớp cổ tay và khớp ngón tay hai bên vào buổi sáng trên 1 giờ',
+      'Đau mỏi vùng cổ gáy lan lên thái dương và bả vai hai bên'
+    ],
+    history: [
+      'Thoái hóa khớp gối 3 năm, đã từng tiêm nội khớp Acid Hyaluronic',
+      'Tiền sử Gút mạn tính 5 năm, có hạt tophi nhỏ ở vành tai và khớp bàn chân',
+      'Thoát vị đĩa đệm cột sống thắt lưng L4-L5 chẩn đoán qua MRI năm 2022',
+      'Viêm khớp dạng thấp huyết thanh dương tính đang dùng Methotrexate'
+    ],
+    symptoms: [
+      'Khớp gối hai bên phì đại nhẹ, dấu lạo xạo xương (+), bập bềnh bánh chè (-)',
+      'Khớp bàn ngón chân cái sưng nề đỏ bóng, ấn đau chói, hạn chế đi lại',
+      'Cơ cạnh sống thắt lưng co cứng, bấm điểm đau Valleix (+), Lasegue 60 độ',
+      'Vận động cột sống cổ hạn chế cúi ngửa, nghiệm pháp Spurling (+)',
+      'Các khớp bàn ngón tay hai bên sưng đối xứng dạng hình thoi'
+    ],
+    examination: [
+      'Các khớp vận động trong giới hạn bình thường, không biến dạng, không sưng nóng.',
+      'Khớp gối ấn đau khe khớp trong, lạo xạo xương (+), dấu chạm bánh chè (-).',
+      'Cột sống thắt lưng giảm đường cong sinh lý, tầm vận động cúi cán 40 độ.'
+    ],
+    diagnosis: [
+      'M17.0 - Thoái hóa khớp gối nguyên phát hai bên',
+      'M10.0 - Gút vô căn (Cơn Gút cấp tính ngón chân cái)',
+      'M10.9 - Bệnh Gút mạn tính có hạt tophi',
+      'M54.5 - Đau thắt lưng vùng thấp (Đau lưng dưới cấp/mạn)',
+      'M54.3 - Đau dây thần kinh tọa (Sciatica)',
+      'M51.2 - Thoát vị đĩa đệm cột sống thắt lưng L4-L5',
+      'M06.9 - Viêm khớp dạng thấp, không đặc hiệu',
+      'M81.0 - Loãng xương sau mãn kinh'
+    ],
+    advice: [
+      'Hạn chế khiêng vác nặng, tránh ngồi xổm, tránh leo cầu thang nhiều',
+      'Tập thể dục nhẹ nhàng: Bơi lội, đạp xe tại chỗ, yoga kéo giãn cơ lưng',
+      'Chế độ ăn cho bệnh Gút: Kiêng thịt đỏ, phủ tạng động vật, hải sản, rượu bia',
+      'Bổ sung Canxi và Vitamin D3 hàng ngày, phơi nắng sáng sớm',
+      'Chườm ấm vùng khớp đau 15-20 phút mỗi tối trước khi ngủ'
+    ]
+  },
+  'Da liễu': {
+    reason: [
+      'Ngứa ngáy nhiều ở vùng mặt và cổ tay, nổi mẩn đỏ sau khi dùng mỹ phẩm',
+      'Nổi mẩn ngứa dạng sẩn phù mề đay từng mảng khắp người, ngứa dữ dội',
+      'Mụn trứng cá bọc và sẩn đỏ nhiều ở hai bên má và cằm, đau nhức',
+      'Vùng bẹn và kẽ đùi nổi mảng đỏ bờ viền rõ rệt, ngứa nhiều khi ra mồ hôi',
+      'Mụn nước nhỏ mọc thành chùm đau rát như bỏng một bên sườn ngực'
+    ],
+    history: [
+      'Viêm da cơ địa từ nhỏ, hay tái phát vào mùa đông hanh khô',
+      'Cơ địa dị ứng thời tiết và dị ứng thức ăn (tôm, cua, hải sản)',
+      'Tiền sử bị mụn trứng cá viêm nặng nhiều năm, từng dùng Corticoid bôi',
+      'Chưa từng ghi nhận bệnh da mạn tính khác'
+    ],
+    symptoms: [
+      'Dát đỏ rải rác vùng mặt và cẳng tay, nhiều sẩn phù nổi gồ bề mặt da',
+      'Mảng sẩn đỏ hình tròn bờ đa cung có mụn nước nhỏ ở rìa tổn thương',
+      'Nhiều sẩn viêm, mụn mủ và nhân trứng cá đóng vảy vùng chữ T',
+      'Dải mụn nước mọc thành chùm trên nền dát đỏ phân bố theo khoanh da D5-D6',
+      'Mảng da dày lichen hóa thâm sạm ở nếp gấp khuỷu tay và khoeo chân'
+    ],
+    examination: [
+      'Tổn thương da dạng dát sẩn mề đay rải rác, không có phỏng nước, không hoại tử.',
+      'Nhiều sẩn mủ viêm nang lông vùng mặt, cồi mụn đầu đen rải rác.',
+      'Thương tổn dạng đám mảng đỏ bờ đa cung, bong vảy mịn rìa thương tổn.'
+    ],
+    diagnosis: [
+      'L20.9 - Viêm da cơ địa dị ứng (Eczema)',
+      'L23.9 - Viêm da tiếp xúc dị ứng',
+      'L50.0 - Mày đay dị ứng cấp tính',
+      'L70.0 - Mụn trứng cá thông thường (Acne vulgaris)',
+      'B35.6 - Nấm bẹn [Tinea cruris]',
+      'B35.4 - Nấm thân mình [Tinea corporis - Hắc lào]',
+      'B02.9 - Bệnh Zona [Herpes zoster] không biến chứng',
+      'L40.0 - Vảy nến thể mảng thông thường'
+    ],
+    advice: [
+      'Tuyệt đối không gãi chà xát mạnh gây trầy xước và bội nhiễm da',
+      'Dùng sữa tắm dịu nhẹ không xà phòng, bôi kem dưỡng ẩm ngay sau khi tắm',
+      'Tránh tiếp xúc xà phòng thơm, chất tẩy rửa hóa chất và mỹ phẩm lạ',
+      'Bôi thuốc đúng vùng tổn thương theo hướng dẫn của bác sĩ chuyên khoa',
+      'Giữ cơ thể thoáng mát, mặc đồ cotton rộng rãi, tái khám sau 1-2 tuần'
+    ]
+  },
+  'Sản phụ khoa': {
+    reason: [
+      'Chậm kinh 10 ngày, thử que thử thai Quickstick hiện 2 vạch đậm',
+      'Đau tức âm ỉ vùng hạ vị kèm ra máu nâu sẫm âm đạo lượng ít',
+      'Khí hư ra nhiều màu trắng đục vón cục như váng sữa, ngứa ngáy vùng kín',
+      'Kinh nguyệt không đều, chu kỳ kéo dài 45-60 ngày, đau bụng kinh nhiều',
+      'Khám thai định kỳ quý I / quý II theo lịch hẹn'
+    ],
+    history: [
+      'PARA 1001, đẻ thường đủ tháng năm 2021, bé nặng 3.2kg khỏe mạnh',
+      'Tiền sử viêm âm đạo do nấm Candida từng điều trị đặt thuốc năm ngoái',
+      'Chu kỳ kinh nguyệt 30 ngày đều đặn, không có tiền sử sẩy thai nạo hút',
+      'Chưa ghi nhận bệnh lý ngoại khoa ổ bụng'
+    ],
+    symptoms: [
+      'Bụng mềm, không chướng, ấn tức nhẹ điểm hạ vị, không có phản ứng thành bụng',
+      'Khám mỏ vịt: Âm đạo nhiều huyết trắng vón cục dính thành âm đạo',
+      'Cổ tử cung trơn láng, đóng kín, không có tổn thương sùi hay loét',
+      'Tử cung tư thế trung gian, to tương đương tuổi thai 6-7 tuần, mềm',
+      'Hai phần phụ mềm mại, không sờ thấy khối bất thường, không đau'
+    ],
+    examination: [
+      'Bụng mềm, gan lách không to. Khám mỏ vịt: Âm đạo bình thường, CTC trơn láng.',
+      'Cổ tử cung lộ tuyến nhẹ độ I, chất tiết nhầy trong, không hôi, không chảy máu.',
+      'Tử cung to kích thước tương đương tuổi thai, hai phần phụ mềm không sờ thấy u.'
+    ],
+    diagnosis: [
+      'Z34.0 - Khám theo dõi thai nghén bình thường (Thai kỳ sớm)',
+      'O20.0 - Dọa sẩy thai (Động thai)',
+      'B37.3 - Viêm âm đạo và âm hộ do nấm Candida',
+      'N76.0 - Viêm âm đạo cấp tính do vi khuẩn',
+      'N72 - Viêm lộ tuyến cổ tử cung',
+      'N94.6 - Đau bụng kinh (Thống kinh)',
+      'D25.9 - U xơ tử cung kích thước nhỏ'
+    ],
+    advice: [
+      'Nghỉ ngơi tại giường, tránh vận động mạnh, kiêng quan hệ vợ chồng trong giai đoạn dọa sẩy',
+      'Bổ sung Acid Folic, Sắt và Vitamin tổng hợp theo đơn chỉ định',
+      'Vệ sinh phụ khoa sạch sẽ bằng dung dịch vệ sinh chuyên dụng pH phù hợp',
+      'Ăn uống đủ chất dinh dưỡng, uống nhiều nước, ăn nhiều rau quả tươi',
+      'Khám lại ngay nếu có ra máu âm đạo đỏ tươi hoặc đau quặn bụng dưới'
+    ]
+  },
+  'Nội tổng quát': {
+    reason: [
+      'Sốt cao 39°C liên tục 3 ngày, gai rét, đau mỏi toàn thân, mệt nhiều',
+      'Đau rát vùng thượng vị âm ỉ sau ăn, ợ hơi, ợ chua, đầy bụng khó tiêu',
+      'Mệt mỏi nhiều, khát nước, uống nhiều, tiểu nhiều lần, sụt 3kg trong 1 tháng',
+      'Ho có đờm đục, sốt nhẹ về chiều, đau tức ngực khi hít thở sâu',
+      'Chóng mặt, hoa mắt, mất thăng bằng khi đứng dậy đột ngột'
+    ],
+    history: [
+      'Tăng huyết áp 5 năm, đái tháo đường type 2 đang uống Metformin 500mg',
+      'Viêm dạ dày tá tràng mạn tính HP (+), từng điều trị phác đồ 4 thuốc',
+      'Tiền sử dị ứng kháng sinh nhóm Penicillin (nổi ban ngứa)',
+      'Không hút thuốc lá, thỉnh thoảng uống bia rượu khi giao tiếp'
+    ],
+    symptoms: [
+      'Bệnh nhân tỉnh táo, tiếp xúc tốt, da niêm hồng nhạt, sốt nhẹ 38°C',
+      'Bụng mềm, ấn tức nhẹ vùng thượng vị, Murphy (-), MacBurney (-)',
+      'Phổi hai bên thông khí rõ, rì rào phế nang êm dịu, không rale ẩm rale nổ',
+      'Họng sung huyết nhẹ, amidan hai bên không sưng mủ, hạch ngoại vi không to',
+      'Mạch đập rõ đều 80 ck/p, huyết áp 125/80 mmHg, SpO2 98% khí phòng'
+    ],
+    examination: [
+      'Tri giác tỉnh, tiếp xúc tốt. Da niêm hồng. Tim đều T1 T2 rõ. Phổi không rale.',
+      'Bụng mềm di động theo nhịp thở, ấn tức thượng vị, không đề kháng thành bụng.',
+      'Thể trạng trung bình, niêm mạc mắt hồng, tuyến giáp không to, không phù ngoại biên.'
+    ],
+    diagnosis: [
+      'K29.7 - Viêm dạ dày, không đặc hiệu (Đau dạ dày / Viêm niêm mạc)',
+      'K21.9 - Bệnh trào ngược dạ dày - thực quản (GERD)',
+      'E11.9 - Đái tháo đường không phụ thuộc insulin (Type 2)',
+      'I10 - Bệnh tăng huyết áp vô căn (nguyên phát)',
+      'J06.9 - Nhiễm trùng đường hô hấp trên cấp tính',
+      'K30 - Chứng khó tiêu [Dyspepsia - Rối loạn tiêu hóa]',
+      'A09 - Tiêu chảy và viêm dạ dày - ruột nghi do nhiễm khuẩn'
+    ],
+    advice: [
+      'Uống thuốc đúng giờ, đúng liều lượng theo đơn đã kê của bác sĩ',
+      'Ăn chín uống sôi, chia nhỏ bữa ăn, kiêng đồ chua cay nóng và rượu bia',
+      'Hạn chế ăn mặn, tập thể dục nhẹ nhàng 30 phút mỗi ngày',
+      'Tái khám sau 1-2 tuần đánh giá lại đáp ứng điều trị'
+    ]
+  }
+};
+
 /**
  * Loại bỏ dấu tiếng Việt để tìm kiếm không phân biệt dấu và chữ hoa/thường
  */
@@ -444,10 +707,16 @@ export function removeVietnameseAccents(str) {
 }
 
 /**
- * Lọc danh sách gợi ý (tối đa 5 dòng) dựa trên ký tự gõ vào
+ * Lọc danh sách gợi ý dựa trên ký tự gõ vào và chuyên khoa của phòng khám
  */
-export function getClinicalSuggestions(type, query, limit = 5) {
-  const bank = CLINICAL_PHRASE_DICTIONARY[type] || CLINICAL_PHRASE_DICTIONARY.reason || [];
+export function getClinicalSuggestions(type, query, limit = 5, department = '') {
+  // Lấy danh mục gợi ý ưu tiên theo chuyên khoa nếu có
+  const specBank = (department && SPECIALTY_CLINICAL_DICTIONARY[department]?.[type]) || [];
+  const baseBank = CLINICAL_PHRASE_DICTIONARY[type] || CLINICAL_PHRASE_DICTIONARY.reason || [];
+  
+  // Kết hợp ngân hàng dữ liệu: Ưu tiên câu chuyên khoa lên đầu, sau đó đến câu chung
+  const bank = [...new Set([...specBank, ...baseBank])];
+
   if (!query || !query.trim()) {
     return bank.slice(0, limit);
   }
@@ -467,7 +736,7 @@ export function getClinicalSuggestions(type, query, limit = 5) {
     return allMatch.slice(0, limit);
   }
 
-  // 2. Nếu chưa đủ 5 dòng, lấy thêm các câu khớp một phần (Any word match)
+  // 2. Nếu chưa đủ limit dòng, lấy thêm các câu khớp một phần (Any word match)
   const anyMatch = bank.filter(item => {
     if (allMatch.includes(item)) return false;
     const cleanItem = removeVietnameseAccents(item);
@@ -479,6 +748,6 @@ export function getClinicalSuggestions(type, query, limit = 5) {
     return combined.slice(0, limit);
   }
 
-  // 3. Nếu không khớp chữ nào, trả về các mục tiêu biểu đầu tiên để người dùng luôn có gợi ý chuẩn
+  // 3. Nếu không khớp chữ nào, trả về các mục tiêu biểu đầu tiên
   return bank.slice(0, limit);
 }

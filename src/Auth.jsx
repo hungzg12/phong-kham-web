@@ -38,8 +38,8 @@ export default function Auth({onLogin,initialRole='admin',externalError='',onReg
    <span className="auth-tag">MEDICARE WORKSPACE</span><h2>Chào mừng trở lại</h2><p>Bệnh nhân có thể tự đăng ký. Tài khoản nhân viên do quản trị viên cấp.</p>
    {registered&&<p className="auth-success" role="status">Đăng ký thành công. Bạn có thể đăng nhập bằng tài khoản vừa tạo.</p>}
    <form onSubmit={async e=>{e.preventDefault();if(saving)return;const values=Object.fromEntries(new FormData(e.currentTarget));setSaving(true);setError('');try{await onLogin(values)}catch(e){setError(e.message)}finally{setSaving(false)}}}>
-   <label>Tên đăng nhập<input name="username" autoComplete="username" required maxLength={50} value={username} onChange={e=>setUsername(e.target.value)}/></label>
-   <label>Mật khẩu<input name="password" type="password" autoComplete="current-password" required maxLength={128} value={password} onChange={e=>setPassword(e.target.value)}/></label>
+   <label>Tên đăng nhập<input name="username" autoComplete="username" required maxLength={50} value={username} onChange={e=>setUsername(e.target.value)} placeholder="admin, tieptan, bacsi..."/></label>
+   <label>Mật khẩu<input name="password" type="password" autoComplete="current-password" required maxLength={128} value={password} onChange={e=>setPassword(e.target.value)} placeholder="123"/></label>
    {(error||externalError)&&<p role="alert" className="form-error">{error||externalError}</p>}
    <button className="primary full" disabled={saving} style={{marginTop:22}}>{saving?'Đang đăng nhập…':'Đăng nhập'} <ArrowRight size={17}/></button></form>
    {onRegister&&<button type="button" className="secondary full auth-register-link" disabled={saving} onClick={()=>{setRegistering(true);setRegistered(false);setError('')}}>Chưa có tài khoản? Đăng ký bệnh nhân</button>}

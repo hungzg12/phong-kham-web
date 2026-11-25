@@ -184,9 +184,11 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
         result = await hisApi.createVisit(payload);
         message = `Tiếp đón thành công! Cấp STT ${result.queueTag || '#'+result.queueNumber} tại ${result.roomName || chosenRoom.name}${result.doctorStaffId?'':'. Chưa có bác sĩ phân công ca; quản trị viên cần phân công.'}`;
         await syncWithSqlServer();
+        const patientCode = result.patientCode || (selected ? (patients.find(p=>p.id===selected)?.code || selected) : ('BN-' + String(result.id || Date.now()).slice(-6)));
         setIssuedTicket({
           queueTag: result.queueTag || getNextQueueTag(selectedRoom),
           queueNumber: result.queueNumber,
+          patientCode,
           patientName: fullName.trim().toUpperCase(),
           age: calculatedAge(),
           gender,
@@ -194,6 +196,7 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
           roomName: chosenRoom.name,
           doctor: result.doctor || 'Chưa phân công',
           time: new Date().toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'}),
+          date: new Date().toLocaleDateString('vi-VN'),
           message
         });
         return;
@@ -592,6 +595,7 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
                 </div>
               </div>
             )}
+
           </>
         )}
 
@@ -623,35 +627,90 @@ export default function ReceptionForm({ mode = 'register', patient, onDone }) {
         </div>
       </form>
 
-      {/* POPUP PHIẾU KHÁM BỆNH & SỐ THỨ TỰ */}
+      {/* POPUP PHIẾU TIẾP ĐÓN & SỐ THỨ TỰ KHÁM (CHUẨN GIAO DIỆN BỆNH VIỆN) */}
       {issuedTicket && (
-        <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,0.6)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,padding:'16px'}}>
-          <div style={{background:'#ffffff',borderRadius:'14px',boxShadow:'0 20px 25px -5px rgba(0,0,0,0.2)',width:'100%',maxWidth:'440px',overflow:'hidden',border:'1px solid #cbd5e1',textAlign:'center'}}>
-            <div style={{background:'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)',color:'#ffffff',padding:'18px 20px'}}>
-              <span style={{fontSize:'11px',textTransform:'uppercase',letterSpacing:'1px',fontWeight:700,opacity:0.9}}>Bệnh viện Đa khoa MediCare</span>
-              <h3 style={{margin:'4px 0 0',fontSize:'16px',fontWeight:700}}>PHIẾU KHÁM BỆNH & SỐ THỨ TỰ</h3>
+        <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,0.65)',backdropFilter:'blur(4px)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,padding:'16px'}}>
+          <div style={{background:'#ffffff',borderRadius:'12px',boxShadow:'0 20px 25px -5px rgba(15,23,42,0.2), 0 8px 10px -6px rgba(15,23,42,0.1)',width:'100%',maxWidth:'400px',overflow:'hidden',border:'1px solid #e2e8f0',borderTop:'4px solid #0f766e',position:'relative'}}>
+            {/* Header */}
+            <div style={{padding:'18px 20px 12px',borderBottom:'1px solid #f1f5f9',display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+              <div>
+                <span style={{fontSize:'10.5px',textTransform:'uppercase',letterSpacing:'0.8px',fontWeight:700,color:'#0f766e'}}>Phòng khám Đa khoa MediCare</span>
+                <h3 style={{margin:'3px 0 0',fontSize:'16px',fontWeight:750,color:'#0f172a',letterSpacing:'-0.3px'}}>PHIẾU TIẾP ĐÓN & SỐ THỨ TỰ</h3>
+                <span style={{fontSize:'11.5px',color:'#64748b',display:'block',marginTop:'2px'}}>Giờ tiếp nhận: {issuedTicket.time} {issuedTicket.date ? `· ${issuedTicket.date}` : ''}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIssuedTicket(null)}
+                style={{background:'transparent',border:0,color:'#94a3b8',cursor:'pointer',padding:'4px',display:'flex',borderRadius:'4px'}}
+                title="Đóng phiếu"
+              >
+                <X size={18} />
+              </button>
             </div>
-            <div style={{padding:'24px 20px'}}>
-              <span style={{fontSize:'12px',color:'#64748b',fontWeight:600,textTransform:'uppercase'}}>Số thứ tự khám bệnh (STT)</span>
-              <div style={{fontSize:'48px',fontWeight:900,color:'#0f766e',letterSpacing:'2px',fontFamily:'monospace',margin:'6px 0 14px',background:'#f0fdfa',border:'2px dashed #99f6e4',borderRadius:'10px',padding:'10px'}}>
-                {issuedTicket.queueTag}
+
+            {/* Content */}
+            <div style={{padding:'16px 20px 20px'}}>
+              {/* STT Hero Box */}
+              <div style={{background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:'10px',padding:'12px 16px',textAlign:'center',marginBottom:'14px'}}>
+                <span style={{fontSize:'11px',color:'#64748b',fontWeight:700,textTransform:'uppercase',letterSpacing:'1px'}}>Số thứ tự khám (STT)</span>
+                <div style={{fontSize:'42px',fontWeight:800,color:'#0f766e',letterSpacing:'2px',fontFamily:'monospace',lineHeight:1.1,margin:'4px 0'}}>
+                  {issuedTicket.queueTag}
+                </div>
+                <div style={{display:'inline-flex',alignItems:'center',gap:'5px',marginTop:'4px',background:'#ecfdf5',color:'#065f46',border:'1px solid #a7f3d0',padding:'3px 10px',borderRadius:'12px',fontSize:'12px',fontWeight:600}}>
+                  <Stethoscope size={13} /> {issuedTicket.roomName}
+                </div>
               </div>
-              <div style={{textAlign:'left',background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:'8px',padding:'12px 14px',fontSize:'12.5px',display:'grid',gap:'6px',marginBottom:'18px'}}>
-                <div><b>Họ tên người bệnh:</b> <span style={{color:'#0f172a',fontWeight:700}}>{issuedTicket.patientName}</span> {issuedTicket.age ? `(${issuedTicket.age}·${issuedTicket.gender})` : ''}</div>
-                <div><b>Chuyên khoa:</b> <span>{issuedTicket.department}</span></div>
-                <div><b>Phòng khám:</b> <b style={{color:'#0f766e'}}>{issuedTicket.roomName}</b></div>
-                <div><b>Bác sĩ phụ trách:</b> <span>{issuedTicket.doctor}</span></div>
-                <div><b>Thời điểm cấp số:</b> <span style={{color:'#64748b'}}>{issuedTicket.time}</span></div>
+
+              {/* Patient and Routing Info */}
+              <div style={{background:'#ffffff',border:'1px solid #e2e8f0',borderRadius:'8px',padding:'10px 14px',fontSize:'12.5px',display:'grid',gap:'7px',marginBottom:'12px'}}>
+                <div style={{display:'flex',justifyContent:'space-between',borderBottom:'1px solid #f1f5f9',paddingBottom:'6px'}}>
+                  <span style={{color:'#64748b'}}>Họ và tên:</span>
+                  <span style={{color:'#0f172a',fontWeight:700}}>{issuedTicket.patientName}</span>
+                </div>
+                {issuedTicket.patientCode && (
+                  <div style={{display:'flex',justifyContent:'space-between',borderBottom:'1px solid #f1f5f9',paddingBottom:'6px'}}>
+                    <span style={{color:'#64748b'}}>Mã bệnh nhân:</span>
+                    <span style={{color:'#334155',fontFamily:'monospace',fontWeight:600}}>{issuedTicket.patientCode}</span>
+                  </div>
+                )}
+                <div style={{display:'flex',justifyContent:'space-between',borderBottom:'1px solid #f1f5f9',paddingBottom:'6px'}}>
+                  <span style={{color:'#64748b'}}>Thông tin:</span>
+                  <span style={{color:'#334155',fontWeight:500}}>{issuedTicket.age ? `${issuedTicket.age} · ` : ''}{issuedTicket.gender}</span>
+                </div>
+                <div style={{display:'flex',justifyContent:'space-between',borderBottom:'1px solid #f1f5f9',paddingBottom:'6px'}}>
+                  <span style={{color:'#64748b'}}>Chuyên khoa:</span>
+                  <span style={{color:'#0f172a',fontWeight:600}}>{issuedTicket.department}</span>
+                </div>
+                <div style={{display:'flex',justifyContent:'space-between'}}>
+                  <span style={{color:'#64748b'}}>Bác sĩ phụ trách:</span>
+                  <span style={{color:'#0f766e',fontWeight:600}}>{issuedTicket.doctor}</span>
+                </div>
               </div>
-              <p style={{fontSize:'12px',color:'#64748b',margin:'0 0 18px',lineHeight:1.6}}>
-                Quý khách vui lòng cầm phiếu này đến trước cửa <b>{issuedTicket.roomName}</b> và theo dõi âm thanh loa gọi số.
-              </p>
-              <div style={{display:'flex',gap:'10px',justifyContent:'center'}}>
-                <button type="button" className="secondary" style={{padding:'8px 16px',fontSize:'13px'}} onClick={()=>{window.print();}}>
-                  <Printer size={15}/> In phiếu STT
+
+              {/* Instructions / Flow guide */}
+              <div style={{background:'#f8fafc',borderLeft:'3px solid #0f766e',borderRadius:'4px',padding:'9px 12px',fontSize:'11.5px',color:'#334155',lineHeight:1.5,marginBottom:'14px',textAlign:'left'}}>
+                📋 <b>Hướng dẫn:</b> Quý khách vui lòng đến <b>Bàn Điều dưỡng</b> để đo sinh hiệu (Huyết áp, Chiều cao, Cân nặng) trước khi vào buồng khám.
+              </div>
+
+              {/* Thermal Barcode */}
+              <div style={{margin:'6px 0 16px',textAlign:'center'}}>
+                <div style={{display:'flex',justifyContent:'center',alignItems:'flex-end',gap:'2px',height:'22px',marginBottom:'3px'}}>
+                  {[3, 1, 2, 4, 1, 3, 2, 1, 4, 2, 1, 3, 1, 2, 4, 1, 3, 2, 1, 3, 2, 4, 1, 2, 3, 1, 4, 2].map((w, i) => (
+                    <span key={i} style={{width:`${w}px`,height:'100%',background:'#334155',display:'inline-block'}} />
+                  ))}
+                </div>
+                <div style={{fontSize:'9.5px',fontFamily:'monospace',color:'#64748b',letterSpacing:'2px'}}>
+                  *{issuedTicket.queueTag}*
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{display:'flex',gap:'10px',justifyContent:'flex-end'}}>
+                <button type="button" className="secondary" style={{padding:'0 14px',height:'36px',fontSize:'12.5px'}} onClick={()=>{window.print();}}>
+                  <Printer size={15}/> In phiếu
                 </button>
-                <button type="button" className="primary" style={{padding:'8px 20px',fontSize:'13px'}} onClick={()=>{onDone(issuedTicket.message);}}>
-                  Hoàn tất tiếp đón
+                <button type="button" className="primary" style={{padding:'0 18px',height:'36px',fontSize:'12.5px'}} onClick={()=>{onDone(issuedTicket.message);}}>
+                  <Check size={15}/> Hoàn tất tiếp đón
                 </button>
               </div>
             </div>

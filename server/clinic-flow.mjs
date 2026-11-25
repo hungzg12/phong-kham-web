@@ -37,6 +37,27 @@ export async function receivePatient(data){
  const departmentId=await resolveDepartment(data.dept);
  const patientId=text(data.patientId,20)||null;
  const values=patientId?{name:'',phone:'',birth:null,gender:'Nam',cccd:'',insurance:'',address:'',allergy:text(data.allergy,500),history:text(data.history,1000)}:demographics(data);
+ const vitals=data.vitals;
+ const hasVitals=Boolean(vitals&&typeof vitals==='object'&&Object.keys(vitals).length>0);
+ let bpSystolic=null,bpDiastolic=null,pulse=null,temperature=null,spo2=null,height=null,weight=null;
+ if(hasVitals){
+  bpSystolic=parseInt(vitals.bpSystolic||vitals.systolic)||null;
+  bpDiastolic=parseInt(vitals.bpDiastolic||vitals.diastolic)||null;
+  if(!bpSystolic&&vitals.pressure&&typeof vitals.pressure==='string'){
+   const parts=vitals.pressure.split('/');
+   if(parts.length===2){
+    bpSystolic=parseInt(parts[0])||120;
+    bpDiastolic=parseInt(parts[1])||80;
+   }
+  }
+  bpSystolic=bpSystolic||120;
+  bpDiastolic=bpDiastolic||80;
+  pulse=parseInt(vitals.pulse)||78;
+  temperature=parseFloat(vitals.temperature)||36.8;
+  spo2=parseFloat(vitals.spo2)||98;
+  height=parseFloat(vitals.height)||165.0;
+  weight=parseFloat(vitals.weight)||60.0;
+ }
  return transaction(`
  DECLARE @patient varchar(20)=@patientId,@room varchar(20),@number int,@day date=CONVERT(date,SYSDATETIME());
  SELECT TOP 1 @room=b.maBuong FROM dbo.BuongKham b WHERE b.maKhoa=@dept AND b.dangHoatDong=1 ORDER BY CASE WHEN EXISTS(SELECT 1 FROM dbo.PhanCongKham pc JOIN dbo.NhanVien n ON n.maNhanVien=pc.maBacSi WHERE pc.maBuong=b.maBuong AND pc.ngayKham=@day AND pc.caKham=CASE WHEN DATEPART(HOUR,SYSDATETIME())<12 THEN 'SANG' ELSE 'CHIEU' END AND pc.trangThai IN('DA_PHAN_CONG','DANG_TRUC') AND n.dangLamViec=1) THEN 0 ELSE 1 END,b.maBuong;
@@ -51,7 +72,7 @@ export async function receivePatient(data){
  BEGIN
   SET @patient=@newPatient;
   INSERT dbo.BenhNhan(maBenhNhan,hoTen,ngaySinh,gioiTinh,soDienThoai,soDinhDanh,soBHYT,diaChi,diUngThuoc,tienSuBenh,trangThaiDiUng)
-  VALUES(@patient,@name,CONVERT(date,@birth),@gender,@phone,NULLIF(@cccd,''),NULLIF(@insurance,''),NULLIF(@address,''),NULLIF(@allergy,''),NULLIF(@history,''),CASE WHEN @allergy<>'' THEN 'CO_DI_UNG' ELSE 'CHUA_KHAI_THAC' END);
+  VALUES(@patient,@name,CONVERT(date,@birth),@gender,@phone,NULLIF(@cccd,''),NULLIF(@insurance,''),NULLIF(@address,''),CASE WHEN @allergy<>'' AND @allergy<>N'Không ghi nhận dị ứng' THEN @allergy ELSE NULL END,NULLIF(@history,''),CASE WHEN @allergy<>'' AND @allergy<>N'Không ghi nhận dị ứng' THEN 'CO_DI_UNG' WHEN @allergy=N'Không ghi nhận dị ứng' THEN 'KHONG_GHI_NHAN' ELSE 'CHUA_KHAI_THAC' END);
  END
  MERGE dbo.BoDemSoThuTuKham WITH(HOLDLOCK) AS target USING(SELECT @room AS maBuong,@day AS ngayCapSo) AS source
  ON target.maBuong=source.maBuong AND target.ngayCapSo=source.ngayCapSo
@@ -59,8 +80,18 @@ export async function receivePatient(data){
  WHEN NOT MATCHED THEN INSERT(maBuong,ngayCapSo,soThuTuHienTai) VALUES(@room,@day,1);
  SELECT @number=soThuTuHienTai FROM dbo.BoDemSoThuTuKham WHERE maBuong=@room AND ngayCapSo=@day;
  INSERT dbo.LuotKham(maLuotKham,maBenhNhan,maBuong,soThuTu,lyDoKham) VALUES(@visitId,@patient,@room,@number,@reason);
+ IF @hasVitals='1'
+ BEGIN
+  DECLARE @nurse varchar(20)=@nurseStaffId;
+  IF @nurse IS NULL OR NOT EXISTS(SELECT 1 FROM dbo.NhanVien WHERE maNhanVien=@nurse)
+   SELECT TOP 1 @nurse=maNhanVien FROM dbo.NhanVien WHERE chuyenMon='DIEU_DUONG' OR chucDanh LIKE N'%Điều dưỡng%' ORDER BY maNhanVien;
+  IF @nurse IS NULL SELECT TOP 1 @nurse=maNhanVien FROM dbo.NhanVien ORDER BY maNhanVien;
+  IF @nurse IS NOT NULL
+   INSERT dbo.PhieuSinhHieu(maPhieu,maLuotKham,maNhanVien,mach,nhietDo,spo2,chieuCao,canNang,huyetApTamThu,huyetApTamTruong,thoiDiemDo)
+   VALUES(@vitalId,@visitId,@nurse,@pulse,@temperature,@spo2,@height,@weight,@bpSystolic,@bpDiastolic,SYSDATETIME());
+ END
  SET @result=(SELECT @visitId AS visitId,@patient AS patientId,@number AS queueNumber,CONCAT(@dept,'-',RIGHT('00'+CAST(@number AS varchar(10)),2)) AS queueTag,b.tenBuong AS roomName,N'Chờ khám' AS status,ISNULL(assigned.hoTen,N'Chưa phân công') AS doctor,assigned.maNhanVien AS doctorStaffId FROM dbo.BuongKham b OUTER APPLY(SELECT TOP 1 n.hoTen,n.maNhanVien FROM dbo.PhanCongKham pc JOIN dbo.NhanVien n ON n.maNhanVien=pc.maBacSi WHERE pc.maBuong=@room AND pc.ngayKham=@day AND pc.caKham=CASE WHEN DATEPART(HOUR,SYSDATETIME())<12 THEN 'SANG' ELSE 'CHIEU' END AND n.dangLamViec=1 AND pc.trangThai IN('DA_PHAN_CONG','DANG_TRUC','HOAN_TAT') ORDER BY pc.maPhanCong) assigned WHERE b.maBuong=@room FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
- `,{...values,patientId,dept:departmentId,newPatient:uid('BN-'),visitId:uid('LK-'),reason:text(data.reason,255)||'Tiếp đón khám mới'});
+ `,{...values,patientId,dept:departmentId,newPatient:uid('BN-'),visitId:uid('LK-'),vitalId:uid('SH-'),reason:text(data.reason,255)||'Tiếp đón khám mới',hasVitals:hasVitals?'1':'0',pulse,temperature,spo2,height,weight,bpSystolic,bpDiastolic,nurseStaffId:text(data.nurseStaffId||data.staffId,20)||null});
 
 }
 
@@ -70,7 +101,7 @@ export async function updatePatient(data){
  return transaction(`
  IF NOT EXISTS(SELECT 1 FROM dbo.BenhNhan WHERE maBenhNhan=@id) THROW 51000,'FLOW_MISSING',1;
  IF @cccd<>'' AND EXISTS(SELECT 1 FROM dbo.BenhNhan WHERE soDinhDanh=@cccd AND maBenhNhan<>@id) THROW 51000,'FLOW_IDENTITY',1;
- UPDATE dbo.BenhNhan SET hoTen=@name,ngaySinh=CONVERT(date,@birth),gioiTinh=@gender,soDienThoai=@phone,soDinhDanh=NULLIF(@cccd,''),soBHYT=NULLIF(@insurance,''),diaChi=@address,diUngThuoc=NULLIF(@allergy,''),tienSuBenh=NULLIF(@history,''),trangThaiDiUng=CASE WHEN @allergy<>'' THEN 'CO_DI_UNG' ELSE trangThaiDiUng END WHERE maBenhNhan=@id;
+ UPDATE dbo.BenhNhan SET hoTen=@name,ngaySinh=CONVERT(date,@birth),gioiTinh=@gender,soDienThoai=@phone,soDinhDanh=NULLIF(@cccd,''),soBHYT=NULLIF(@insurance,''),diaChi=@address,diUngThuoc=CASE WHEN @allergy<>'' AND @allergy<>N'Không ghi nhận dị ứng' THEN @allergy WHEN @allergy=N'Không ghi nhận dị ứng' THEN NULL ELSE diUngThuoc END,tienSuBenh=CASE WHEN @history<>'' THEN @history ELSE tienSuBenh END,trangThaiDiUng=CASE WHEN @allergy<>'' AND @allergy<>N'Không ghi nhận dị ứng' THEN 'CO_DI_UNG' WHEN @allergy=N'Không ghi nhận dị ứng' THEN 'KHONG_GHI_NHAN' ELSE trangThaiDiUng END WHERE maBenhNhan=@id;
  SET @result=(SELECT @id AS id FOR JSON PATH,WITHOUT_ARRAY_WRAPPER);
  `,{...values,id:data.id});
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { getClinicalSuggestions, removeVietnameseAccents } from './clinicalPhrases';
+import { hisApi } from './api';
 import { Sparkles } from 'lucide-react';
 import './medical-suggest.css';
 
@@ -74,6 +75,7 @@ export function HighlightMatch({ text, query }) {
  */
 export default function MedicalSuggestInput({
   type = 'reason',
+  department = '',
   value: controlledValue,
   defaultValue = '',
   onChange,
@@ -99,12 +101,33 @@ export default function MedicalSuggestInput({
   const wrapperRef = useRef(null);
   const dropdownRef = useRef(null);
 
-  // Cập nhật gợi ý mỗi khi value hoặc type thay đổi
+  // Cập nhật gợi ý mỗi khi value, type hoặc department thay đổi
   useEffect(() => {
-    const list = getClinicalSuggestions(type, currentValue, type === 'address' ? 34 : 5);
-    setSuggestions(list);
-    setHighlightIdx(-1);
-  }, [type, currentValue]);
+    let active = true;
+    const staticLimit = type === 'address' ? 34 : 6;
+    const staticList = getClinicalSuggestions(type, currentValue, staticLimit, department);
+
+    if (type === 'diagnosis' && currentValue && currentValue.trim().length >= 1) {
+      hisApi.searchIcd10(currentValue.trim())
+        .then(icdRows => {
+          if (!active) return;
+          const icdFormatted = (icdRows || []).slice(0, 8).map(r => `${r.maICD} - ${r.tenBenh}`);
+          const combined = [...new Set([...icdFormatted, ...staticList])];
+          setSuggestions(combined.slice(0, 8));
+          setHighlightIdx(-1);
+        })
+        .catch(() => {
+          if (!active) return;
+          setSuggestions(staticList);
+          setHighlightIdx(-1);
+        });
+    } else {
+      setSuggestions(staticList);
+      setHighlightIdx(-1);
+    }
+
+    return () => { active = false; };
+  }, [type, currentValue, department]);
 
   // Tự động tính toán vị trí hiển thị dropdown (theo tọa độ tuyệt đối Viewport bằng React Portal)
   const updatePosition = useCallback(() => {

@@ -136,7 +136,8 @@ export function requestGrant(path,method='GET',data={}){
  '/api/pharmacy/batches':['biz.pharmacy:view'], '/api/clinical/prescriptions':['biz.prescriptions:view'],
  '/api/services':['biz.labs:view','biz.finance:view'], '/api/icd10':['biz.exam:view'], '/api/icd10/template':['biz.exam:view'],
  '/api/inpatient/beds':['biz.inpatient:view'], '/api/finance':['biz.finance:view'], '/api/portal':['biz.portal:view'],
- '/api/equipment':['biz.equipment:view'], '/api/notifications':['biz.notifications:view']
+ '/api/equipment':['biz.equipment:view'], '/api/notifications':['biz.notifications:view'],
+ '/api/paper-forms':['biz.exam:view','biz.care:view','biz.reception:view','biz.finance:view']
  })[path]||null;
  if(path==='/api/appointments')return 'biz.appointments:'+({POST:'create',PUT:'edit',PATCH:'cancel'}[method]||'invalid');
  if(path==='/api/visits'){
@@ -146,7 +147,7 @@ export function requestGrant(path,method='GET',data={}){
   return ({cancel:'biz.reception:cancel',transfer:'biz.reception:transfer'})[data.action]||null;
  }
  if(path==='/api/patients')return 'biz.reception:edit';
- const direct={'/api/clinical/exam':'biz.exam:save','/api/nursing/vitals':'biz.care:vitals','/api/nursing/perform':'biz.care:perform','/api/labs/orders':'biz.labs:order','/api/inpatient/admit':'biz.inpatient:admit','/api/inpatient/discharge':'biz.inpatient:discharge','/api/inpatient/clean':'biz.inpatient:clean'};
+ const direct={'/api/clinical/exam':'biz.exam:save','/api/nursing/vitals':'biz.care:vitals','/api/nursing/perform':'biz.care:perform','/api/labs/orders':'biz.labs:order','/api/inpatient/admit':'biz.inpatient:admit','/api/inpatient/discharge':'biz.inpatient:discharge','/api/inpatient/clean':'biz.inpatient:clean','/api/paper-forms/save':'biz.exam:save'};
  if(direct[path])return direct[path];
  const actionGroups={'/api/labs/action':['labs',{accept:'accept',save:'save',publish:'publish'}],'/api/nursing/bed':['inpatient',{assign:'assign',clean:'clean'}],'/api/clinical/care':['care',{sheet:'sheet',reopen:'reopen',order:'order'}],'/api/portal/appointments':['portal',{create:'create',cancel:'cancel'}],'/api/equipment/action':['equipment',Object.fromEntries(Object.keys(businessGroups.equipment[1]).map(x=>[x,x]))],'/api/finance/action':['finance',Object.fromEntries(Object.keys(businessGroups.finance[1]).map(x=>[x,x]))]};
  if(actionGroups[path]){const [group,actions]=actionGroups[path];return actions[data.action]?'biz.'+group+':'+actions[data.action]:null;}
@@ -164,7 +165,7 @@ export function checkRequestGrant(grants,path,method,data){
 export function pageGranted(page,grants){
  const mapping={appointments:['appointments'],patients:['reception'],history:['reception','portal','exam','care'],examination:['exam'],clinical:['labs'],care:['care'],inpatient:['inpatient'],pharmacy:['pharmacy','prescriptions'],warehouse:['pharmacy'],finance:['finance'],archive:['exam'],devices:['equipment'],portal:['portal']};
  if(page==='profile')return true;
- if(page==='admin')return grants?.some(p=>!p.startsWith('biz.')&&p.endsWith(':view'));
+ if(page==='admin')return grants?.some(p=>['accounts:view','roles:view','settings:view','audit:view','backups:view'].includes(p));
  if(page==='overview')return grants?.some(p=>p.endsWith(':view'));
  return mapping[page]?.some(group=>hasGrant(grants,'biz.'+group+':view'))||false;
 }

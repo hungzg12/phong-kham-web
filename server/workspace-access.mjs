@@ -45,6 +45,7 @@ const readRoles={
  '/api/icd10':['admin','doctor'], '/api/icd10/template':['admin','doctor'],
  '/api/medicines':['admin','doctor','pharmacist'], '/api/services':['admin','doctor','technician','cashier'],
  '/api/pharmacy/batches':['admin','pharmacist'], '/api/clinical/prescriptions':['admin','doctor','pharmacist'],
+ '/api/paper-forms':['admin','doctor','nurse'],
 };
 const writeRoles={
  '/api/equipment/action':['admin'],
@@ -54,7 +55,7 @@ const writeRoles={
  '/api/clinical/exam':['admin','doctor'], '/api/nursing/vitals':['admin','nurse'], '/api/nursing/perform':['admin','nurse'], '/api/nursing/bed':['admin','nurse'],
  '/api/inpatient/admit':['admin','doctor','nurse'], '/api/inpatient/discharge':['admin','doctor'], '/api/inpatient/clean':['admin','nurse'],
  '/api/labs/orders':['admin','doctor'], '/api/labs/action':['admin','technician'], '/api/pharmacy/action':['admin','doctor','pharmacist'],
- '/api/finance/action':['admin','cashier'], '/api/portal/appointments':['patient'],
+ '/api/finance/action':['admin','cashier'], '/api/portal/appointments':['patient'], '/api/paper-forms/save':['admin','doctor','nurse'],
 };
 
 // A closed list: unknown and legacy endpoints never bypass the session boundary.
@@ -77,7 +78,7 @@ export async function protectWorkspaceRequest(req){
   if(!data||Array.isArray(data)||typeof data!=='object')fail(400,'Dữ liệu không hợp lệ.');
   if(path==='/api/visits'){
    if(req.method!=='PATCH'&&!['admin','receptionist'].includes(identity.role))fail(403,'Chỉ tiếp tân được tạo lượt khám.');
-   if(req.method==='PATCH'&&identity.role==='doctor'&&(!['call_next','defer','restore','dispatch'].includes(data.action)||(data.action==='dispatch'&&!['CHO_KET_QUA_CLS','CHO_THANH_TOAN','CHO_NHAP_VIEN'].includes(data.status))))fail(403,'Bác sĩ không được thực hiện thao tác điều phối này.');
+   if(req.method==='PATCH'&&identity.role==='doctor'&&(!['call_next','defer','restore','dispatch','transfer'].includes(data.action)||(data.action==='dispatch'&&!['CHO_KET_QUA_CLS','CHO_THANH_TOAN','CHO_NHAP_VIEN'].includes(data.status))))fail(403,'Bác sĩ không được thực hiện thao tác điều phối này.');
    if(req.method==='PATCH'&&identity.role==='technician'){
     if(data.action!=='dispatch'||data.status!=='DA_CO_KET_QUA')fail(403,'Kỹ thuật viên chỉ được chuyển kết quả đã phát hành.');
     const published=await rows("SELECT TOP 1 ct.maChiTiet id FROM dbo.KetQuaCLS k JOIN dbo.ChiTietChiDinh ct ON ct.maChiTiet=k.maChiTiet JOIN dbo.ChiDinhCLS c ON c.maChiDinh=ct.maChiDinh WHERE c.maLuotKham=@visit AND k.maKyThuatVien=@staff AND k.trangThai='DA_DUYET' AND k.laBanHienHanh=1",{visit:data.visitId,staff:identity.staffId});
@@ -89,8 +90,18 @@ export async function protectWorkspaceRequest(req){
    const trusted=Buffer.from(JSON.stringify(data));req[Symbol.asyncIterator]=async function*(){yield trusted;};return {identity};
   }
   // Ignore spoofed identity fields; domain rules still validate role-specific actions.
-  data={...data,role:identity.role,staffId:identity.staffId||(identity.role==='admin'?'NV-KTV01':undefined),doctorStaffId:identity.staffId};
-  if(path==='/api/nursing/perform')data.nurse=identity.staffId;
+  let resolvedStaff=identity.staffId;
+  if(identity.role==='admin'&&!resolvedStaff){
+   const spec=['/api/nursing/','/api/inpatient/clean'].some(p=>path.startsWith(p))?'DIEU_DUONG'
+    :['/api/labs/orders','/api/clinical/','/api/inpatient/'].some(p=>path.startsWith(p))?'BAC_SI'
+    :path==='/api/pharmacy/action'?(['savePrescription','approvePrescription'].includes(data.action)?'BAC_SI':'DUOC_SI')
+    :path==='/api/finance/action'?'THU_NGAN'
+    :path==='/api/labs/action'?'KY_THUAT_VIEN':null;
+   if(spec){const found=await rows('SELECT TOP 1 maNhanVien id FROM dbo.NhanVien WHERE chuyenMon=@s AND dangLamViec=1 ORDER BY maNhanVien',{s:spec});resolvedStaff=found[0]?.id;}
+   resolvedStaff||='NV-KTV01';
+  }
+  data={...data,role:identity.role,staffId:resolvedStaff||undefined,doctorStaffId:identity.staffId||undefined};
+  if(path==='/api/nursing/perform')data.nurse=resolvedStaff;
   if(path==='/api/portal/appointments')data.patientId=identity.patientId;
   if(identity.role==='doctor'){
    const scope=await doctorScope(identity.staffId);
@@ -115,10 +126,10 @@ export async function protectWorkspaceRequest(req){
  }
  if(path==='/api/patients'){
   const q=(url.searchParams.get('q')||'').toLowerCase();
-  let data=await rows('SELECT maBenhNhan id,hoTen name,CONVERT(char(10),ngaySinh,23) birth,gioiTinh gender,soDienThoai phone,soBHYT insurance,diaChi address,soDinhDanh cccd,diUngThuoc allergy,trangThaiDiUng allergyStatus FROM dbo.BenhNhan');
+  let data=await rows('SELECT maBenhNhan id,hoTen name,CONVERT(char(10),ngaySinh,23) birth,gioiTinh gender,soDienThoai phone,soBHYT insurance,diaChi address,soDinhDanh cccd,diUngThuoc allergy,trangThaiDiUng allergyStatus,tienSuBenh history FROM dbo.BenhNhan');
   if(scope)data=data.filter(p=>scope.patients.has(p.id));
   if(identity.role==='patient')data=data.filter(p=>p.id===identity.patientId);
-  if(identity.role==='receptionist')data=data.map(({allergy,allergyStatus,...administrative})=>administrative);
+  if(identity.role==='receptionist')data=data.map(({allergy,allergyStatus,history,...administrative})=>administrative);
   return {identity,answer:data.filter(p=>JSON.stringify(p).toLowerCase().includes(q))};
  }
  if(path==='/api/ancillary'){

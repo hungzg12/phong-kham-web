@@ -243,13 +243,16 @@
 .app .emr-patient-summary > div { min-width: 0; overflow-wrap: anywhere; }
 .app .emr-record-layout { display: grid; grid-template-columns: minmax(240px, .75fr) minmax(0,2fr); gap: 16px; align-items: start; }
 .app .emr-record-layout > section { min-width: 0; }
+.app .emr-record-layout-3col { display: grid; grid-template-columns: minmax(245px, 0.85fr) minmax(220px, 0.72fr) minmax(0, 1.9fr); gap: 14px; align-items: start; }
+.app .emr-record-layout-3col > section { min-width: 0; }
 .app .emr-record-heading { display: flex; flex-wrap: wrap; gap: 14px; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #e2e8f0; padding-bottom: 14px; margin-bottom: 16px; }
 .app .emr-record-heading > div { min-width: 0; max-width: 100%; flex-wrap: wrap; }
 .app .emr-record-heading h3 { overflow-wrap: anywhere; }
 .app .emr-record-heading > div:first-child > div { flex-wrap: wrap; }
 .app .emr-vitals-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; }
 .app .emr-vitals-grid > div { min-width: 0; overflow-wrap: anywhere; }
-@media(max-width:1100px) { .app .emr-patient-summary { grid-template-columns: repeat(2,minmax(0,1fr)); } .app .emr-record-layout { grid-template-columns: 1fr; } }
+@media(max-width:1280px) { .app .emr-record-layout-3col { grid-template-columns: minmax(230px, 0.9fr) minmax(0, 1.8fr); } }
+@media(max-width:1100px) { .app .emr-patient-summary { grid-template-columns: repeat(2,minmax(0,1fr)); } .app .emr-record-layout, .app .emr-record-layout-3col { grid-template-columns: 1fr; } }
 @media(max-width:600px) { .app .emr-patient-summary { grid-template-columns: 1fr; } .app .emr-vitals-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 .app .actor-welcome { color: #fff; background: radial-gradient(circle at 88% 16%,#60a5fa66 0,transparent 35%),linear-gradient(115deg,#1d4ed8,#4338ca); border: 1px solid #2563eb; padding: 24px; border-radius: 12px; margin-bottom: 20px; }
 .app .actor-welcome span { color: #dbeafe; opacity: 1; font-size: 11px; letter-spacing: 1px; }

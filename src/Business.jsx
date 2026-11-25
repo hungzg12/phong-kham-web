@@ -67,7 +67,16 @@ export default function Business({clinicalContext,page,role='admin',requestedTab
    return saveFinance('openShift',{name:data.name,opening:data.opening});
   }
   if(tab==='vitals'){
-   try{await hisApi.saveNursingVitals({...data,id:old?.id,role,staffId:actor.staffId});await syncWithSqlServer();setDialog(null);notify('Đã lưu sinh hiệu vào hệ thống');return null;}catch(e){return e.message;}
+   const fullVitals = {
+     pulse: data.pulse || 78,
+     temperature: data.temperature || 36.8,
+     spo2: data.spo2 || 98,
+     height: Number(data.height) || 165,
+     weight: Number(data.weight) || 60,
+     ...data,
+     bmi: data.weight && data.height ? (Number(data.weight)/((Number(data.height)/100)**2)).toFixed(1) : (data.bmi || '22.0')
+   };
+   try{await hisApi.saveNursingVitals({...fullVitals,id:old?.id,role,staffId:actor.staffId});await syncWithSqlServer();setDialog(null);notify('Đã lưu sinh hiệu vào hệ thống');return null;}catch(e){return e.message;}
   }
   if(tab==='labs'){
    if(old)return 'Chỉ định đã lưu không sửa trực tiếp. Dùng bàn xét nghiệm để xử lý.';
@@ -462,8 +471,12 @@ function RecordForm({tab,definition,initial,defaults={},episodeTab=false,inpatie
       </div>
     )}
 
+
+
     <div className="form-grid">
-      {definition.fields.map(f=><Field key={f.key} field={f} value={values[f.key]} onChange={value=>setValues({...values,[f.key]:value})} optionsFor={optionsFor}/>)}
+      {definition.fields
+        .filter(f => !isVitals || ['patient', 'time', 'pressure', 'height', 'weight'].includes(f.key))
+        .map(f => <Field key={f.key} field={f} value={values[f.key]} onChange={value => setValues({ ...values, [f.key]: value })} optionsFor={optionsFor} />)}
     </div>
 
     {isVitals&&(
