@@ -125,7 +125,8 @@ test('merged reception form renders its ticket preview using the live room state
 
 test('reception history shows administrative encounter details without medical content or medical print buttons',()=>{
  fixture.seedReceptionPrivateData();const html=fixture.render('history','receptionist');
- assert.match(html,/Lịch sử tiếp đón/);assert.match(html,/Thông tin tiếp đón/);assert.match(html,/QA_TEST_VISIT_1/);assert.match(html,/Tạo lượt khám mới/);
+ assert.match(html,/Lịch sử tiếp đón/);assert.match(html,/Thông tin tiếp đón/);assert.match(html,/QA_TEST_VISIT_1/);
+ assert.doesNotMatch(html,/Tạo lượt khám mới/);
  assert.doesNotMatch(html,/QA_TEST_PRIVATE_DIAGNOSIS|QA_TEST_PRIVATE_HISTORY|QA_TEST_PRIVATE_ALLERGY|Giấy hẹn khám lại|Tóm tắt bệnh án|Dấu hiệu sinh tồn/);
  const doctor=fixture.render('history','doctor');assert.match(doctor,/QA_TEST_PRIVATE_DIAGNOSIS/);assert.match(doctor,/Tóm tắt bệnh án/);
 });

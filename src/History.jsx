@@ -616,7 +616,7 @@ export default function History({role='admin',patientId,navigate,notify}){
           </div>
           <div className="row-actions">
             <button className="secondary" type="button" disabled={refreshing} onClick={refreshHistory}>{refreshing?'Đang tải…':'Tải lại hồ sơ'}</button>
-            {['admin','receptionist'].includes(role)&&<button className="primary" onClick={()=>open({type:'visit'})}><Plus size={15}/>Tạo lượt khám mới</button>}
+            {role==='admin'&&<button className="primary" onClick={()=>open({type:'visit'})}><Plus size={15}/>Tạo lượt khám mới</button>}
             {role==='nurse'&&<button className="primary" onClick={()=>navigate('care','vitals')}><HeartPulse size={15}/>Ghi sinh hiệu</button>}
             {['admin','nurse'].includes(role)&&<button className="secondary" onClick={()=>navigate('inpatient')}><BedDouble size={15}/>Tiếp nhận nội trú</button>}
           </div>

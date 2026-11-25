@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset='utf-8'>
+<style>
+  body {
+    margin: 0;
+    padding: 20px;
+    background: #ffffff;
+    font-family: 'Times New Roman', serif;
+  }
+  .container {
+    width: 1400px;
+    margin: 0 auto;
+    border: 2px solid #1e3a8a;
+    border-radius: 12px;
+    padding: 24px;
+    background: #f8fafc;
+    box-sizing: border-box;
+  }
+  .header {
+    text-align: center;
+    border-bottom: 2px solid #cbd5e1;
+    padding-bottom: 16px;
+    margin-bottom: 24px;
+  }
+  .title {
+    font-size: 24px;
+    font-weight: bold;
+    color: #1e3a8a;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .subtitle {
+    font-size: 15px;
+    color: #475569;
+    margin-top: 6px;
+    font-style: italic;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .column {
+    background: #ffffff;
+    border: 1.5px solid #94a3b8;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  }
+  .col-header {
+    background: #1e3a8a;
+    color: #ffffff;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .col-header.hung {
+    background: #0f766e;
+  }
+  .module-card {
+    border: 1px solid #cbd5e1;
+    border-left: 4px solid #2563eb;
+    border-radius: 6px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    background: #f1f5f9;
+  }
+  .module-card.hung {
+    border-left-color: #0d9488;
+  }
+  .mod-title {
+    font-weight: bold;
+    font-size: 15px;
+    color: #1e293b;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .actor-tag {
+    background: #dbeafe;
+    color: #1d4ed8;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+  }
+  .actor-tag.hung {
+    background: #ccfbf1;
+    color: #0f766e;
+  }
+  .usecase-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .uc-pill {
+    background: #ffffff;
+    border: 1px solid #93c5fd;
+    color: #1e3a8a;
+    padding: 4px 10px;
+    border-radius: 16px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .uc-pill.hung {
+    border-color: #99f6e4;
+    color: #115e59;
+  }
+  .footer-bar {
+    margin-top: 20px;
+    background: #1e293b;
+    color: #f8fafc;
+    border-radius: 8px;
+    padding: 14px 20px;
+    text-align: center;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+<div class='container'>
+  <div class='header'>
+    <div class='title'>SƠ ĐỒ KIẾN TRÚC USE CASE THEO CÁC PHÂN HỆ WEB SPA MEDICARE HIS</div>
+    <div class='subtitle'>Phân bổ vai trò tác nghiệp và các ca sử dụng theo phân hệ chức năng nhóm đề tài</div>
+  </div>
+
+  <div class='grid'>
+    <!-- Column Dương -->
+    <div class='column'>
+      <div class='col-header'>
+        <span>PHÂN HỆ: NGUYỄN BÌNH DƯƠNG</span>
+        <span>MSSV: 2424802010319</span>
+      </div>
+
+      <div class='module-card'>
+        <div class='mod-title'>
+          <span>1. Phân hệ Bác sĩ</span>
+          <span class='actor-tag'>Tác nhân: Bác sĩ điều trị</span>
+        </div>
+        <div class='usecase-list'>
+          <span class='uc-pill'>UC04: Ghi nhận sinh hiệu</span>
+          <span class='uc-pill'>UC05: Khám bệnh lâm sàng</span>
+          <span class='uc-pill'>UC06: Chỉ định cận lâm sàng</span>
+          <span class='uc-pill'>UC07: Kê đơn thuốc ngoại trú</span>
+          <span class='uc-pill'>UC08: Chỉ định nhập viện</span>
+          <span class='uc-pill'>UC09: Lập giấy chuyển tuyến</span>
+          <span class='uc-pill'>UC10: Hẹn ngày tái khám</span>
+        </div>
+      </div>
+
+      <div class='module-card'>
+        <div class='mod-title'>
+          <span>2. Phân hệ Buồng giường nội trú</span>
+          <span class='actor-tag'>Tác nhân: Điều dưỡng nội trú</span>
+        </div>
+        <div class='usecase-list'>
+          <span class='uc-pill'>UC15: Tiếp nhận & xếp giường</span>
+          <span class='uc-pill'>UC16: Ghi nhận tờ điều trị</span>
+          <span class='uc-pill'>UC17: Thực hiện y lệnh chăm sóc</span>
+          <span class='uc-pill'>UC18: Lập biên bản hội chẩn</span>
+          <span class='uc-pill'>UC19: Hoàn tất hồ sơ xuất viện</span>
+        </div>
+      </div>
+
+      <div class='module-card'>
+        <div class='mod-title'>
+          <span>3. Phân hệ Quyết toán & Viện phí</span>
+          <span class='actor-tag'>Tác nhân: Thu ngân viện phí</span>
+        </div>
+        <div class='usecase-list'>
+          <span class='uc-pill'>UC26: Thu tạm ứng viện phí</span>
+          <span class='uc-pill'>UC27: Quyết toán khám ngoại trú</span>
+          <span class='uc-pill'>UC28: Quyết toán điều trị nội trú</span>
+          <span class='uc-pill'>UC29: Thanh toán động VietQR</span>
+          <span class='uc-pill'>UC35: Thống kê doanh thu & chốt ca</span>
+        </div>
+      </div>
+
+      <div class='module-card'>
+        <div class='mod-title'>
+          <span>4. Cổng dịch vụ Người bệnh</span>
+          <span class='actor-tag'>Tác nhân: Bệnh nhân / Thân nhân</span>
+        </div>
+        <div class='usecase-list'>
+          <span class='uc-pill'>UC38: Đặt lịch khám trực tuyến</span>
+          <span class='uc-pill'>UC39: Tra cứu kết quả CLS</span>
+          <span class='uc-pill'>UC40: Theo dõi lịch hẹn tái khám</span>
+          <span class='uc-pill'>UC41: Tra cứu đơn thuốc điện tử</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Column Hưng -->
+    <div class='column'>
+      <div class='col-header hung'>
+        <span>PHÂN HỆ: NGUYỄN VĂN HƯNG</span>
+        <span>MSSV: 2424802010356</span>
+      </div>
+
+      <div class='module-card hung'>
+        <div class='mod-title'>
+          <span>5. Phân hệ Tiếp đón & Bệnh nhân</span>
+          <span class='actor-tag hung'>Tác nhân: Nhân viên tiếp tân</span>
+        </div>
+        <div class='usecase-list'>
+          <span class='uc-pill hung'>UC01: Đăng ký khám bệnh</span>
+          <span class='uc-pill hung'>UC02: Điều chuyển buồng khám</span>
+          <span class='uc-pill hung'>UC03: Hủy đăng ký khám</span>
+          <span class='uc-pill hung'>Cấp số thứ tự tự động</span>
+          <span class='uc-pill hung'>Xác thực thẻ BHYT trực tuyến</span>
+        </div>
+      </div>
+
+      <div class='module-card hung'>
+        <div class='mod-title'>
+          <span>6. Phân hệ Kỹ thuật viên Cận lâm sàng</span>
+          <span class='actor-tag hung'>Tác nhân: KTV Xét nghiệm / CĐHA</span>
+        </div>
+        <div class='usecase-list'>
+          <span class='uc-pill hung'>UC11: Tiếp nhận mẫu xét nghiệm</span>
+          <span class='uc-pill hung'>UC12: Ghi nhận kết quả XN</span>
+          <span class='uc-pill hung'>UC13: Đính kèm hình ảnh CĐHA</span>
+          <span class='uc-pill hung'>UC14: Ghi nhận kết quả CĐHA</span>
+          <span class='uc-pill hung'>Duyệt trả kết quả LIS/PACS</span>
+        </div>
+      </div>
+
+      <div class='module-card hung'>
+        <div class='mod-title'>
+          <span>7. Phân hệ Dược & Quản lý kho</span>
+          <span class='actor-tag hung'>Tác nhân: Dược sĩ lâm sàng & kho</span>
+        </div>
+        <div class='usecase-list'>
+          <span class='uc-pill hung'>UC20: Xuất cấp thuốc ngoại trú</span>
+          <span class='uc-pill hung'>UC21: Lập phiếu lĩnh thuốc</span>
+          <span class='uc-pill hung'>UC22: Xuất kho thuốc nội trú</span>
+          <span class='uc-pill hung'>UC23: Lập phiếu hoàn trả thuốc</span>
+          <span class='uc-pill hung'>UC24: Nhập kho & quản lý lô FEFO</span>
+          <span class='uc-pill hung'>UC25: Kiểm kê tồn kho định kỳ</span>
+        </div>
+      </div>
+
+      <div class='module-card hung'>
+        <div class='mod-title'>
+          <span>8. Phân hệ Quản trị hệ thống</span>
+          <span class='actor-tag hung'>Tác nhân: Quản trị viên (Admin)</span>
+        </div>
+        <div class='usecase-list'>
+          <span class='uc-pill hung'>UC31: Phê duyệt đính chính HSBA</span>
+          <span class='uc-pill hung'>UC32: Quản lý tài khoản & RBAC</span>
+          <span class='uc-pill hung'>UC33: Khai báo danh mục khoa buồng</span>
+          <span class='uc-pill hung'>UC34: Khai báo dịch vụ kỹ thuật</span>
+          <span class='uc-pill hung'>UC36: Báo hỏng thiết bị y tế</span>
+          <span class='uc-pill hung'>UC37: Ghi nhận bảo trì thiết bị</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class='footer-bar'>
+    <strong>HẠ TẦNG KỸ THUẬT DỮ LIỆU TẬP TRUNG:</strong> Cơ sở dữ liệu quan hệ gồm 66 bảng 3NF | Xác thực tập trung HttpOnly Session RBAC | Tích hợp chuẩn LIS / PACS / VietQR Động
+  </div>
+</div>
+</body>
+</html>
