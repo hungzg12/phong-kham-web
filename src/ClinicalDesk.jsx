@@ -1,3 +1,32 @@
+/**
+ * ====================================================================================
+ * PHÂN HỆ: BÀN KHÁM BÁC SĨ & ĐIỀU TRỊ NGOẠI TRÚ (CLINICAL DESK)
+ * TỆP: src/ClinicalDesk.jsx
+ * 
+ * CHỨC NĂNG CHÍNH:
+ *   1. Quản lý hàng đợi khám bệnh: Lọc bệnh nhân theo chuyên khoa, trạng thái (Chờ khám, Đang khám, Chờ kết quả, Đã có kết quả).
+ *   2. Gọi số thứ tự vào phòng khám: Hỗ trợ loa phát âm thanh (Text-to-Speech) gọi tên và STT bệnh nhân.
+ *   3. Ghi nhận sinh hiệu: Huyết áp (mmHg), Mạch (l/p), Nhiệt độ (°C), SpO2 (%), Chiều cao, Cân nặng, tính tự động BMI.
+ *   4. Chẩn đoán bệnh: Tra cứu nhanh mã bệnh ICD-10 (Bệnh chính & Bệnh kèm theo).
+ *   5. Chỉ định Cận lâm sàng (CLS): Xét nghiệm huyết học, sinh hóa, X-quang, Siêu âm, ECG, Nội soi.
+ *   6. Kê đơn thuốc ngoại trú: Gợi ý liều dùng theo mẫu (Sáng - Chiều sau ăn), tính số lượng tự động theo số ngày.
+ *   7. Kết luận điều trị: Cấp toa về điều trị ngoại trú, Hẹn khám lại, Chuyển tuyến trên, Chỉ định nhập viện nội trú.
+ * 
+ * BẢNG CƠ SỞ DỮ LIỆU SQL SERVER LIÊN QUAN:
+ *   - dbo.HoSoKham         : Bệnh án chi tiết (lyDoKham, quaTrinhBenhLy, chanDoanChinh, huongDieuTri, ketLuan).
+ *   - dbo.ChiDinhCLS       : Phiếu chỉ định CLS tổng thể.
+ *   - dbo.ChiTietChiDinh   : Chi tiết từng dịch vụ kỹ thuật được chỉ định.
+ *   - dbo.DonThuoc         : Đơn thuốc tổng thể được bác sĩ ký.
+ *   - dbo.ChiTietDonThuoc  : Từng loại thuốc, số lượng, cách dùng, liều lượng, số ngày.
+ *   - dbo.PhieuSinhHieu    : Dấu hiệu sinh tồn đo được.
+ * 
+ * HƯỚNG DẪN SỬA NHANH KHI CÔ GIÁO HỎI KHI BẢO VỆ:
+ *   - "Thêm mẫu liều dùng / tần suất uống thuốc ở đâu?": Sửa mảng RX_DOSES và RX_FREQ_PRESETS (dòng 40-50).
+ *   - "Thứ tự ưu tiên gọi khám ở đâu?": Xem hàm sort() tại dòng 80-90 (Ưu tiên: Đã có kết quả -> Đang khám -> Chờ khám).
+ *   - "Quy định cảnh báo thuốc BHYT ở đâu?": Kiểm tra hàm isBhytEligibleItem() được gọi khi bác sĩ thêm thuốc.
+ * ====================================================================================
+ */
+
 import {assignedToDoctor} from './doctor-scope.js';
 import {granted} from './session.js';
 import React,{useState,useEffect,useRef} from 'react';
@@ -9,7 +38,6 @@ import {today,clinics} from './business-data';
 import {PatientHistory} from './History';
 import {clinicalTransaction,saveDeskNote,reopenDeskNote,addDeskServices,saveDeskPrescription,addDeskOrder} from './clinical-desk-store';
 import { parseBhytCard, calculateBhytCostBreakdown } from './bhyt-utils';
-import { removeVietnameseAccents } from './clinicalPhrases';
 import SpecialtyExamModule from './SpecialtyExamModules';
 import MedicalPaperFormViewer from './MedicalPaperForms';
 import MedicalSuggestInput from './MedicalSuggestInput';
@@ -24,118 +52,6 @@ const RX_FREQ_PRESETS = [
   { label: 'Tối 1v', freq: 'Ngày 1 lần (Trước khi ngủ)', morning: '', noon: '', evening: '', night: '1', perDay: 1 },
   { label: 'Khi sốt ≥ 38.5°C', freq: 'Khi sốt ≥ 38.5°C (Cách 4-6h)', morning: '', noon: '', evening: '', night: '', perDay: 0 }
 ];
-
-export function MedicineSuggestInput({ value, onChange, availableMeds, disabled }) {
-  const selectedMed = availableMeds.find(m => m.id === value);
-  const [query, setQuery] = useState(() => selectedMed ? selectedMed.name : '');
-  const [isOpen, setIsOpen] = useState(false);
-  const wrapperRef = useRef(null);
-
-  useEffect(() => {
-    const med = availableMeds.find(m => m.id === value);
-    setQuery(med ? med.name : '');
-  }, [value, availableMeds]);
-
-  // Chỉ gợi ý khi đã nhập tên thuốc (query có ít nhất 1 ký tự)
-  const cleanQ = removeVietnameseAccents((query || '').trim().toLowerCase());
-  const suggestions = (cleanQ.length >= 1)
-    ? availableMeds.filter(m => {
-        const nameClean = removeVietnameseAccents((m.name || '').toLowerCase());
-        const idClean = (m.id || '').toLowerCase();
-        return nameClean.includes(cleanQ) || idClean.includes(cleanQ);
-      }).slice(0, 10)
-    : [];
-
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  return (
-    <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
-      <input
-        type="text"
-        disabled={disabled}
-        value={query}
-        placeholder="Gõ tên thuốc để gợi ý danh sách..."
-        onChange={e => {
-          const val = e.target.value;
-          setQuery(val);
-          if (!val.trim()) {
-            onChange('', null);
-            setIsOpen(false);
-          } else {
-            setIsOpen(true);
-          }
-        }}
-        onFocus={() => {
-          if (cleanQ.length >= 1) setIsOpen(true);
-        }}
-        style={{ width: '100%', height: '36px', fontSize: '13px', borderRadius: '6px' }}
-      />
-      {isOpen && cleanQ.length >= 1 && (
-        <div style={{
-          position: 'absolute',
-          top: '100%',
-          left: 0,
-          right: 0,
-          zIndex: 100,
-          background: '#ffffff',
-          border: '1px solid #cbd5e1',
-          borderRadius: '6px',
-          boxShadow: '0 4px 14px rgba(0,0,0,0.15)',
-          maxHeight: '220px',
-          overflowY: 'auto'
-        }}>
-          {suggestions.length > 0 ? (
-            suggestions.map(s => (
-              <div
-                key={s.id}
-                onMouseDown={() => {
-                  onChange(s.id, s);
-                  setQuery(s.name);
-                  setIsOpen(false);
-                }}
-                style={{
-                  padding: '8px 12px',
-                  cursor: 'pointer',
-                  borderBottom: '1px solid #f1f5f9',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  fontSize: '12.5px'
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = '#f0fdfa'}
-                onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}
-              >
-                <div>
-                  <b style={{ color: '#0f172a' }}>{s.name}</b>
-                  <div style={{ fontSize: '11px', color: '#64748b' }}>
-                    Mã: {s.id} · ĐVT: {s.unit || 'Viên'}
-                  </div>
-                </div>
-                {s.stockQty !== undefined && (
-                  <span className={`badge ${s.stockQty > 0 ? 'teal' : 'red'}`} style={{ fontSize: '10px' }}>
-                    Tồn: {s.stockQty}
-                  </span>
-                )}
-              </div>
-            ))
-          ) : (
-            <div style={{ padding: '10px', fontSize: '12px', color: '#94a3b8', textAlign: 'center' }}>
-              Không tìm thấy thuốc khớp với "{query}"
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export const DEPT_PREFIX = {
   'Nội tổng quát': 'NOI',
@@ -166,7 +82,7 @@ export default function ClinicalDesk({role,notify,navigate,inpatient=false,clini
  const [globalIcd,setGlobalIcd]=useState(false);
  const [patients]=useWorkspace('patients'),[visits]=useWorkspace('visits'),[admissions]=useWorkspace('admissions'),[db]=useWorkspace('business');const actor=actorRoles[role];
  useEffect(()=>{syncWithSqlServer();},[]);
- const episodes=(inpatient?admissions:visits).filter(v=>!inpatient&&role==='doctor'?assignedToDoctor(v,actor.staffId):true).filter(v=>!clinicalContext?.episodeId||v.id===clinicalContext.episodeId);
+ const episodes=(inpatient?admissions:visits).filter(v=>role!=='doctor'||assignedToDoctor(v,actor.staffId)).filter(v=>!clinicalContext?.episodeId||v.id===clinicalContext.episodeId);
  const [selected,setSelected]=useState(''),[calledId,setCalledId]=useState(''),[query,setQuery]=useState(''),[status,setStatus]=useState(''),[department,setDepartment]=useState(''),[day,setDay]=useState('');const dirty=useRef(false);
  const filtered=episodes.filter(v=>(!status ? v.status!=='Đã hủy' : v.status===status)&&(!department||v.department===department)&&(!day||v.date===day)).filter(v=>(v.id+' '+patients.find(p=>p.id===v.patientId)?.name).toLowerCase().includes(query.toLowerCase())).sort((a,b)=>{
    const aPrio = a.status === 'Đã có kết quả' ? 1 : a.status === 'Đang khám' ? 2 : a.status === 'Chờ khám' ? 3 : a.status === 'Chờ kết quả' ? 4 : a.status === 'Tạm hoãn' ? 5 : 6;
@@ -495,7 +411,7 @@ function EpisodeDesk({episode,patient,role,notify,navigate,inpatient,dirtyRef}){
   const result=await hisApi.inpatientCare({...payload,requestId:careRequest.current.key});
   careRequest.current=null;return result;
  }
- const [lines,setLines]=useState([emptyLine()]),[advice,setAdvice]=useState(''),[rxSearch,setRxSearch]=useState('');
+ const [lines,setLines]=useState([emptyLine()]),[advice,setAdvice]=useState('');
  const [order,setOrder]=useState({kind:'Chăm sóc',medicine:'',quantity:1,dose:'',scheduled:today+'T08:00'});
  const dirty=noteDirty||selectedServices.length>0||lines.some(l=>l.medicine||l.dose||l.frequency)||!!advice.trim()||!!order.dose.trim();
  const linked=key=>(db[key]||[]).filter(r=>r.episodeId===episode.id);
@@ -622,24 +538,6 @@ function EpisodeDesk({episode,patient,role,notify,navigate,inpatient,dirtyRef}){
   }
  const services=allServices.filter(s=>(s.status==='Đang hoạt động'||s.categoryRaw)&&(!serviceGroup||s.kind===serviceGroup)&&(s.name+' '+s.id).toLowerCase().includes(serviceSearch.toLowerCase()));
  const charges=[...labs.filter(r=>r.status!=='Đã hủy').map(r=>({id:r.id,name:db.services.find(s=>s.id===r.service)?.name||r.service,amount:Number(r.price??db.services.find(s=>s.id===r.service)?.price)||0,status:r.status})),...linked('clinicalCharges').filter(r=>r.status!=='Đã hủy').map(r=>({id:r.id,name:db.services.find(s=>s.id===r.service)?.name||r.service,amount:r.price*r.quantity,status:r.status}))];
- const handleProceedToRx = () => {
-   const hasSavedLabs = (labs || []).some(l => l.episodeId === episode.id && l.status !== 'Đã hủy');
-   if (hasSavedLabs && selectedServices.length === 0) {
-     setTab('rx');
-     setError('');
-     return;
-   }
-   const wantContinue = window.confirm(
-     "Bác sĩ có muốn tiếp tục làm Cận lâm sàng cho bệnh nhân không?\n\n- Nhấn OK: Ở lại tiếp tục chỉ định / hoàn tất CLS.\n- Nhấn Cancel (Hủy): Bỏ qua CLS và chuyển sang Kê đơn thuốc."
-   );
-   if (wantContinue) {
-     return;
-   }
-   setSelectedServices([]);
-   setHasClsOrder(false);
-   setTab('rx');
-   setError('');
- };
  return <><header className="desk-identity"><div><span className="desk-avatar">{patient.name.split(' ').slice(-2).map(s=>s[0]).join('')}</span><div><h3>{patient.name}</h3><p>{patient.id} · {patient.gender} · {patient.birth?.split('-').reverse().join('/')}</p></div></div><div className="desk-identity-grid"><span><small>{inpatient?'Mã đợt điều trị':'Mã lượt khám'}</small><b>{episode.id}</b></span><span><small>Khoa / bác sĩ</small><b>{episode.department} · {episode.doctor}</b></span><span><small>{inpatient?'Buồng giường':'Đối tượng'}</small><b>{inpatient?(bed?'Giường '+bed.id:'Chưa có giường'):patient.insurance?(() => { const bh = parseBhytCard(patient.insurance); return `BHYT ${bh.rate}% (${bh.code})`; })():'Viện phí'}</b></span><span><small>Trạng thái</small><b style={{color:episode.status==='Đã có kết quả'?'#16a34a':episode.status==='Chờ kết quả'?'#4f46e5':'inherit'}}>{episode.status==='Chờ kết quả'?'⏳ Đang làm CLS (Chờ KQ)':episode.status==='Đã có kết quả'?'⚡ Đã có KQ CLS':episode.status==='Chờ thanh toán'?'Đã xong khám (Chờ thu tiền)':episode.status}</b></span></div><div className="desk-safety"><ShieldNotice patient={patient} db={db}/></div></header>
  {inpatient&&<div className="desk-sheet-picker"><label>Tờ điều trị<select aria-label="Tờ điều trị đang xem" value={sheetId} onChange={e=>switchSheet(e.target.value)}><option value="">{newSheet?'Tờ mới chưa lưu':'Chưa chọn tờ điều trị'}</option>{sheets.map(s=><option key={s.id} value={s.id}>{s.date} · {s.id} · {s.locked?'Đã khóa':'Nháp'}</option>)}</select></label>{writable&&<div className="desk-sheet-picker-actions"><button type="button" className="his-btn-sheet-primary" onClick={()=>newTreatment(false)}><Plus size={14}/>Tờ mới</button><button type="button" className="his-btn-sheet-secondary" disabled={!record?.note} onClick={()=>newTreatment(true)}>Sao chép thành nháp</button></div>}</div>}
  <div className="desk-document-state"><span>{locked?<><LockKeyhole size={13}/>Đã hoàn tất & khóa hồ sơ · Phiên bản {revision}</>:dirty?'Có nội dung chưa lưu':record?.note?'Đã lưu · Phiên bản '+revision:'Chưa lưu phiếu'}</span>{locked&&inpatient&&writable&&<button className="text-button" onClick={()=>setAction('reopen')}>Mở đính chính có lý do</button>}{(locked||!writable)&&<span>Chế độ chỉ xem (Không chỉnh sửa)</span>}</div>
@@ -716,40 +614,21 @@ function EpisodeDesk({episode,patient,role,notify,navigate,inpatient,dirtyRef}){
       <input
         type="checkbox"
         style={{width:'18px',height:'18px',cursor:'pointer',accentColor:'#0f766e'}}
-        checked={Boolean(hasClsOrder)}
-        onChange={e => {
-          const checked = e.target.checked;
-          setHasClsOrder(checked);
-          if (!checked) {
-            setSelectedServices([]);
-          }
-        }}
+        checked={hasClsOrder || selectedServices.length > 0}
+        onChange={e => setHasClsOrder(e.target.checked)}
       />
       <span>Chỉ định Cận lâm sàng (Xét nghiệm / Chẩn đoán hình ảnh / Thăm dò chức năng)</span>
     </label>
     <div>
-      {hasClsOrder ? (
-        <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-          <button
-            type="button"
-            className="secondary"
-            style={{padding:'9px 14px',fontSize:'13px',fontWeight:600,display:'inline-flex',alignItems:'center',gap:'6px',color:'#dc2626',borderColor:'#fca5a5',background:'#fff'}}
-            onClick={() => {
-              setHasClsOrder(false);
-              setSelectedServices([]);
-            }}
-          >
-            Hủy bỏ chỉ định CLS
-          </button>
-          <button
-            type="button"
-            className="primary"
-            style={{padding:'9px 18px',fontSize:'13px',fontWeight:700,display:'inline-flex',alignItems:'center',gap:'8px',background:'#0f766e',borderColor:'#0d9488'}}
-            onClick={() => { setTab('services'); setError(''); }}
-          >
-            Chuyển sang chỉ định Cận lâm sàng (CLS) <ArrowRight size={16}/>
-          </button>
-        </div>
+      {(hasClsOrder || selectedServices.length > 0) ? (
+        <button
+          type="button"
+          className="primary"
+          style={{padding:'9px 18px',fontSize:'13px',fontWeight:700,display:'inline-flex',alignItems:'center',gap:'8px',background:'#0f766e',borderColor:'#0d9488'}}
+          onClick={() => { setTab('services'); setError(''); }}
+        >
+          Chuyển sang chỉ định Cận lâm sàng (CLS) <ArrowRight size={16}/>
+        </button>
       ) : (
         <button
           type="button"
@@ -763,7 +642,7 @@ function EpisodeDesk({episode,patient,role,notify,navigate,inpatient,dirtyRef}){
     </div>
   </div>
 </fieldset></>}
- {(tab==='services'||tab==='results')&&<><div style={{background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:'8px',padding:'14px',marginBottom:'18px'}}><div className="desk-section-heading" style={{marginBottom:labs.length?'12px':'4px'}}><h3 style={{fontSize:'14px',fontWeight:700,color:'#0f172a',display:'flex',alignItems:'center',gap:6}}><CheckCircle2 size={16} color="#0f766e"/>Kết quả Cận lâm sàng đã có ({labs.length})</h3>{role==='technician'&&<button className="text-button" onClick={()=>navigate('clinical')} style={{display:'inline-flex',alignItems:'center',gap:4,fontSize:'12px'}}>Mở Bàn làm việc CLS & CĐHA <ArrowRight size={13}/></button>}</div>{labs.map(l=><article className="desk-result" key={l.id} style={{margin:'8px 0',padding:'12px',background:'#fff'}}><div><h4>{db.services.find(s=>s.id===l.service)?.name||l.service}</h4><span className="badge gray">{l.status}</span></div><small>{l.id} · {l.episodeId}</small>{l.status==='Đã phát hành'?<><p>{l.result||'Chưa có nội dung kết quả'}</p><p><b>Kết luận:</b> {l.conclusion||'—'}</p>{l.critical==='Có'&&<span className="badge amber" style={{marginTop:4,display:'inline-block'}}>Chỉ số cần theo dõi</span>}</>:<p className="desk-muted">{['admin','doctor'].includes(role)&&l.result?'Bản nháp chưa phát hành: '+l.result:'Chưa có kết quả được phát hành.'}</p>}</article>)}{!labs.length&&<p className="desk-muted" style={{margin:'4px 0',fontSize:'12px'}}>Chưa có chỉ định cận lâm sàng nào cho hồ sơ này.</p>}</div><div className="desk-section-heading"><h3>Chỉ định cận lâm sàng mới</h3><span>{episode.id}</span></div><button className="secondary" disabled={!canWrite} onClick={()=>setAction('package')}>Chọn gói dịch vụ mẫu</button><div className="desk-service-layout"><div><label>Tìm dịch vụ<input placeholder="Tên hoặc mã dịch vụ" value={serviceSearch} onChange={e=>setServiceSearch(e.target.value)}/></label><select aria-label="Nhóm dịch vụ bàn khám" value={serviceGroup} onChange={e=>setServiceGroup(e.target.value)}><option value="">Tất cả nhóm</option>{[...new Set(allServices.map(s=>s.kind))].map(s=><option key={s}>{s}</option>)}</select><div className="desk-service-list">{services.map(s=><label key={s.id}><input type="checkbox" disabled={!canWrite} checked={selectedServices.includes(s.id)} onChange={e=>setSelectedServices(old=>e.target.checked?[...old,s.id]:old.filter(x=>x!==s.id))}/><span><b>{s.name}</b><small>{s.id} · {s.kind}</small></span><strong>{money(s.price)}</strong></label>)}</div></div><div className="desk-service-basket"><h4>Phiếu đang chọn · {selectedServices.length} dịch vụ</h4>{selectedServices.map(s=>allServices.find(x=>x.id===s)).filter(Boolean).map(s=><p key={s.id}><span>{s.name}</span><b>{money(s.price)}</b></p>)}{(()=>{const bh = parseBhytCard(patient.insurance);const totalGross = selectedServices.reduce((a,id)=>a+Number(allServices.find(s=>s.id===id)?.price||0),0);const bhytPay = bh.hasInsurance ? Math.round((totalGross * bh.rate) / 100) : 0;const ptPay = totalGross - bhytPay;return <><p><b>Tổng dự kiến:</b><b>{money(totalGross)}</b></p>{bh.hasInsurance ? (<><p style={{fontSize:'12px',color:'#047857'}}><span>Quỹ BHYT ({bh.rate}%):</span><b>{money(bhytPay)}</b></p><p style={{fontSize:'12px',color:'#1d4ed8'}}><span>BN cùng chi trả:</span><b>{money(ptPay)}</b></p></>) : (<p style={{fontSize:'12px',color:'#475569'}}><span>Chế độ:</span><b>Viện phí 100%</b></p>)}</>;})()}<label>Chẩn đoán sơ bộ / Lý do chỉ định *<textarea rows={2} maxLength={500} value={note.diagnosis||''} disabled={!canWrite} onChange={e=>change('diagnosis',e.target.value)} placeholder="Nhập chẩn đoán sơ bộ hoặc lý do chỉ định..."/></label><label>Ưu tiên<select value={priority} onChange={e=>setPriority(e.target.value)}><option>Thường quy</option><option>Khẩn cấp</option></select></label><p className="desk-muted">Đơn giá chuẩn kỹ thuật từ CSDL SQL Server.</p><div style={{display:'flex',gap:'8px',flexWrap:'wrap',marginTop:'8px'}}><button className="secondary" disabled={!granted('biz.labs:order')||locked||!selectedServices.length||saving} onClick={async()=>{if(!note.diagnosis?.trim()){setError('Chưa có chẩn đoán sơ bộ hoặc lý do chỉ định. Vui lòng nhập trong phiếu đang chọn.');return;}setError('');setSaving(true);try{await hisApi.createLabOrders({episodeId:episode.id,patient:patient.id,role,staffId:actor.staffId,diagnosis:note.diagnosis,priority,services:selectedServices});await syncWithSqlServer();setSelectedServices([]);notify('Đã lưu chỉ định CLS trong SQL Server');}catch(e){setError(e.message)}finally{setSaving(false);}}}>Lưu chỉ định nháp</button><button className="primary" disabled={!granted('biz.labs:order')||locked||!selectedServices.length||saving} style={{display:'inline-flex',alignItems:'center',gap:6}} onClick={async()=>{if(!note.diagnosis?.trim()){setError('Chưa có chẩn đoán sơ bộ hoặc lý do chỉ định. Vui lòng nhập trong phiếu đang chọn.');return;}setError('');setSaving(true);try{await hisApi.createLabOrders({episodeId:episode.id,patient:patient.id,role,staffId:actor.staffId,diagnosis:note.diagnosis,priority,services:selectedServices});await hisApi.dispatchVisit(episode.id,'CHO_KET_QUA_CLS','Chỉ định CLS & Chuyển phòng xét nghiệm');await syncWithSqlServer();setSelectedServices([]);fresh();notify(`Đã chuyển bệnh nhân #${episode.queueNumber||episode.id} sang phòng Cận lâm sàng (Chờ kết quả)`);}catch(e){setError(e.message)}finally{setSaving(false);}}}><Send size={14}/>Gửi chỉ định & Chuyển CLS</button></div></div></div><RecordList rows={charges} columns={[['id','Mã phiếu'],['name','Dịch vụ'],['status','Trạng thái']]}/><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'18px',paddingTop:'14px',borderTop:'1px solid #e2e8f0',flexWrap:'wrap',gap:'10px'}}><button type="button" className="secondary" style={{padding:'9px 16px',fontSize:'13px',fontWeight:600,display:'inline-flex',alignItems:'center',gap:'6px'}} onClick={()=>{setTab('exam');setError('');}}><ArrowLeft size={15}/> Quay lại Khám & Chẩn đoán</button><button type="button" className="primary" style={{padding:'9px 18px',fontSize:'13px',fontWeight:700,display:'inline-flex',alignItems:'center',gap:'6px',background:'#2563eb',borderColor:'#1d4ed8'}} onClick={handleProceedToRx}>Tiếp tục sang Kê đơn thuốc <ArrowRight size={15}/></button></div></>}
+ {(tab==='services'||tab==='results')&&<><div style={{background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:'8px',padding:'14px',marginBottom:'18px'}}><div className="desk-section-heading" style={{marginBottom:labs.length?'12px':'4px'}}><h3 style={{fontSize:'14px',fontWeight:700,color:'#0f172a',display:'flex',alignItems:'center',gap:6}}><CheckCircle2 size={16} color="#0f766e"/>Kết quả Cận lâm sàng đã có ({labs.length})</h3><button className="text-button" onClick={()=>navigate('clinical')} style={{display:'inline-flex',alignItems:'center',gap:4,fontSize:'12px'}}>Mở Bàn làm việc CLS & CĐHA <ArrowRight size={13}/></button></div>{labs.map(l=><article className="desk-result" key={l.id} style={{margin:'8px 0',padding:'12px',background:'#fff'}}><div><h4>{db.services.find(s=>s.id===l.service)?.name||l.service}</h4><span className="badge gray">{l.status}</span></div><small>{l.id} · {l.episodeId}</small>{l.status==='Đã phát hành'?<><p>{l.result||'Chưa có nội dung kết quả'}</p><p><b>Kết luận:</b> {l.conclusion||'—'}</p>{l.critical==='Có'&&<span className="badge amber" style={{marginTop:4,display:'inline-block'}}>Chỉ số cần theo dõi</span>}</>:<p className="desk-muted">{['admin','doctor'].includes(role)&&l.result?'Bản nháp chưa phát hành: '+l.result:'Chưa có kết quả được phát hành.'}</p>}</article>)}{!labs.length&&<p className="desk-muted" style={{margin:'4px 0',fontSize:'12px'}}>Chưa có chỉ định cận lâm sàng nào cho hồ sơ này.</p>}</div><div className="desk-section-heading"><h3>Chỉ định cận lâm sàng mới</h3><span>{episode.id}</span></div><button className="secondary" disabled={!canWrite} onClick={()=>setAction('package')}>Chọn gói dịch vụ mẫu</button><div className="desk-service-layout"><div><label>Tìm dịch vụ<input placeholder="Tên hoặc mã dịch vụ" value={serviceSearch} onChange={e=>setServiceSearch(e.target.value)}/></label><select aria-label="Nhóm dịch vụ bàn khám" value={serviceGroup} onChange={e=>setServiceGroup(e.target.value)}><option value="">Tất cả nhóm</option>{[...new Set(allServices.map(s=>s.kind))].map(s=><option key={s}>{s}</option>)}</select><div className="desk-service-list">{services.map(s=><label key={s.id}><input type="checkbox" disabled={!canWrite} checked={selectedServices.includes(s.id)} onChange={e=>setSelectedServices(old=>e.target.checked?[...old,s.id]:old.filter(x=>x!==s.id))}/><span><b>{s.name}</b><small>{s.id} · {s.kind}</small></span><strong>{money(s.price)}</strong></label>)}</div></div><div className="desk-service-basket"><h4>Phiếu đang chọn · {selectedServices.length} dịch vụ</h4>{selectedServices.map(s=>allServices.find(x=>x.id===s)).filter(Boolean).map(s=><p key={s.id}><span>{s.name}</span><b>{money(s.price)}</b></p>)}{(()=>{const bh = parseBhytCard(patient.insurance);const totalGross = selectedServices.reduce((a,id)=>a+Number(allServices.find(s=>s.id===id)?.price||0),0);const bhytPay = bh.hasInsurance ? Math.round((totalGross * bh.rate) / 100) : 0;const ptPay = totalGross - bhytPay;return <><p><b>Tổng dự kiến:</b><b>{money(totalGross)}</b></p>{bh.hasInsurance ? (<><p style={{fontSize:'12px',color:'#047857'}}><span>Quỹ BHYT ({bh.rate}%):</span><b>{money(bhytPay)}</b></p><p style={{fontSize:'12px',color:'#1d4ed8'}}><span>BN cùng chi trả:</span><b>{money(ptPay)}</b></p></>) : (<p style={{fontSize:'12px',color:'#475569'}}><span>Chế độ:</span><b>Viện phí 100%</b></p>)}</>;})()}<label>Chẩn đoán sơ bộ / Lý do chỉ định *<textarea rows={2} maxLength={500} value={note.diagnosis||''} disabled={!canWrite} onChange={e=>change('diagnosis',e.target.value)} placeholder="Nhập chẩn đoán sơ bộ hoặc lý do chỉ định..."/></label><label>Ưu tiên<select value={priority} onChange={e=>setPriority(e.target.value)}><option>Thường quy</option><option>Khẩn cấp</option></select></label><p className="desk-muted">Đơn giá chuẩn kỹ thuật từ CSDL SQL Server.</p><div style={{display:'flex',gap:'8px',flexWrap:'wrap',marginTop:'8px'}}><button className="secondary" disabled={!granted('biz.labs:order')||locked||!selectedServices.length||saving} onClick={async()=>{if(!note.diagnosis?.trim()){setError('Chưa có chẩn đoán sơ bộ hoặc lý do chỉ định. Vui lòng nhập trong phiếu đang chọn.');return;}setError('');setSaving(true);try{await hisApi.createLabOrders({episodeId:episode.id,patient:patient.id,role,staffId:actor.staffId,diagnosis:note.diagnosis,priority,services:selectedServices});await syncWithSqlServer();setSelectedServices([]);notify('Đã lưu chỉ định CLS trong SQL Server');}catch(e){setError(e.message)}finally{setSaving(false);}}}>Lưu chỉ định nháp</button><button className="primary" disabled={!granted('biz.labs:order')||locked||!selectedServices.length||saving} style={{display:'inline-flex',alignItems:'center',gap:6}} onClick={async()=>{if(!note.diagnosis?.trim()){setError('Chưa có chẩn đoán sơ bộ hoặc lý do chỉ định. Vui lòng nhập trong phiếu đang chọn.');return;}setError('');setSaving(true);try{await hisApi.createLabOrders({episodeId:episode.id,patient:patient.id,role,staffId:actor.staffId,diagnosis:note.diagnosis,priority,services:selectedServices});await hisApi.dispatchVisit(episode.id,'CHO_KET_QUA_CLS','Chỉ định CLS & Chuyển phòng xét nghiệm');await syncWithSqlServer();setSelectedServices([]);fresh();notify(`Đã chuyển bệnh nhân #${episode.queueNumber||episode.id} sang phòng Cận lâm sàng (Chờ kết quả)`);}catch(e){setError(e.message)}finally{setSaving(false);}}}><Send size={14}/>Gửi chỉ định & Chuyển CLS</button></div></div></div><RecordList rows={charges} columns={[['id','Mã phiếu'],['name','Dịch vụ'],['status','Trạng thái']]}/><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'18px',paddingTop:'14px',borderTop:'1px solid #e2e8f0',flexWrap:'wrap',gap:'10px'}}><button type="button" className="secondary" style={{padding:'9px 16px',fontSize:'13px',fontWeight:600,display:'inline-flex',alignItems:'center',gap:'6px'}} onClick={()=>{setTab('exam');setError('');}}><ArrowLeft size={15}/> Quay lại Khám & Chẩn đoán</button><button type="button" className="primary" style={{padding:'9px 18px',fontSize:'13px',fontWeight:700,display:'inline-flex',alignItems:'center',gap:'6px',background:'#2563eb',borderColor:'#1d4ed8'}} onClick={()=>{setTab('rx');setError('');}}>Tiếp tục sang Kê đơn thuốc <ArrowRight size={15}/></button></div></>}
  {tab==='rx'&&(()=>{
   const bh = parseBhytCard(patient.insurance);
   const hasPendingLabs = labs.some(l => l.status !== 'Đã phát hành' && l.status !== 'Đã hủy');
@@ -785,7 +664,7 @@ function EpisodeDesk({episode,patient,role,notify,navigate,inpatient,dirtyRef}){
     <span className={`badge ${bh.hasInsurance ? bh.benefitBadgeClass : 'gray'}`}>
       {bh.hasInsurance ? bh.benefitBadge : 'Viện phí 100%'}
     </span>
-  </div><fieldset className="desk-fields" disabled={!canWrite}><datalist id="rx-dose-options">{RX_DOSES.map(d=><option key={d} value={d}/>)}</datalist><datalist id="rx-freq-options">{RX_FREQ_PRESETS.map(p=><option key={p.freq} value={p.freq}/>)}</datalist>{lines.map((line,i)=>{const med=availableMeds.find(s=>s.id===line.medicine);const stockQty=med?.stockQty!==undefined?med.stockQty:(stock.find(s=>s.id===line.medicine)?.quantity??null);const isZero=med&&stockQty!==null&&stockQty<=0;const isOver=med&&stockQty!==null&&stockQty>0&&Number(line.quantity)>stockQty;return <div className="desk-rx-line" key={i}><div className="desk-section-heading"><b>Thuốc {i+1}</b><button type="button" className="icon-button" aria-label={'Xóa dòng thuốc '+(i+1)} disabled={lines.length===1} onClick={()=>setLines(lines.filter((_,j)=>j!==i))}><Trash2 size={15}/></button></div><div className="desk-field-grid"><label style={{minWidth:'220px',flex:2}}>Thuốc (Gõ tên để gợi ý) *<MedicineSuggestInput disabled={!canWrite} value={line.medicine} availableMeds={availableMeds} onChange={(medId,medObj)=>{setLines(lines.map((l,j)=>j===i?{...l,medicine:medId,unit:medObj?.unit||l.unit||''}:l));}}/></label><label>Đơn vị kê<select aria-label={'Đơn vị thuốc '+(i+1)} value={line.unit||''} onChange={e=>setLines(lines.map((l,j)=>j===i?{...l,unit:e.target.value}:l))}><option value="">{med?.unit||'Đơn vị cơ sở'}</option>{(med?.units||[]).map(u=><option key={u.unit} value={u.unit}>{u.unit} · {u.factor} đơn vị cơ sở</option>)}</select></label>{[['quantity','Số lượng','number'],['dose','Liều dùng','text'],['frequency','Tần suất','text'],['days','Số ngày','number']].map(([key,label,type])=><label key={key}>{label}<input aria-label={label+' thuốc '+(i+1)} type={type} list={key==='dose'?'rx-dose-options':key==='frequency'?'rx-freq-options':undefined} min={type==='number'?1:undefined} placeholder={key==='dose'?'VD: 1 viên':key==='frequency'?'VD: Ngày 2 lần (Sáng-Tối)':undefined} value={line[key]} onChange={e=>{const val=e.target.value;setLines(lines.map((l,j)=>{if(j!==i)return l;const upd={...l,[key]:val};if(key==='days'){const d=Number(val)||0;const daily=(Number(upd.morning)||0)+(Number(upd.noon)||0)+(Number(upd.evening)||0)+(Number(upd.night)||0);if(d>0&&daily>0)upd.quantity=daily*d;}return upd;}));}}/></label>)}<label>Đường dùng<select value={line.route} onChange={e=>setLines(lines.map((l,j)=>j===i?{...l,route:e.target.value}:l))}>{['Uống','Tiêm','Truyền','Bôi','Khác'].map(r=><option key={r}>{r}</option>)}</select></label></div><div style={{display:'flex',gap:'6px',flexWrap:'wrap',marginTop:'8px',marginBottom:'4px',alignItems:'center'}}><span style={{fontSize:'11px',color:'#64748b',fontWeight:600}}>Chọn nhanh cữ uống:</span>{RX_FREQ_PRESETS.map(preset=><button key={preset.label} type="button" onClick={()=>{const days=Number(line.days)||5;const totalQty=preset.perDay>0?preset.perDay*days:(Number(line.quantity)||1);setLines(lines.map((l,j)=>j===i?{...l,frequency:preset.freq,dose:l.dose||'1 viên',morning:preset.morning,noon:preset.noon,evening:preset.evening,night:preset.night,quantity:totalQty}:l));}} style={{background:'#f1f5f9',border:'1px solid #cbd5e1',borderRadius:'4px',padding:'2px 8px',fontSize:'11px',color:'#0f766e',fontWeight:600,cursor:'pointer'}}>{preset.label}</button>)}</div>{isZero&&<div style={{margin:'6px 0 0',padding:'3px 8px',background:'#fef2f2',border:'1px solid #fecaca',color:'#dc2626',borderRadius:'4px',fontSize:'11.5px',display:'inline-flex',alignItems:'center',gap:'5px',fontWeight:500}}>⚠️ Hết hàng trong kho (Tồn: 0) — Cần chọn thuốc thay thế</div>}{isOver&&<div style={{margin:'6px 0 0',padding:'3px 8px',background:'#fffbeb',border:'1px solid #fde68a',color:'#b45309',borderRadius:'4px',fontSize:'11.5px',display:'inline-flex',alignItems:'center',gap:'5px',fontWeight:500}}>⚠️ Tồn kho khả dụng chỉ còn {stockQty} {line.unit||med.unit||'đơn vị'} — Số lượng kê vượt tồn</div>}<div className="desk-dose-times" style={{marginTop:10}}>{[['morning','Sáng'],['noon','Trưa'],['evening','Chiều'],['night','Tối']].map(([key,label])=><label key={key}>{label}<input value={line[key]} onChange={e=>{const val=e.target.value;setLines(lines.map((l,j)=>{if(j!==i)return l;const upd={...l,[key]:val};const days=Number(upd.days)||0;const daily=(Number(upd.morning)||0)+(Number(upd.noon)||0)+(Number(upd.evening)||0)+(Number(upd.night)||0);if(days>0&&daily>0)upd.quantity=daily*days;return upd;}));}}/></label>)}</div></div>;})}<button className="secondary" onClick={()=>setLines([...lines,emptyLine()])}><Plus size={14}/>Thêm thuốc</button><label>Lời dặn cho đơn thuốc<MedicalSuggestInput type="advice" multiline rows={2} value={advice} onChange={val=>setAdvice(val)} placeholder="Uống sau ăn no, uống nhiều nước, hẹn tái khám..." disabled={!canWrite}/></label><button className="primary" disabled={saving} onClick={async()=>{if(saving)return;const overLines=lines.filter(l=>{if(!l.medicine)return false;const m=availableMeds.find(s=>s.id===l.medicine);const q=m?.stockQty!==undefined?m.stockQty:(stock.find(s=>s.id===l.medicine)?.quantity??null);return q!==null&&Number(l.quantity)>q;});if(overLines.length>0){const overNames=overLines.map(l=>availableMeds.find(s=>s.id===l.medicine)?.name||l.medicine).join(', ');if(!window.confirm(`Cảnh báo tồn kho:\nThuốc [${overNames}] kê vượt quá tồn kho khả dụng hiện tại.\n\nBạn có muốn tiếp tục lưu đơn nháp này sang quầy Dược?`))return;}setSaving(true);setError('');const body={action:'savePrescription',role,staffId:actor.staffId,patient:patient.id,episodeId:episode.id,diagnosis:note.diagnosis,advice,lines};const signature=JSON.stringify(body);if(rxRequest.current?.signature!==signature)rxRequest.current={signature,key:crypto.randomUUID()};try{await hisApi.pharmacyAction({...body,requestId:rxRequest.current.key});rxRequest.current=null;await syncWithSqlServer();setLines([emptyLine()]);setAdvice('');notify('Đã lưu đơn nháp. Duyệt đơn để chuyển đến dược sĩ.');}catch(e){setError(e.message)}finally{setSaving(false)}}}>Lưu đơn thuốc</button></fieldset><h4 className="desk-subheading">Các đơn của hồ sơ</h4>{prescriptions.map(r=><article className="desk-result" key={r.id}><div><b>{r.id}</b><span className="badge gray">{r.status}</span></div><p>{r.diagnosis} · {r.advice}</p>{r.lines.map((l,i)=><p key={i}>{stock.find(s=>s.id===l.medicine)?.name||l.medicine} · {l.quantity} · {l.dose} · {l.frequency} · {l.days} ngày</p>)}{canWrite&&<button className="text-button" onClick={()=>{if(lines.some(l=>l.medicine)&&!window.confirm('Thay đơn đang soạn bằng bản sao?'))return;setLines(r.lines.map(l=>({...emptyLine(),...l})));setAdvice(r.advice||'');notify('Đã sao chép vào bản nháp, chưa lưu đơn mới')}}>Sao chép thành đơn nháp</button>}{granted('biz.prescriptions:approve')&&!locked&&r.status==='Nháp'&&<button className="primary" disabled={saving} onClick={async()=>{if(saving)return;setSaving(true);setError('');try{await hisApi.pharmacyAction({action:'approvePrescription',id:r.id,role,staffId:actor.staffId,requestId:'approve-'+r.id});await syncWithSqlServer();notify('Đã duyệt đơn thuốc và chuyển đến dược sĩ.');}catch(e){setError(e.message)}finally{setSaving(false)}}}>Duyệt đơn thuốc</button>}<button className="text-button" onClick={()=>navigate('pharmacy')}>Mở Quầy Dược & Cấp phát thuốc<ArrowRight size={13}/></button><button className="text-button" onClick={()=>setPrintDoc({type:'rx',prescription:r})} style={{display:'inline-flex',alignItems:'center',gap:4}}><Printer size={13}/>In đơn thuốc (Mẫu Bộ Y tế)</button></article>)}{!prescriptions.length&&<p className="desk-muted">Chưa có đơn thuốc.</p>}<div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'18px',paddingTop:'14px',borderTop:'1px solid #e2e8f0',flexWrap:'wrap',gap:'10px'}}><button type="button" className="secondary" style={{padding:'9px 16px',fontSize:'13px',fontWeight:600,display:'inline-flex',alignItems:'center',gap:'6px'}} onClick={()=>{setTab(hasClsOrder||labs.length?'services':'exam');setError('');}}><ArrowLeft size={15}/> {hasClsOrder||labs.length?'Quay lại Cận lâm sàng':'Quay lại Khám lâm sàng'}</button><div style={{display:'flex',gap:'8px'}}><button type="button" className="secondary" style={{padding:'9px 14px',fontSize:'13px',fontWeight:600,display:'inline-flex',alignItems:'center',gap:'6px'}} onClick={()=>{setTab('costs');setError('');}}>Xem Chi phí & BHYT <ArrowRight size={15}/></button><button type="button" className="primary" style={{padding:'9px 18px',fontSize:'13px',fontWeight:700,display:'inline-flex',alignItems:'center',gap:'6px',background:'#059669',borderColor:'#047857'}} onClick={()=>save(true)} disabled={locked||saving}><Check size={16}/> Lưu & Kết thúc lượt khám (F4)</button></div></div></>;})()}
+  </div><fieldset className="desk-fields" disabled={!canWrite}><datalist id="rx-dose-options">{RX_DOSES.map(d=><option key={d} value={d}/>)}</datalist><datalist id="rx-freq-options">{RX_FREQ_PRESETS.map(p=><option key={p.freq} value={p.freq}/>)}</datalist>{lines.map((line,i)=>{const med=availableMeds.find(s=>s.id===line.medicine);const stockQty=med?.stockQty!==undefined?med.stockQty:(stock.find(s=>s.id===line.medicine)?.quantity??null);const isZero=med&&stockQty!==null&&stockQty<=0;const isOver=med&&stockQty!==null&&stockQty>0&&Number(line.quantity)>stockQty;return <div className="desk-rx-line" key={i}><div className="desk-section-heading"><b>Thuốc {i+1}</b><button type="button" className="icon-button" aria-label={'Xóa dòng thuốc '+(i+1)} disabled={lines.length===1} onClick={()=>setLines(lines.filter((_,j)=>j!==i))}><Trash2 size={15}/></button></div><div className="desk-field-grid"><label>Thuốc<MedicineCombobox medicines={availableMeds} value={line.medicine} onChange={id=>setLines(lines.map((l,j)=>j===i?{...l,medicine:id,unit:''}:l))} disabled={!canWrite} index={i}/></label><label>Đơn vị kê<select aria-label={'Đơn vị thuốc '+(i+1)} value={line.unit||''} onChange={e=>setLines(lines.map((l,j)=>j===i?{...l,unit:e.target.value}:l))}><option value="">{med?.unit||'Đơn vị cơ sở'}</option>{(med?.units||[]).map(u=><option key={u.unit} value={u.unit}>{u.unit} · {u.factor} đơn vị cơ sở</option>)}</select></label>{[['quantity','Số lượng','number'],['dose','Liều dùng','text'],['frequency','Tần suất','text'],['days','Số ngày','number']].map(([key,label,type])=><label key={key}>{label}<input aria-label={label+' thuốc '+(i+1)} type={type} list={key==='dose'?'rx-dose-options':key==='frequency'?'rx-freq-options':undefined} min={type==='number'?1:undefined} placeholder={key==='dose'?'VD: 1 viên':key==='frequency'?'VD: Ngày 2 lần (Sáng-Tối)':undefined} value={line[key]} onChange={e=>{const val=e.target.value;setLines(lines.map((l,j)=>{if(j!==i)return l;const upd={...l,[key]:val};if(key==='days'){const d=Number(val)||0;const daily=(Number(upd.morning)||0)+(Number(upd.noon)||0)+(Number(upd.evening)||0)+(Number(upd.night)||0);if(d>0&&daily>0)upd.quantity=daily*d;}return upd;}));}}/></label>)}<label>Đường dùng<select value={line.route} onChange={e=>setLines(lines.map((l,j)=>j===i?{...l,route:e.target.value}:l))}>{['Uống','Tiêm','Truyền','Bôi','Khác'].map(r=><option key={r}>{r}</option>)}</select></label></div><div style={{display:'flex',gap:'6px',flexWrap:'wrap',marginTop:'8px',marginBottom:'4px',alignItems:'center'}}><span style={{fontSize:'11px',color:'#64748b',fontWeight:600}}>Chọn nhanh cữ uống:</span>{RX_FREQ_PRESETS.map(preset=><button key={preset.label} type="button" onClick={()=>{const days=Number(line.days)||5;const totalQty=preset.perDay>0?preset.perDay*days:(Number(line.quantity)||1);setLines(lines.map((l,j)=>j===i?{...l,frequency:preset.freq,dose:l.dose||'1 viên',morning:preset.morning,noon:preset.noon,evening:preset.evening,night:preset.night,quantity:totalQty}:l));}} style={{background:'#f1f5f9',border:'1px solid #cbd5e1',borderRadius:'4px',padding:'2px 8px',fontSize:'11px',color:'#0f766e',fontWeight:600,cursor:'pointer'}}>{preset.label}</button>)}</div>{isZero&&<div style={{margin:'6px 0 0',padding:'3px 8px',background:'#fef2f2',border:'1px solid #fecaca',color:'#dc2626',borderRadius:'4px',fontSize:'11.5px',display:'inline-flex',alignItems:'center',gap:'5px',fontWeight:500}}>⚠️ Hết hàng trong kho (Tồn: 0) — Cần chọn thuốc thay thế</div>}{isOver&&<div style={{margin:'6px 0 0',padding:'3px 8px',background:'#fffbeb',border:'1px solid #fde68a',color:'#b45309',borderRadius:'4px',fontSize:'11.5px',display:'inline-flex',alignItems:'center',gap:'5px',fontWeight:500}}>⚠️ Tồn kho khả dụng chỉ còn {stockQty} {line.unit||med.unit||'đơn vị'} — Số lượng kê vượt tồn</div>}<div className="desk-dose-times" style={{marginTop:10}}>{[['morning','Sáng'],['noon','Trưa'],['evening','Chiều'],['night','Tối']].map(([key,label])=><label key={key}>{label}<input value={line[key]} onChange={e=>{const val=e.target.value;setLines(lines.map((l,j)=>{if(j!==i)return l;const upd={...l,[key]:val};const days=Number(upd.days)||0;const daily=(Number(upd.morning)||0)+(Number(upd.noon)||0)+(Number(upd.evening)||0)+(Number(upd.night)||0);if(days>0&&daily>0)upd.quantity=daily*days;return upd;}));}}/></label>)}</div></div>;})}<button className="secondary" onClick={()=>setLines([...lines,emptyLine()])}><Plus size={14}/>Thêm thuốc</button><label>Lời dặn cho đơn thuốc<MedicalSuggestInput type="advice" multiline rows={2} value={advice} onChange={val=>setAdvice(val)} placeholder="Uống sau ăn no, uống nhiều nước, hẹn tái khám..." disabled={!canWrite}/></label><button className="primary" disabled={saving} onClick={async()=>{if(saving)return;const overLines=lines.filter(l=>{if(!l.medicine)return false;const m=availableMeds.find(s=>s.id===l.medicine);const q=m?.stockQty!==undefined?m.stockQty:(stock.find(s=>s.id===l.medicine)?.quantity??null);return q!==null&&Number(l.quantity)>q;});if(overLines.length>0){const overNames=overLines.map(l=>availableMeds.find(s=>s.id===l.medicine)?.name||l.medicine).join(', ');if(!window.confirm(`Cảnh báo tồn kho:\nThuốc [${overNames}] kê vượt quá tồn kho khả dụng hiện tại.\n\nBạn có muốn tiếp tục lưu đơn nháp này sang quầy Dược?`))return;}setSaving(true);setError('');const body={action:'savePrescription',role,staffId:actor.staffId,patient:patient.id,episodeId:episode.id,diagnosis:note.diagnosis,advice,lines};const signature=JSON.stringify(body);if(rxRequest.current?.signature!==signature)rxRequest.current={signature,key:crypto.randomUUID()};try{await hisApi.pharmacyAction({...body,requestId:rxRequest.current.key});rxRequest.current=null;await syncWithSqlServer();setLines([emptyLine()]);setAdvice('');notify('Đã lưu đơn nháp. Duyệt đơn để chuyển đến dược sĩ.');}catch(e){setError(e.message)}finally{setSaving(false)}}}>Lưu đơn thuốc</button></fieldset><h4 className="desk-subheading">Các đơn của hồ sơ</h4>{prescriptions.map(r=><article className="desk-result" key={r.id}><div><b>{r.id}</b><span className="badge gray">{r.status}</span></div><p>{r.diagnosis} · {r.advice}</p>{r.lines.map((l,i)=><p key={i}>{stock.find(s=>s.id===l.medicine)?.name||l.medicine} · {l.quantity} · {l.dose} · {l.frequency} · {l.days} ngày</p>)}{canWrite&&<button className="text-button" onClick={()=>{if(lines.some(l=>l.medicine)&&!window.confirm('Thay đơn đang soạn bằng bản sao?'))return;setLines(r.lines.map(l=>({...emptyLine(),...l})));setAdvice(r.advice||'');notify('Đã sao chép vào bản nháp, chưa lưu đơn mới')}}>Sao chép thành đơn nháp</button>}{granted('biz.prescriptions:approve')&&!locked&&r.status==='Nháp'&&<button className="primary" disabled={saving} onClick={async()=>{if(saving)return;setSaving(true);setError('');try{await hisApi.pharmacyAction({action:'approvePrescription',id:r.id,role,staffId:actor.staffId,requestId:'approve-'+r.id});await syncWithSqlServer();notify('Đã duyệt đơn thuốc và chuyển đến dược sĩ.');}catch(e){setError(e.message)}finally{setSaving(false)}}}>Duyệt đơn thuốc</button>}<button className="text-button" onClick={()=>navigate('pharmacy')}>Mở Quầy Dược & Cấp phát thuốc<ArrowRight size={13}/></button><button className="text-button" onClick={()=>setPrintDoc({type:'rx',prescription:r})} style={{display:'inline-flex',alignItems:'center',gap:4}}><Printer size={13}/>In đơn thuốc (Mẫu Bộ Y tế)</button></article>)}{!prescriptions.length&&<p className="desk-muted">Chưa có đơn thuốc.</p>}<div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'18px',paddingTop:'14px',borderTop:'1px solid #e2e8f0',flexWrap:'wrap',gap:'10px'}}><button type="button" className="secondary" style={{padding:'9px 16px',fontSize:'13px',fontWeight:600,display:'inline-flex',alignItems:'center',gap:'6px'}} onClick={()=>{setTab(hasClsOrder||labs.length?'services':'exam');setError('');}}><ArrowLeft size={15}/> {hasClsOrder||labs.length?'Quay lại Cận lâm sàng':'Quay lại Khám lâm sàng'}</button><div style={{display:'flex',gap:'8px'}}><button type="button" className="secondary" style={{padding:'9px 14px',fontSize:'13px',fontWeight:600,display:'inline-flex',alignItems:'center',gap:'6px'}} onClick={()=>{setTab('costs');setError('');}}>Xem Chi phí & BHYT <ArrowRight size={15}/></button><button type="button" className="primary" style={{padding:'9px 18px',fontSize:'13px',fontWeight:700,display:'inline-flex',alignItems:'center',gap:'6px',background:'#059669',borderColor:'#047857'}} onClick={()=>save(true)} disabled={locked||saving}><Check size={16}/> Lưu & Kết thúc lượt khám (F4)</button></div></div></>;})()}
  {tab==='orders'&&<><h3>Y lệnh của tờ điều trị</h3><p className="desk-muted">Mỗi dòng là một cữ dự kiến. Tạo nhiều dòng nếu có nhiều cữ; điều dưỡng thực hiện và ghi nhận qua danh sách y lệnh.</p><fieldset disabled={!canWrite||!sheetId} className="desk-fields"><div className="desk-field-grid"><label>Loại y lệnh<select value={order.kind} onChange={e=>setOrder({...order,kind:e.target.value})}>{['Chăm sóc','Dùng thuốc','Theo dõi sinh hiệu','Thủ thuật'].map(k=><option key={k}>{k}</option>)}</select></label><label>Thời gian dự kiến<input aria-label="Thời gian cữ y lệnh" type="datetime-local" value={order.scheduled} onChange={e=>setOrder({...order,scheduled:e.target.value})}/></label>{order.kind==='Dùng thuốc'&&<><label>Thuốc<select value={order.medicine} onChange={e=>setOrder({...order,medicine:e.target.value})}><option value="">Chọn thuốc</option>{stock.filter(s=>s.kind==='THUOC'||s.type==='Thuốc').map(s=><option value={s.id} key={s.id}>{s.name}</option>)}</select></label><label>Số lượng<input type="number" min="1" value={order.quantity} onChange={e=>setOrder({...order,quantity:e.target.value})}/></label></>}</div><label>Nội dung / hướng dẫn<MedicalSuggestInput type="orders" value={order.dose} onChange={val=>setOrder({...order,dose:val})} placeholder="Nhập hướng dẫn hoặc chọn cữ y lệnh chuẩn..." disabled={!canWrite||!sheetId}/></label><button className="primary" onClick={async()=>{try{setError('');await careCall({action:'order',episodeId:episode.id,sheetId,order});await syncWithSqlServer();setOrder({...order,dose:''});notify('Đã lưu y lệnh');}catch(e){setError(e.message)}}}>Thêm cữ thực hiện</button></fieldset>{!sheetId&&<p className="desk-warning">Lưu tờ điều trị trước khi thêm y lệnh.</p>}<RecordList rows={rounds.filter(r=>r.sheetId===sheetId)} columns={[['id','Mã y lệnh'],['kind','Loại'],['scheduled','Dự kiến'],['dose','Hướng dẫn'],['status','Trạng thái']]}/><button className="secondary" onClick={()=>navigate('care','rounds')}>Mở danh sách thực hiện y lệnh</button></>}
  {tab==='costs'&&(()=>{
   const bh = parseBhytCard(patient.insurance);
@@ -892,5 +771,72 @@ function EpisodeDesk({episode,patient,role,notify,navigate,inpatient,dirtyRef}){
  {printDoc&&<div className="modal-backdrop" onClick={()=>setPrintDoc(null)}><section className="modal his-large-modal wide-modal" role="dialog" aria-modal="true" onClick={e=>e.stopPropagation()}><button className="close icon-button" aria-label="Đóng biểu mẫu" onClick={()=>setPrintDoc(null)}><X size={21}/></button><MedicalPaperFormViewer tab={printDoc.type==='rx'?'prescriptions':printDoc.type==='reexam'?'reexaminations':printDoc.type==='referral'?'referrals':'archives'} row={printDoc.type==='rx'?{id:printDoc.prescription.id,diagnosis:printDoc.prescription.diagnosis,advice:printDoc.prescription.advice,lines:printDoc.prescription.lines}:printDoc.type==='reexam'?{id:`GHKL-${episode.id}`,episodeId:episode.id,appointmentDate:printDoc.appointmentDate||record?.note?.appointmentDate||new Date(Date.now()+7*86400000).toISOString().slice(0,10),appointmentTime:record?.note?.appointmentTime||'08:30',clinicRoom:record?.note?.clinicRoom||`Phòng khám ${episode.department||'Nội tổng quát'}`,diagnosis:record?.note?.diagnosis||episode.diagnosis||note.diagnosis||'Bệnh lý theo dõi ngoại trú',icd:record?.note?.icd||note.icd||'I10',reason:record?.note?.reexamReason||'Tái khám theo hẹn đánh giá đáp ứng phác đồ điều trị',testsNeeded:record?.note?.testsNeeded||'Kiểm tra sinh hiệu, đánh giá triệu chứng lâm sàng',advice:record?.note?.advice||note.advice||'Dùng thuốc đúng chỉ định, nhịn ăn sáng trước khi tái khám',doctor:episode.doctor||actor.person}:printDoc.type==='referral'?{id:`CT-${episode.id}`,episodeId:episode.id,destination:printDoc.destination||'Bệnh viện Chợ Rẫy (Tuyến trên)',diagnosis:record?.note?.diagnosis||episode.diagnosis||note.diagnosis||'Bệnh lý vượt tuyến kỹ thuật',icd:record?.note?.icd||note.icd||'I10',clinicalSummary:note.symptoms||record?.note?.symptoms||'Triệu chứng và diễn biến bệnh ghi nhận trong đợt khám',treatment:note.plan||record?.note?.plan||'Đã xử trí ban đầu theo phác đồ',reason:printDoc.reason||'Vượt quá khả năng chuyên môn kỹ thuật của cơ sở',transportation:'Xe cứu thương chuyên dụng',doctor:episode.doctor||actor.person}:{id:episode.id,episodeId:episode.id,diagnosis:record?.note?.diagnosis||episode.diagnosis||'Chưa ghi nhận',treatment:record?.note?.plan||'Chưa ghi nhận',outcome:record?.note?.outcome||'Chưa ghi nhận',advice:record?.note?.advice||'Chưa ghi nhận'}} patient={patient} doctorStaff={{name:episode.doctor||actor.person}} onClose={()=>setPrintDoc(null)}/></section></div>}
  </>
 }
+function MedicineCombobox({medicines,value,onChange,disabled,index}){
+  const [query,setQuery]=React.useState('');
+  const [open,setOpen]=React.useState(false);
+  const ref=React.useRef(null);
+  const inputRef=React.useRef(null);
+  const selected=medicines.find(s=>s.id===value);
+  const displayValue=open?query:(selected?`${selected.name} · ${selected.unit}`:'');
+  const filtered=React.useMemo(()=>{
+    if(!query)return medicines.slice(0,100);
+    const q=query.toLowerCase();
+    return medicines.filter(s=>(s.name+s.id).toLowerCase().includes(q)).slice(0,80);
+  },[medicines,query]);
+  React.useEffect(()=>{
+    function handler(e){if(ref.current&&!ref.current.contains(e.target)){setOpen(false);setQuery('');}}
+    document.addEventListener('mousedown',handler);
+    return()=>document.removeEventListener('mousedown',handler);
+  },[]);
+  function handleInputChange(e){
+    setQuery(e.target.value);
+    setOpen(true);
+    if(!e.target.value){onChange('');}
+  }
+  function handleFocus(){
+    setOpen(true);
+    setQuery('');
+  }
+  function handleSelect(med){
+    onChange(med.id);
+    setOpen(false);
+    setQuery('');
+  }
+  function handleKeyDown(e){
+    if(e.key==='Escape'){setOpen(false);setQuery('');}
+  }
+  return(
+    <div ref={ref} style={{position:'relative'}} className="med-combobox-wrap">
+      <input
+        ref={inputRef}
+        aria-label={'Thuốc '+(index+1)}
+        value={displayValue}
+        onChange={handleInputChange}
+        onFocus={handleFocus}
+        onKeyDown={handleKeyDown}
+        placeholder="Nhập tên hoặc mã thuốc..."
+        disabled={disabled}
+        autoComplete="off"
+        style={{width:'100%'}}
+      />
+      {open&&filtered.length>0&&(
+        <ul className="med-combobox-list" role="listbox">
+          {filtered.map(s=>(
+            <li key={s.id} role="option" aria-selected={s.id===value}
+              className={s.id===value?'med-combobox-item selected':'med-combobox-item'}
+              onMouseDown={e=>{e.preventDefault();handleSelect(s);}}>
+              <span className="med-name">{s.name} · {s.unit}</span>
+              {s.stockQty!==undefined&&<span className={s.stockQty<=0?'med-stock zero':'med-stock'}>{s.stockQty<=0?'Hết hàng':`Tồn: ${s.stockQty}`}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {open&&filtered.length===0&&query&&(
+        <div className="med-combobox-empty">Không tìm thấy thuốc &quot;{query}&quot;</div>
+      )}
+    </div>
+  );
+}
+
 function ShieldNotice({patient,db}){const alerts=(db.operations?.records||[]).filter(r=>r.module==='safety'&&r.patient===patient.id&&r.status==='Đã xác minh');return <>{alerts.length?<><b>Cảnh báo:</b> {alerts.map(a=>a.substance+' · '+a.reaction).join('; ')}</>:<><b>Dị ứng:</b> Chưa ghi nhận.</>}</>}
 function RecordList({rows,columns}){return rows.length?<div className="table-scroll desk-records"><table><thead><tr>{columns.map(([key,label])=><th key={key}>{label}</th>)}</tr></thead><tbody>{rows.map(r=><tr key={r.id}>{columns.map(([key])=><td key={key}>{r[key]||'—'}</td>)}</tr>)}</tbody></table></div>:<p className="desk-muted">Chưa có dữ liệu liên kết.</p>}

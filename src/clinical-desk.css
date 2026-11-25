@@ -5,3 +5,15 @@
 .desk-dropdown-menu button{display:flex!important;align-items:center!important;gap:8px!important;width:100%!important;text-align:left!important;padding:8px 12px!important;font-size:12.5px!important;background:transparent!important;border:none!important;border-radius:6px!important;color:#1e293b!important;cursor:pointer!important;transition:background .15s ease!important;white-space:nowrap!important;box-shadow:none!important;min-height:34px!important}
 .desk-dropdown-menu button:hover:not(:disabled){background:#f1f5f9!important;color:#0f766e!important}
 .desk-dropdown-menu button:disabled{opacity:.5!important;cursor:not-allowed!important}
+
+/* ===== Medicine Combobox ===== */
+.med-combobox-wrap{position:relative}
+.med-combobox-wrap input{width:100%;box-sizing:border-box}
+.med-combobox-list{position:absolute;top:calc(100% + 2px);left:0;right:0;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 24px -4px rgba(0,0,0,.13);max-height:260px;overflow-y:auto;z-index:200;padding:4px;margin:0;list-style:none}
+.med-combobox-item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12.5px;color:#1e293b;transition:background .1s}
+.med-combobox-item:hover{background:#f0fdf4}
+.med-combobox-item.selected{background:#ccfbf1;color:#0f766e;font-weight:600}
+.med-combobox-item .med-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.med-combobox-item .med-stock{font-size:11px;white-space:nowrap;color:#059669;background:#dcfce7;padding:1px 6px;border-radius:4px;flex-shrink:0}
+.med-combobox-item .med-stock.zero{color:#b91c1c;background:#fee2e2}
+.med-combobox-empty{padding:12px 14px;font-size:12px;color:#64748b;background:#fff;border:1px solid #e2e8f0;border-radius:8px;position:absolute;top:calc(100% + 2px);left:0;right:0;z-index:200}
