@@ -768,9 +768,70 @@ export default function History({role='admin',patientId,navigate,notify}){
         </section>
       ) : null}
 
-      {/* 3. Split EMR Layout: Timeline Left | Queue Middle (non-patient) | EMR Detail Right */}
+      {/* 3. Split EMR Layout: Queue Left | Timeline Middle | EMR Detail Right */}
       <div className={!isPatientScoped ? 'emr-record-layout-3col' : 'emr-record-layout'}>
-        {/* LEFT PANE: ENCOUNTER TIMELINE */}
+        {/* LEFT PANE: CLINIC QUEUE (only for non-patient-scoped views) */}
+        {!isPatientScoped && (
+          <section className="panel" style={{padding:'14px',maxHeight:'78vh',overflowY:'auto'}}>
+            <div style={{marginBottom:'10px'}}>
+              <span style={{fontWeight:700,fontSize:'13px',color:'#0f172a',display:'flex',alignItems:'center',gap:'6px',marginBottom:'8px'}}>
+                🏥 Hàng chờ phòng khám
+              </span>
+              <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
+                <select value={queueFilter} onChange={e=>setQueueFilter(e.target.value)} className="his-select" style={{height:'32px',fontSize:'12px',flex:1}}>
+                  <option value="active">Đang chờ hôm nay</option>
+                  <option value="all">Tất cả hôm nay</option>
+                </select>
+                <select value={queueRoomFilter} onChange={e=>setQueueRoomFilter(e.target.value)} className="his-select" style={{height:'32px',fontSize:'12px',flex:1}}>
+                  <option value="ALL">Tất cả phòng</option>
+                  {availableQueueRooms.map(r=><option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
+              {clinicQueueVisits.map(v=>{
+                const pt=patients.find(p=>p.id===v.patientId);
+                const isActive=curPt?.id===v.patientId;
+                const statusColor=v.status==='Đang khám'?'#2563eb':v.status==='Hoàn tất'?'#16a34a':v.status==='Chờ khám'?'#d97706':'#64748b';
+                const badgeCls=v.status==='Đang khám'?'teal':v.status==='Chờ khám'?'amber':'gray';
+                return (
+                  <button key={v.id} type="button"
+                    onClick={()=>{setSelectedPtId(v.patientId);setSelectedEpisodeId(v.id);}}
+                    style={{
+                      border:isActive?'1.5px solid #2563eb':'1px solid #e2e8f0',
+                      borderLeft:`4px solid ${statusColor}`,
+                      background:isActive?'#eff6ff':'#ffffff',
+                      padding:'8px 10px',borderRadius:'7px',textAlign:'left',cursor:'pointer',
+                      boxShadow:isActive?'0 1px 4px rgba(37,99,235,0.1)':'none',
+                      transition:'all 0.12s ease'
+                    }}
+                  >
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'2px'}}>
+                      <span style={{fontFamily:'monospace',fontWeight:700,fontSize:'12px',color:'#0f766e'}}>
+                        {v.queueTag||(v.queueNumber?`#${v.queueNumber}`:'—')}
+                      </span>
+                      <span className={`badge ${badgeCls}`} style={{fontSize:'9.5px',padding:'1px 5px'}}>{v.status}</span>
+                    </div>
+                    <div style={{fontSize:'12.5px',fontWeight:600,color:'#0f172a',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                      {pt?.name||v.patientId}
+                    </div>
+                    <div style={{fontSize:'11px',color:'#64748b',marginTop:'2px'}}>
+                      {v.room||v.department||'—'} · {v.time||'—'}
+                    </div>
+                    {v.doctor&&<div style={{fontSize:'11px',color:'#2563eb',marginTop:'1px'}}>BS: {v.doctor}</div>}
+                  </button>
+                );
+              })}
+              {!clinicQueueVisits.length&&(
+                <div style={{padding:'24px 12px',textAlign:'center',color:'#94a3b8',fontSize:'12px'}}>
+                  Không có bệnh nhân đang chờ.
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* MIDDLE PANE: ENCOUNTER TIMELINE */}
         <section className="panel" style={{ padding: '14px', maxHeight: '78vh', overflowY: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <span style={{ fontWeight: 700, fontSize: '13px', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -834,67 +895,6 @@ export default function History({role='admin',patientId,navigate,notify}){
             )}
           </div>
         </section>
-
-        {/* MIDDLE PANE: CLINIC QUEUE (only for non-patient-scoped views) */}
-        {!isPatientScoped && (
-          <section className="panel" style={{padding:'14px',maxHeight:'78vh',overflowY:'auto'}}>
-            <div style={{marginBottom:'10px'}}>
-              <span style={{fontWeight:700,fontSize:'13px',color:'#0f172a',display:'flex',alignItems:'center',gap:'6px',marginBottom:'8px'}}>
-                🏥 Hàng chờ phòng khám
-              </span>
-              <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
-                <select value={queueFilter} onChange={e=>setQueueFilter(e.target.value)} className="his-select" style={{height:'32px',fontSize:'12px',flex:1}}>
-                  <option value="active">Đang chờ hôm nay</option>
-                  <option value="all">Tất cả hôm nay</option>
-                </select>
-                <select value={queueRoomFilter} onChange={e=>setQueueRoomFilter(e.target.value)} className="his-select" style={{height:'32px',fontSize:'12px',flex:1}}>
-                  <option value="ALL">Tất cả phòng</option>
-                  {availableQueueRooms.map(r=><option key={r} value={r}>{r}</option>)}
-                </select>
-              </div>
-            </div>
-            <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
-              {clinicQueueVisits.map(v=>{
-                const pt=patients.find(p=>p.id===v.patientId);
-                const isActive=curPt?.id===v.patientId;
-                const statusColor=v.status==='Đang khám'?'#2563eb':v.status==='Hoàn tất'?'#16a34a':v.status==='Chờ khám'?'#d97706':'#64748b';
-                const badgeCls=v.status==='Đang khám'?'teal':v.status==='Chờ khám'?'amber':'gray';
-                return (
-                  <button key={v.id} type="button"
-                    onClick={()=>{setSelectedPtId(v.patientId);setSelectedEpisodeId(v.id);}}
-                    style={{
-                      border:isActive?'1.5px solid #2563eb':'1px solid #e2e8f0',
-                      borderLeft:`4px solid ${statusColor}`,
-                      background:isActive?'#eff6ff':'#ffffff',
-                      padding:'8px 10px',borderRadius:'7px',textAlign:'left',cursor:'pointer',
-                      boxShadow:isActive?'0 1px 4px rgba(37,99,235,0.1)':'none',
-                      transition:'all 0.12s ease'
-                    }}
-                  >
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'2px'}}>
-                      <span style={{fontFamily:'monospace',fontWeight:700,fontSize:'12px',color:'#0f766e'}}>
-                        {v.queueTag||(v.queueNumber?`#${v.queueNumber}`:'—')}
-                      </span>
-                      <span className={`badge ${badgeCls}`} style={{fontSize:'9.5px',padding:'1px 5px'}}>{v.status}</span>
-                    </div>
-                    <div style={{fontSize:'12.5px',fontWeight:600,color:'#0f172a',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                      {pt?.name||v.patientId}
-                    </div>
-                    <div style={{fontSize:'11px',color:'#64748b',marginTop:'2px'}}>
-                      {v.room||v.department||'—'} · {v.time||'—'}
-                    </div>
-                    {v.doctor&&<div style={{fontSize:'11px',color:'#2563eb',marginTop:'1px'}}>BS: {v.doctor}</div>}
-                  </button>
-                );
-              })}
-              {!clinicQueueVisits.length&&(
-                <div style={{padding:'24px 12px',textAlign:'center',color:'#94a3b8',fontSize:'12px'}}>
-                  Không có bệnh nhân đang chờ.
-                </div>
-              )}
-            </div>
-          </section>
-        )}
 
         {/* RIGHT PANE: COMPREHENSIVE EMR MEDICAL RECORD */}
         <section className="panel" style={{ padding: '20px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
