@@ -58,11 +58,11 @@ export async function listBeds(){
 }
 
 export async function bedAction(data){
- if(!data||!['admin','nurse'].includes(data.role))fail(403,'Chỉ điều dưỡng được xếp giường hoặc xác nhận vệ sinh.');
+ if(!data||!['admin','nurse','doctor'].includes(data.role))fail(403,'Chỉ điều dưỡng hoặc bác sĩ được xếp giường hoặc xác nhận vệ sinh.');
  if(!string(data.id,20)||!string(data.staffId,20)||!['assign','clean'].includes(data.action))fail(400,'Thao tác buồng giường không hợp lệ.');
  await run(`
  DECLARE @state varchar(30),@admission varchar(20),@department varchar(20),@price decimal(18,2);
- IF NOT EXISTS(SELECT 1 FROM dbo.NhanVien WHERE maNhanVien=@staff AND chuyenMon='DIEU_DUONG' AND dangLamViec=1) THROW 51000,'A_STAFF',1;
+ IF NOT EXISTS(SELECT 1 FROM dbo.NhanVien WHERE maNhanVien=@staff AND ((@action='clean' AND chuyenMon='DIEU_DUONG') OR (@action='assign' AND chuyenMon IN ('DIEU_DUONG','BAC_SI'))) AND dangLamViec=1) THROW 51000,'A_STAFF',1;
  SELECT @state=g.trangThaiHienTai,@department=b.maKhoa,@price=g.donGiaNgay FROM dbo.GiuongBenh g JOIN dbo.BuongBenh b ON b.maBuongBenh=g.maBuongBenh WHERE g.maGiuong=@id AND g.dangHoatDong=1;
  IF @state IS NULL THROW 51000,'A_MISSING',1;
  IF @action='assign' AND EXISTS(SELECT 1 FROM dbo.PhanGiuong p JOIN dbo.DotDieuTri d ON d.maDotDieuTri=p.maDotDieuTri WHERE p.maGiuong=@id AND p.trangThai='DANG_SU_DUNG' AND p.denThoiDiem IS NULL AND d.maBenhNhan=@patient AND d.trangThai='DANG_DIEU_TRI') BEGIN SET @result=N'{}'; END

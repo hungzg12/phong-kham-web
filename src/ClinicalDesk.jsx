@@ -166,7 +166,7 @@ export default function ClinicalDesk({role,notify,navigate,inpatient=false,clini
  const [globalIcd,setGlobalIcd]=useState(false);
  const [patients]=useWorkspace('patients'),[visits]=useWorkspace('visits'),[admissions]=useWorkspace('admissions'),[db]=useWorkspace('business');const actor=actorRoles[role];
  useEffect(()=>{syncWithSqlServer();},[]);
- const episodes=(inpatient?admissions:visits).filter(v=>role!=='doctor'||assignedToDoctor(v,actor.staffId)).filter(v=>!clinicalContext?.episodeId||v.id===clinicalContext.episodeId);
+ const episodes=(inpatient?admissions:visits).filter(v=>!inpatient&&role==='doctor'?assignedToDoctor(v,actor.staffId):true).filter(v=>!clinicalContext?.episodeId||v.id===clinicalContext.episodeId);
  const [selected,setSelected]=useState(''),[calledId,setCalledId]=useState(''),[query,setQuery]=useState(''),[status,setStatus]=useState(''),[department,setDepartment]=useState(''),[day,setDay]=useState('');const dirty=useRef(false);
  const filtered=episodes.filter(v=>(!status ? v.status!=='Đã hủy' : v.status===status)&&(!department||v.department===department)&&(!day||v.date===day)).filter(v=>(v.id+' '+patients.find(p=>p.id===v.patientId)?.name).toLowerCase().includes(query.toLowerCase())).sort((a,b)=>{
    const aPrio = a.status === 'Đã có kết quả' ? 1 : a.status === 'Đang khám' ? 2 : a.status === 'Chờ khám' ? 3 : a.status === 'Chờ kết quả' ? 4 : a.status === 'Tạm hoãn' ? 5 : 6;

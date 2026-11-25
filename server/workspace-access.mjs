@@ -52,7 +52,7 @@ const writeRoles={
  '/api/clinical/care':['admin','doctor'],
  '/api/notifications':[...roles],
  '/api/appointments':['admin','receptionist'], '/api/patients':['admin','receptionist'], '/api/visits':['admin','receptionist','doctor','technician'],
- '/api/clinical/exam':['admin','doctor'], '/api/nursing/vitals':['admin','nurse'], '/api/nursing/perform':['admin','nurse'], '/api/nursing/bed':['admin','nurse'],
+ '/api/clinical/exam':['admin','doctor'], '/api/nursing/vitals':['admin','nurse'], '/api/nursing/perform':['admin','nurse'], '/api/nursing/bed':['admin','nurse','doctor'],
  '/api/inpatient/admit':['admin','doctor','nurse'], '/api/inpatient/discharge':['admin','doctor'], '/api/inpatient/clean':['admin','nurse'],
  '/api/labs/orders':['admin','doctor'], '/api/labs/action':['admin','technician'], '/api/pharmacy/action':['admin','doctor','pharmacist'],
  '/api/finance/action':['admin','cashier'], '/api/portal/appointments':['patient'], '/api/paper-forms/save':['admin','doctor','nurse'],
@@ -104,10 +104,14 @@ export async function protectWorkspaceRequest(req){
   if(path==='/api/nursing/perform')data.nurse=resolvedStaff;
   if(path==='/api/portal/appointments')data.patientId=identity.patientId;
   if(identity.role==='doctor'){
-   const scope=await doctorScope(identity.staffId);
-   let episode=data.episodeId||data.visitId||data.admissionId;
-   if(path==='/api/pharmacy/action'&&data.action==='approvePrescription')episode=(await pharmacyState()).prescriptions.find(r=>r.id===data.id)?.episodeId;
-   if(!scope.episodes.has(episode))fail(403,'Hồ sơ không thuộc phân công của bác sĩ.');
+   if(['/api/inpatient/admit','/api/nursing/bed'].includes(path)){
+    // Cho phép bác sĩ tiếp nhận và phân buồng giường nội trú
+   }else{
+    const scope=await doctorScope(identity.staffId);
+    let episode=data.episodeId||data.visitId||data.admissionId;
+    if(path==='/api/pharmacy/action'&&data.action==='approvePrescription')episode=(await pharmacyState()).prescriptions.find(r=>r.id===data.id)?.episodeId;
+    if(!scope.episodes.has(episode))fail(403,'Hồ sơ không thuộc phân công của bác sĩ.');
+   }
   }
   const trusted=Buffer.from(JSON.stringify(data));req[Symbol.asyncIterator]=async function*(){yield trusted;};
   return {identity};
@@ -145,7 +149,7 @@ export async function protectWorkspaceRequest(req){
   a.vitals=['doctor','nurse'].includes(identity.role)?a.vitals.filter(inScope):[];
   a.labs=['doctor','technician'].includes(identity.role)?a.labs.filter(inScope):[];
   a.rounds=['doctor','nurse'].includes(identity.role)?a.rounds.filter(inScope):[];
-  a.admissions=['doctor','nurse'].includes(identity.role)?a.admissions.filter(r=>!scope||scope.episodes.has(r.id)):[];
+  a.admissions=['doctor','nurse'].includes(identity.role)?a.admissions:[];
   if(identity.role!=='pharmacist'){a.warehouses=[];a.inventory=[];}
   if(!hasGrant(identity.permissions,'biz.care:view')){a.careSheets=[];a.rounds=[];a.vitals=[];}
   return {identity,answer:a};
@@ -167,7 +171,7 @@ export async function protectWorkspaceRequest(req){
   return {identity,answer:p};
  }
  if(path==='/api/services')return {identity,answer:(await ancillaryState()).services};
- if(path==='/api/inpatient/beds')return {identity,answer:(await listBeds()).filter(b=>!scope||!b.admissionId||scope.episodes.has(b.admissionId))};
+ if(path==='/api/inpatient/beds')return {identity,answer:await listBeds()};
  if(path==='/api/clinical/visit'){
   const id=url.searchParams.get('id');if(scope&&!scope.episodes.has(id))fail(403,'Hồ sơ không thuộc phân công của bác sĩ.');
  }

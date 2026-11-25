@@ -73,6 +73,7 @@ async function main() {
         'biz.care:order',
         'biz.inpatient:view',
         'biz.inpatient:admit',
+        'biz.inpatient:assign',
         'biz.inpatient:discharge',
         'biz.appointments:view',
         'biz.reception:view',
